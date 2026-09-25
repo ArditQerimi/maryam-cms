@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "src/app/cms/shipping/**/*.ts",
+    "src/app/cms/shipping/**/*.tsx",
+    "src/app/cms/reports/**/*.ts",
+    "src/app/cms/reports/**/*.tsx",
+    "src/app/api/shipping/**/*.ts",
+    "src/app/cms/actions/shipping.ts",
+    "src/app/cms/actions/reports.ts",
+    "src/app/shop/checkout/**/*.ts",
+    "src/app/shop/checkout/**/*.tsx",
+    "src/components/shipping/**/*.ts",
+    "src/components/shipping/**/*.tsx",
+    "src/components/reports/**/*.ts",
+    "src/components/reports/**/*.tsx"
+  ],
+  "exclude": ["node_modules"]
+}

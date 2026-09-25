@@ -1,0 +1,19 @@
+{
+  "id": "dark-pro",
+  "name": "Dark Pro",
+  "version": "1.0.0",
+  "description": "Moody dark storefront with gold accents, built for premium catalogues",
+  "colors": {
+    "primary": "#e2c97e",
+    "secondary": "#f5f0e8",
+    "background": "#0f0f0f",
+    "surface": "#1a1a1a",
+    "text": "#f5f0e8",
+    "accent": "#e2c97e"
+  },
+  "fonts": {
+    "heading": "Playfair Display",
+    "body": "Inter"
+  },
+  "screenshot": "/themes/dark-pro/screenshot.svg"
+}

@@ -1,0 +1,534 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { cache } from 'react';
+import { eq, inArray } from 'drizzle-orm';
+import * as schema from '@/db/schema-tenant';
+import { getContextDb } from '@/lib/tenant';
+import { getProductById, getProducts } from '@/lib/actions';
+import ProductDetailsClient, {
+  type DetailProduct,
+  type DetailVariantOption,
+  type RelatedProduct,
+} from './ProductDetailsClient';
+import {
+  EMPTY_DISCOUNTS,
+  loadActiveDiscounts,
+  priceProduct,
+  type ActiveDiscounts,
+  type PricedProduct,
+} from '@/lib/storefront/pricing';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * Currently-valid product/category discounts. A failure must never break the
+ * product page: we simply fall back to list prices.
+ */
+async function loadStorefrontDiscounts(): Promise<ActiveDiscounts> {
+  try {
+    return await loadActiveDiscounts(await getContextDb());
+  } catch {
+    return EMPTY_DISCOUNTS;
+  }
+}
+
+/** List price → `{ salePrice, compareAtPrice }` for one product. */
+function priceForProduct(
+  listPrice: number | null,
+  productId: number,
+  categoryId: number | null,
+  discounts: ActiveDiscounts,
+): { price: number | null; compareAtPrice: number | null } {
+  if (listPrice === null) return { price: null, compareAtPrice: null };
+  const priced: PricedProduct = priceProduct(listPrice, productId, categoryId, discounts);
+  return {
+    price: priced.salePrice,
+    compareAtPrice: priced.discounted ? priced.originalPrice : null,
+  };
+}
+
+type RawStock = {
+  quantity?: number | null;
+};
+
+type RawVariant = {
+  id: number;
+  name: string;
+  sku: string;
+  price: string | number | null;
+  status: string;
+  stocks?: RawStock[] | null;
+};
+
+type RawProduct = {
+  id: number;
+  name: string;
+  sku?: string | null;
+  price?: string | number | null;
+  stockQuantity?: number | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  status: string;
+  categoryId?: number | null;
+  brandId?: number | null;
+  category?: { id: number; name: string; status?: string } | null;
+  brand?: { id: number; name: string; status?: string } | null;
+  variants?: RawVariant[] | null;
+};
+
+type VariantOptionRow = {
+  variantId: number;
+  attributeId: number;
+  attributeName: string;
+  attributeValueId: number;
+  value: string;
+};
+
+type NormalizedVariants = {
+  variants: DetailProduct['variants'];
+  stockQuantity: number;
+  stockSource: 'variant' | 'parent';
+  defaultVariantId: number | null;
+};
+
+const getActiveProduct = cache(async (id: number) => {
+  const product = await getProductById(id).catch(() => null);
+  return product?.status === 'Active' ? product : null;
+});
+
+function parseProductId(value: string): number | null {
+  if (!/^\d+$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toMoney(value: unknown): number | null {
+  const parsed = toFiniteNumber(value);
+  return parsed !== null && parsed >= 0 ? parsed : null;
+}
+
+function toStock(value: unknown): number {
+  const parsed = toFiniteNumber(value);
+  if (parsed === null || parsed <= 0) return 0;
+  return Number.isSafeInteger(parsed)
+    ? parsed
+    : Math.min(Number.MAX_SAFE_INTEGER, Math.trunc(parsed));
+}
+
+function sumStock(values: readonly number[]): number {
+  return values.reduce<number>((total, value) => {
+    const next = total + value;
+    return Number.isSafeInteger(next) ? next : Number.MAX_SAFE_INTEGER;
+  }, 0);
+}
+
+function safeImageCandidate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && !parsed.username && !parsed.password) {
+      return parsed.toString();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function imageCandidatesFromValue(value: unknown): string[] {
+  const direct = safeImageCandidate(value);
+  return direct ? [direct] : [];
+}
+
+function parseGallery(raw: string | null | undefined): string[] {
+  if (!raw?.trim()) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const direct = safeImageCandidate(raw);
+    return direct ? [direct] : [];
+  }
+
+  const values = Array.isArray(parsed) ? parsed : [parsed];
+  const gallery: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (typeof value === 'string') {
+      for (const candidate of imageCandidatesFromValue(value)) {
+        if (!seen.has(candidate)) {
+          seen.add(candidate);
+          gallery.push(candidate);
+        }
+      }
+      continue;
+    }
+
+    if (!value || typeof value !== 'object') continue;
+    const item = value as { src?: unknown; url?: unknown; secure_url?: unknown };
+    for (const candidateValue of [item.src, item.url, item.secure_url]) {
+      const candidate = safeImageCandidate(candidateValue);
+      if (candidate && !seen.has(candidate)) {
+        seen.add(candidate);
+        gallery.push(candidate);
+      }
+    }
+  }
+
+  return gallery;
+}
+
+function normalizeDescription(raw: string | null | undefined): string {
+  const trimmed = raw?.trim();
+  if (!trimmed) return '';
+
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (typeof parsed === 'string') return parsed.trim();
+    if (parsed && typeof parsed === 'object') {
+      const text = (parsed as { text?: unknown }).text;
+      if (typeof text === 'string') return text.trim();
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return '';
+}
+
+function metadataImageUrl(imageUrl: string): string | undefined {
+  if (!imageUrl) return undefined;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+    || `http://${process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000'}`;
+
+  try {
+    const parsed = new URL(imageUrl, siteUrl);
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || parsed.username || parsed.password) {
+      return undefined;
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+async function getVariantOptionRows(variantIds: number[]): Promise<VariantOptionRow[]> {
+  if (variantIds.length === 0) return [];
+
+  try {
+    const db = await getContextDb();
+    return await db
+      .select({
+        variantId: schema.variantOptions.variantId,
+        attributeId: schema.variantAttributes.id,
+        attributeName: schema.variantAttributes.name,
+        attributeValueId: schema.variantAttributeValues.id,
+        value: schema.variantAttributeValues.value,
+      })
+      .from(schema.variantOptions)
+      .innerJoin(
+        schema.variantAttributeValues,
+        eq(schema.variantOptions.attributeValueId, schema.variantAttributeValues.id),
+      )
+      .innerJoin(
+        schema.variantAttributes,
+        eq(schema.variantAttributeValues.attributeId, schema.variantAttributes.id),
+      )
+      .where(inArray(schema.variantOptions.variantId, variantIds));
+  } catch {
+    return [];
+  }
+}
+
+function normalizeOptions(
+  variantId: number,
+  rows: VariantOptionRow[],
+): DetailVariantOption[] {
+  const byKey = new Map<string, DetailVariantOption>();
+
+  for (const row of rows) {
+    if (row.variantId !== variantId) continue;
+    const attributeName = row.attributeName.trim();
+    const value = row.value.trim();
+    if (!attributeName || !value) continue;
+
+    const key = `${row.attributeId}:${row.attributeValueId}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        attributeId: row.attributeId,
+        attributeName,
+        valueId: row.attributeValueId,
+        value,
+      });
+    }
+  }
+
+  return Array.from(byKey.values()).sort(
+    (left, right) =>
+      left.attributeName.localeCompare(right.attributeName, undefined, { sensitivity: 'base' })
+      || left.value.localeCompare(right.value, undefined, { sensitivity: 'base', numeric: true }),
+  );
+}
+
+function normalizeVariants(product: RawProduct, optionRows: VariantOptionRow[]): NormalizedVariants {
+  const activeVariants = (product.variants ?? [])
+    .filter((variant) => variant.status === 'Active')
+    .slice()
+    .sort((left, right) => left.id - right.id);
+  const hasVariantStockRows = activeVariants.some(
+    (variant) => (variant.stocks?.length ?? 0) > 0,
+  );
+  const parentStock = toStock(product.stockQuantity);
+
+  const variants = activeVariants.map((variant) => {
+    const stockRows = variant.stocks ?? [];
+    const stockQuantity = hasVariantStockRows
+      ? sumStock(stockRows.map((stock) => toStock(stock.quantity)))
+      : parentStock;
+
+    return {
+      id: variant.id,
+      name: variant.name.trim() || `Variant ${variant.id}`,
+      sku: variant.sku.trim(),
+      price: toMoney(variant.price) ?? 0,
+      compareAtPrice: null,
+      stockQuantity,
+      options: normalizeOptions(variant.id, optionRows),
+    };
+  });
+
+  const stockQuantity = variants.length === 0
+    ? parentStock
+    : hasVariantStockRows
+      ? sumStock(variants.map((variant) => variant.stockQuantity))
+      : parentStock;
+
+  return {
+    variants,
+    stockQuantity,
+    stockSource: hasVariantStockRows ? 'variant' : 'parent',
+    defaultVariantId: variants.length === 1 ? variants[0].id : null,
+  };
+}
+
+function normalizeRelatedProduct(product: RawProduct): RelatedProduct {
+  const normalized = normalizeVariants(product, []);
+  const gallery = parseGallery(product.imageUrl);
+  const defaultVariant = normalized.defaultVariantId == null
+    ? null
+    : normalized.variants.find((variant) => variant.id === normalized.defaultVariantId) ?? null;
+
+  return {
+    id: product.id,
+    name: product.name.trim(),
+    sku: product.sku?.trim() ?? '',
+    description: normalizeDescription(product.description),
+    price: toMoney(product.price),
+    compareAtPrice: null,
+    imageUrl: gallery[0] ?? '',
+    stockQuantity: normalized.stockQuantity,
+    stockSource: normalized.stockSource,
+    categoryId: product.categoryId ?? null,
+    categoryName: product.category?.name.trim() ?? '',
+    brandId: product.brandId ?? null,
+    brandName: product.brand?.name.trim() ?? '',
+    variantId: defaultVariant?.id ?? null,
+    defaultVariantId: normalized.defaultVariantId,
+    variants: normalized.variants,
+  };
+}
+
+function relatedScore(candidate: RawProduct, current: RawProduct): number {
+  let score = 0;
+  if (current.categoryId != null && candidate.categoryId === current.categoryId) score += 8;
+  if (current.brandId != null && candidate.brandId === current.brandId) score += 4;
+  if (parseGallery(candidate.imageUrl).length > 0) score += 1;
+  if (normalizeVariants(candidate, []).stockQuantity > 0) score += 1;
+  return score;
+}
+
+function metadataForMissingProduct(): Metadata {
+  return {
+    title: 'Product not found',
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Metadata> {
+  const { id } = await params;
+  const productId = parseProductId(id);
+  if (productId === null) return metadataForMissingProduct();
+
+  const product = await getActiveProduct(productId);
+  if (!product || !product.name.trim()) return metadataForMissingProduct();
+
+  const description = normalizeDescription(product.description) || undefined;
+  const image = metadataImageUrl(parseGallery(product.imageUrl)[0] ?? '');
+  const canonical = `/shop/products/${product.id}`;
+
+  return {
+    title: product.name.trim(),
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'website',
+      url: canonical,
+      title: product.name.trim(),
+      description,
+      images: image ? [{ url: image, alt: product.name.trim() }] : undefined,
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title: product.name.trim(),
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
+}
+
+export default async function ShopProductDetailsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const productId = parseProductId(id);
+  if (productId === null) notFound();
+
+  const product = await getActiveProduct(productId);
+  if (!product || !product.name.trim()) notFound();
+
+  const productVariants: RawVariant[] = product.variants ?? [];
+  const activeVariantIds = productVariants
+    .filter((variant) => variant.status === 'Active')
+    .map((variant) => variant.id);
+
+  const [optionRows, sameCategory, sameBrand, discounts] = await Promise.all([
+    getVariantOptionRows(activeVariantIds),
+    product.categoryId
+      ? getProducts({ categoryId: product.categoryId, limit: 50 }).catch(() => [])
+      : Promise.resolve([]),
+    product.brandId
+      ? getProducts({ brandId: product.brandId, limit: 50 }).catch(() => [])
+      : Promise.resolve([]),
+    loadStorefrontDiscounts(),
+  ]);
+
+  const variantData = normalizeVariants(product, optionRows);
+  const gallery = parseGallery(product.imageUrl);
+  const categoryName = product.category?.name.trim() ?? '';
+  const brandName = product.brand?.name.trim() ?? '';
+
+  const basePrice = priceForProduct(
+    toMoney(product.price),
+    product.id,
+    product.categoryId ?? null,
+    discounts,
+  );
+  const pricedVariants = variantData.variants.map((variant) => {
+    const priced = priceForProduct(
+      variant.price,
+      product.id,
+      product.categoryId ?? null,
+      discounts,
+    );
+    return {
+      ...variant,
+      price: priced.price ?? variant.price,
+      compareAtPrice: priced.compareAtPrice,
+    };
+  });
+
+  const detail: DetailProduct = {
+    id: product.id,
+    name: product.name.trim(),
+    sku: product.sku?.trim() ?? '',
+    description: normalizeDescription(product.description),
+    price: basePrice.price,
+    compareAtPrice: basePrice.compareAtPrice,
+    imageUrl: gallery[0] ?? '',
+    galleryImages: gallery,
+    stockQuantity: variantData.stockQuantity,
+    stockSource: variantData.stockSource,
+    categoryId: product.categoryId ?? null,
+    categoryName,
+    brandId: product.brandId ?? null,
+    brandName,
+    variants: pricedVariants,
+    defaultVariantId: variantData.defaultVariantId,
+  };
+
+  const candidates = new Map<number, RawProduct>();
+  for (const candidate of [...sameCategory, ...sameBrand]) {
+    if (
+      candidate.status === 'Active'
+      && candidate.id !== product.id
+      && (candidate.categoryId === product.categoryId || candidate.brandId === product.brandId)
+    ) {
+      candidates.set(candidate.id, candidate);
+    }
+  }
+
+  const related: RelatedProduct[] = Array.from(candidates.values())
+    .sort((left, right) =>
+      relatedScore(right, product) - relatedScore(left, product)
+      || left.id - right.id,
+    )
+    .slice(0, 4)
+    .map((candidate) => {
+      const normalized = normalizeRelatedProduct(candidate);
+      const priced = priceForProduct(
+        normalized.price,
+        normalized.id,
+        normalized.categoryId,
+        discounts,
+      );
+      return {
+        ...normalized,
+        price: priced.price,
+        compareAtPrice: priced.compareAtPrice,
+      };
+    });
+
+  const requestedTab = Array.isArray(query.tab) ? query.tab[0] : query.tab;
+  const hasReviewQuery = [
+    'reviewsPage',
+    'reviewsRating',
+    'reviewsSort',
+    'reviewsVerified',
+  ].some((key) => query[key] !== undefined);
+  const initialTab = requestedTab === 'reviews' || hasReviewQuery
+    ? 'reviews'
+    : requestedTab === 'details'
+      ? 'details'
+      : 'description';
+
+  return (
+    <ProductDetailsClient
+      key={detail.id}
+      product={detail}
+      related={related}
+      initialTab={initialTab}
+    />
+  );
+}

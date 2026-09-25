@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": ["next-env.d.ts"],
+  "files": [
+    "src/app/cms/shipping/zones/page.tsx",
+    "src/app/cms/shipping/classes/page.tsx",
+    "src/app/cms/shipping/settings-key.ts",
+    "src/app/cms/reports/sales/page.tsx",
+    "src/app/cms/reports/products/page.tsx",
+    "src/app/cms/reports/customers/page.tsx",
+    "src/app/cms/reports/stock/page.tsx",
+    "src/app/cms/reports/report-range.ts",
+    "src/app/cms/actions/shipping.ts",
+    "src/app/cms/actions/reports.ts",
+    "src/app/api/shipping/available/route.ts",
+    "src/app/shop/checkout/page.tsx"
+  ],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,51 @@
+import { notFound } from 'next/navigation';
+import { eq } from 'drizzle-orm';
+import { getContextDb } from '@/lib/tenant';
+import { cmsPages } from '@/db/schema-tenant';
+import { requireCmsSession } from '@/lib/cms/session';
+import { normalizeBlocks } from '@/app/cms/builder/blocks';
+import { PageHeader } from '@/components/admin/ui';
+import PageForm from '@/components/content/PageForm';
+
+export const dynamic = 'force-dynamic';
+
+export default async function EditPagePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  await requireCmsSession();
+
+  const { id: rawId } = await params;
+  const id = Number(rawId);
+  if (!Number.isSafeInteger(id) || id <= 0) notFound();
+
+  const db = await getContextDb();
+  const [row] = await db.select().from(cmsPages).where(eq(cmsPages.id, id)).limit(1);
+  if (!row) notFound();
+
+  return (
+    <div>
+      <PageHeader
+        title={`Edit “${row.title}”`}
+        description={`Last updated ${row.updatedAt.toLocaleString('en-GB')}.`}
+      />
+      <PageForm
+        initial={{
+          id: row.id,
+          title: row.title,
+          slug: row.slug,
+          content: row.content ?? '',
+          blocks: normalizeBlocks(row.blocks),
+          pageType: row.pageType || 'page',
+          excerpt: row.excerpt ?? '',
+          featuredImage: row.featuredImage ?? '',
+          metaTitle: row.metaTitle ?? '',
+          metaDescription: row.metaDescription ?? '',
+          status: row.status,
+          editorMode: row.blocks && row.blocks.length > 0 ? 'builder' : 'classic',
+        }}
+      />
+    </div>
+  );
+}

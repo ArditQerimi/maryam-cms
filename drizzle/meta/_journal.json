@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1775295408567,
+      "tag": "0000_lucky_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777320000000,
+      "tag": "0001_add_category_attributes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777320100000,
+      "tag": "0002_drop_tenant_role_company_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790246400000,
+      "tag": "0003_demo_sales_arditi",
+      "breakpoints": true
+    }
+  ]
+}

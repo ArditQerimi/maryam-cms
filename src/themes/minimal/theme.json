@@ -1,0 +1,19 @@
+{
+  "id": "minimal",
+  "name": "Minimal",
+  "version": "1.0.0",
+  "description": "Clean white design, great for books and fashion",
+  "colors": {
+    "primary": "#6b5e2b",
+    "secondary": "#1a1611",
+    "background": "#ffffff",
+    "surface": "#faf7f1",
+    "text": "#1a1611",
+    "accent": "#c8a951"
+  },
+  "fonts": {
+    "heading": "Spectral",
+    "body": "Inter"
+  },
+  "screenshot": "/themes/minimal/screenshot.svg"
+}

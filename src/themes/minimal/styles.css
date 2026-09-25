@@ -1,0 +1,17 @@
+/* Minimal theme — extra storefront rules layered on top of the injected
+   :root custom properties. Keep selectors scoped to .shopWrapper. */
+
+.shopWrapper a:hover {
+  color: var(--cms-primary);
+}
+
+.shopWrapper ::selection {
+  background: var(--cms-accent);
+  color: var(--cms-secondary);
+}
+
+.shopWrapper button:focus-visible,
+.shopWrapper a:focus-visible {
+  outline: 2px solid var(--cms-primary);
+  outline-offset: 2px;
+}
