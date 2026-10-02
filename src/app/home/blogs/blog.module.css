@@ -1680,3 +1680,18 @@
     font-size: 1.2rem;
   }
 }
+
+/* A lone image inside the post keeps its own proportions and a sane height
+   (two images side by side keep the cropped 1.49:1 pair from the reference). */
+.page .articleImageSingle .articleFigure {
+  display: flex;
+  justify-content: center;
+}
+
+.page .articleImageSingle .articleFigure img {
+  width: 100%;
+  height: auto;
+  max-height: 26rem;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
