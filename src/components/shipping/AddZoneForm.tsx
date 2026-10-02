@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button, Card, CardContent, Field, Input } from '@/components/admin/ui';
 import { createZone } from '@/app/cms/actions/shipping';
 import LocationPicker from './LocationPicker';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { CountryOption, LocationChoice, StateOption } from './types';
 
 type AddZoneFormProps = {
@@ -19,10 +20,11 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
   const [name, setName] = useState('');
   const [locations, setLocations] = useState<LocationChoice[]>([]);
   const [pending, setPending] = useState(false);
+  const { t } = useLocale();
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast.error('Enter a zone name.');
+      toast.error(t('cmsshared.shipping.zone_name_required'));
       return;
     }
     setPending(true);
@@ -35,15 +37,15 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
       );
       const result = await createZone(formData);
       if (!result.ok) {
-        toast.error(result.error || 'Could not create the shipping zone.');
+        toast.error(result.error || t('cmsshared.shipping.create_error'));
         return;
       }
-      toast.success(`Zone “${name.trim()}” created.`);
+      toast.success(t('cmsshared.shipping.created', { name: name.trim() }));
       setName('');
       setLocations([]);
       setOpen(false);
     } catch {
-      toast.error('Could not create the shipping zone.');
+      toast.error(t('cmsshared.shipping.create_error'));
     } finally {
       setPending(false);
     }
@@ -53,7 +55,7 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
     return (
       <Button onClick={() => setOpen(true)}>
         <Plus size={15} />
-        Add Zone
+        {t('cmsshared.shipping.add_zone_btn')}
       </Button>
     );
   }
@@ -63,14 +65,15 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
       <CardContent className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-900">New shipping zone</h3>
+            <h3 className="text-sm font-semibold text-zinc-900">
+              {t('cmsshared.shipping.new_shipping_zone')}
+            </h3>
             <p className="mt-0.5 text-xs text-zinc-500">
-              A zone groups the countries (and optionally states) that share the same shipping
-              methods.
+              {t('cmsshared.shipping.zone_help')}
             </p>
           </div>
           <Button
-            aria-label="Close new zone form"
+            aria-label={t('cmsshared.shipping.close_aria')}
             onClick={() => setOpen(false)}
             size="sm"
             variant="ghost"
@@ -79,17 +82,19 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
           </Button>
         </div>
 
-        <Field htmlFor="new-zone-name" label="Zone name">
+        <Field htmlFor="new-zone-name" label={t('cmsshared.shipping.zone_name')}>
           <Input
             id="new-zone-name"
             onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Europe, Local pickup — Prishtina"
+            placeholder={t('cmsshared.shipping.zone_ph2')}
             value={name}
           />
         </Field>
 
         <div>
-          <p className="mb-1.5 text-sm font-medium text-zinc-700">Covered locations</p>
+          <p className="mb-1.5 text-sm font-medium text-zinc-700">
+            {t('cmsshared.shipping.covered_locations')}
+          </p>
           <LocationPicker
             countries={countries}
             onChange={setLocations}
@@ -100,11 +105,11 @@ export default function AddZoneForm({ countries, states }: AddZoneFormProps) {
 
         <div className="flex items-center justify-end gap-2">
           <Button onClick={() => setOpen(false)} variant="outline">
-            Cancel
+            {t('cmsshared.action.cancel')}
           </Button>
           <Button disabled={pending} onClick={handleCreate}>
             <Globe size={15} />
-            {pending ? 'Creating…' : 'Create zone'}
+            {pending ? t('cmsshared.shipping.creating') : t('cmsshared.shipping.create_zone')}
           </Button>
         </div>
       </CardContent>

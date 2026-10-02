@@ -6,6 +6,7 @@ import { cmsPages } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { ensureHomePage } from '@/lib/cms/ensure-home-page';
 import { formatDate } from '@/lib/cms/format';
+import { getT } from '@/lib/i18n/server';
 import {
   Card,
   CardHeader,
@@ -38,6 +39,7 @@ export default async function PagesListPage({
 }) {
   await requireCmsSession();
   await ensureHomePage();
+  const t = await getT();
 
   const sp = await searchParams;
   const q = first(sp.q).trim().slice(0, 120);
@@ -80,21 +82,21 @@ export default async function PagesListPage({
   return (
     <div>
       <PageHeader
-        title="Pages"
-        description="Static and landing pages built with the classic editor or the page builder."
+        title={t('cmscontent.pages.title')}
+        description={t('cmscontent.pages.description')}
         actions={
           <Link
             href="/cms/pages/new"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-transparent bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
           >
-            <Plus size={15} /> New page
+            <Plus size={15} /> {t('cmscontent.pages.new')}
           </Link>
         }
       />
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>All pages</CardTitle>
+          <CardTitle>{t('cmscontent.pages.all')}</CardTitle>
           <ListFilters
             basePath="/cms/pages"
             initialQuery={q}
@@ -106,18 +108,22 @@ export default async function PagesListPage({
         {rows.length === 0 ? (
           <div className="p-5">
             <EmptyState
-              title={q || statusFilter !== 'All' ? 'No pages match your filters' : 'No pages yet'}
+              title={
+                q || statusFilter !== 'All'
+                  ? t('cmscontent.pages.emptyFilteredTitle')
+                  : t('cmscontent.pages.emptyTitle')
+              }
               description={
                 q || statusFilter !== 'All'
-                  ? 'Try a different search term or clear the status filter.'
-                  : 'Create your first page with the classic editor or the drag-and-drop builder.'
+                  ? t('cmscontent.pages.emptyFilteredDescription')
+                  : t('cmscontent.pages.emptyDescription')
               }
               action={
                 <Link
                   href="/cms/pages/new"
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
                 >
-                  <Plus size={14} /> New page
+                  <Plus size={14} /> {t('cmscontent.pages.new')}
                 </Link>
               }
               icon={<FileText size={28} />}
@@ -127,11 +133,11 @@ export default async function PagesListPage({
           <Table bare>
             <thead>
               <tr>
-                <Th>Title</Th>
-                <Th>Type</Th>
-                <Th>Status</Th>
-                <Th>Updated</Th>
-                <Th className="text-right">Actions</Th>
+                <Th>{t('cmscontent.pages.colTitle')}</Th>
+                <Th>{t('cmscontent.pages.colType')}</Th>
+                <Th>{t('cmscontent.pages.colStatus')}</Th>
+                <Th>{t('cmscontent.pages.colUpdated')}</Th>
+                <Th className="text-right">{t('cmscontent.pages.colActions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -146,7 +152,9 @@ export default async function PagesListPage({
                     </Link>
                     <span className="mt-0.5 block truncate text-xs text-zinc-400">/{row.slug}</span>
                   </Td>
-                  <Td className="capitalize text-zinc-500">{row.pageType || 'page'}</Td>
+                  <Td className="capitalize text-zinc-500">
+                    {row.pageType || t('cmscontent.pages.pageFallback')}
+                  </Td>
                   <Td>
                     <ContentStatusBadge status={row.status} />
                   </Td>

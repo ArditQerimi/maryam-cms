@@ -6,28 +6,29 @@ import { Loader2, MapPin, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Field, Input } from '@/components/admin/ui';
 import { updateOrderAddress } from '@/app/cms/actions/orders';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 type AddressMode = 'storefront' | 'customer';
 type AddressKind = 'billing' | 'shipping';
 
 const STOREFRONT_FIELDS = [
-  { name: 'firstName', label: 'First name' },
-  { name: 'lastName', label: 'Last name' },
-  { name: 'company', label: 'Company' },
-  { name: 'address1', label: 'Address line 1', required: true },
-  { name: 'address2', label: 'Address line 2' },
-  { name: 'city', label: 'City' },
-  { name: 'region', label: 'Region / State' },
-  { name: 'postalCode', label: 'Postal code' },
-  { name: 'country', label: 'Country' },
+  { name: 'firstName', key: 'cmsshared.field.first_name' },
+  { name: 'lastName', key: 'cmsshared.field.last_name' },
+  { name: 'company', key: 'cmsshared.field.company' },
+  { name: 'address1', key: 'cmsshared.field.address_line_1', required: true },
+  { name: 'address2', key: 'cmsshared.field.address_line_2' },
+  { name: 'city', key: 'cmsshared.field.city' },
+  { name: 'region', key: 'cmsshared.field.region_state' },
+  { name: 'postalCode', key: 'cmsshared.field.postal_code' },
+  { name: 'country', key: 'cmsshared.field.country' },
 ] as const;
 
 const CUSTOMER_FIELDS = [
-  { name: 'address', label: 'Address', required: true },
-  { name: 'city', label: 'City' },
-  { name: 'state', label: 'Region / State' },
-  { name: 'country', label: 'Country' },
-  { name: 'postalCode', label: 'Postal code' },
+  { name: 'address', key: 'cmsshared.field.address', required: true },
+  { name: 'city', key: 'cmsshared.field.city' },
+  { name: 'state', key: 'cmsshared.field.region_state' },
+  { name: 'country', key: 'cmsshared.field.country' },
+  { name: 'postalCode', key: 'cmsshared.field.postal_code' },
 ] as const;
 
 /**
@@ -47,6 +48,7 @@ export default function AddressCard({
   initial: Record<string, string>;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -60,14 +62,18 @@ export default function AddressCard({
     try {
       const result = await updateOrderAddress(orderId, mode, kind, formData);
       if (result.ok) {
-        toast.success(`${kind === 'billing' ? 'Billing' : 'Shipping'} address updated.`);
+        toast.success(
+          kind === 'billing'
+            ? t('cmsshared.address.billing_updated')
+            : t('cmsshared.address.shipping_updated'),
+        );
         setEditing(false);
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not save the address.');
+        toast.error(result.error || t('cmsshared.customer.address.error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the address.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.customer.address.error'));
     } finally {
       setSaving(false);
     }
@@ -109,7 +115,7 @@ export default function AddressCard({
           </address>
         ) : (
           <p className="flex items-center gap-2 text-sm text-zinc-400">
-            <MapPin size={14} /> No address on file.
+            <MapPin size={14} /> {t('cmsshared.address.empty')}
           </p>
         )}
         <Button
@@ -119,7 +125,7 @@ export default function AddressCard({
           className="mt-3 -ml-2"
           onClick={() => setEditing(true)}
         >
-          <Pencil size={13} /> Edit address
+          <Pencil size={13} /> {t('cmsshared.address.edit')}
         </Button>
       </div>
     );
@@ -131,7 +137,7 @@ export default function AddressCard({
         {fields.map((field) => (
           <Field
             key={field.name}
-            label={field.label}
+            label={t(field.key)}
             htmlFor={`${kind}-${field.name}`}
             className={field.name === 'address1' || field.name === 'address2' || field.name === 'address' ? 'sm:col-span-2' : undefined}
           >
@@ -147,16 +153,16 @@ export default function AddressCard({
       <div className="flex items-center gap-2">
         <Button type="submit" variant="primary" size="md" disabled={saving}>
           {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-          Save address
+          {t('cmsshared.customer.address.submit')}
         </Button>
         <Button type="button" variant="ghost" size="md" disabled={saving} onClick={() => setEditing(false)}>
-          Cancel
+          {t('cmsshared.action.cancel')}
         </Button>
       </div>
       <p className="text-xs text-zinc-500">
         {mode === 'storefront'
-          ? 'This address was captured at checkout and is stored on the order.'
-          : 'This address belongs to the linked CRM customer record.'}
+          ? t('cmsshared.address.help_storefront')
+          : t('cmsshared.address.help_customer')}
       </p>
     </form>
   );

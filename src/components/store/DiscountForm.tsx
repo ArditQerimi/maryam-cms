@@ -12,6 +12,7 @@ import {
   updateCategoryDiscount,
   updateProductDiscount,
 } from '@/app/cms/actions/discounts';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export const DISCOUNT_STATUSES = [
   'Active',
@@ -55,12 +56,14 @@ export default function DiscountForm({
   categories?: Array<{ id: number; name: string }>;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [products, setProducts] = useState<ProductOption[] | null>(
     kind === 'product' ? null : [],
   );
   const editing = Boolean(discount);
-  const entityLabel = kind === 'product' ? 'Product' : 'Category';
+  const entityLabel =
+    kind === 'product' ? t('cmsshared.discount.entity_product') : t('cmsshared.discount.entity_category');
 
   useEffect(() => {
     if (kind !== 'product') return;
@@ -73,7 +76,7 @@ export default function DiscountForm({
       .catch(() => {
         if (!cancelled) {
           setProducts([]);
-          toast.error('Could not load the product list.');
+          toast.error(t('cmsshared.discount.load_error'));
         }
       });
     return () => {
@@ -90,18 +93,18 @@ export default function DiscountForm({
     const rawValue = String(formData.get('discountValue') || '').replace(',', '.');
     const value = Number(rawValue);
     if (!rawValue || !Number.isFinite(value) || value <= 0) {
-      toast.error('The discount value must be greater than 0.');
+      toast.error(t('cmsshared.discount.invalid_value'));
       return;
     }
     if (formData.get('discountType') === 'Percentage' && value > 100) {
-      toast.error('A percentage discount cannot be higher than 100%.');
+      toast.error(t('cmsshared.discount.invalid_percent'));
       return;
     }
 
     const start = String(formData.get('startDate') || '');
     const end = String(formData.get('endDate') || '');
     if (start && end && new Date(end).getTime() < new Date(start).getTime()) {
-      toast.error('The end date must be on or after the start date.');
+      toast.error(t('cmsshared.discount.invalid_range'));
       return;
     }
 
@@ -119,17 +122,17 @@ export default function DiscountForm({
       }
 
       if (result.ok) {
-        toast.success(editing ? 'Discount updated.' : 'Discount created.');
+        toast.success(editing ? t('cmsshared.discount.updated') : t('cmsshared.discount.created'));
         if (editing) router.push(`/cms/discounts/${kind}`);
         else {
           form.reset();
           router.refresh();
         }
       } else {
-        toast.error(result.error || 'Could not save the discount.');
+        toast.error(result.error || t('cmsshared.discount.error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the discount.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.discount.error'));
     } finally {
       setBusy(false);
     }
@@ -143,7 +146,7 @@ export default function DiscountForm({
             products === null ? (
               <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5">
                 <Loader2 size={14} className="animate-spin text-zinc-400" />
-                <span className="text-sm text-zinc-500">Loading products…</span>
+                <span className="text-sm text-zinc-500">{t('cmsshared.discount.loading_products')}</span>
               </div>
             ) : (
               <Select
@@ -152,7 +155,7 @@ export default function DiscountForm({
                 required
                 defaultValue={String(discount?.entityId ?? '')}
               >
-                <option value="">Pick a product…</option>
+                <option value="">{t('cmsshared.discount.pick_product')}</option>
                 {products.map((product) => (
                   <option key={product.id} value={String(product.id)}>
                     {product.name}
@@ -168,7 +171,7 @@ export default function DiscountForm({
               required
               defaultValue={String(discount?.entityId ?? '')}
             >
-              <option value="">Pick a category…</option>
+              <option value="">{t('cmsshared.discount.pick_category')}</option>
               {(categories ?? []).map((category) => (
                 <option key={category.id} value={String(category.id)}>
                   {category.name}
@@ -178,7 +181,7 @@ export default function DiscountForm({
           )}
         </Field>
 
-        <Field label="Discount type" htmlFor="discount-type">
+        <Field label={t('cmsshared.coupon.discount_type')} htmlFor="discount-type">
           <Select
             id="discount-type"
             name="discountType"
@@ -186,16 +189,18 @@ export default function DiscountForm({
           >
             {DISCOUNT_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type === 'Percentage' ? 'Percentage (%)' : 'Fixed amount'}
+                {type === 'Percentage'
+                  ? t('cmsshared.coupon.type_percentage')
+                  : t('cmsshared.coupon.type_fixed')}
               </option>
             ))}
           </Select>
         </Field>
 
         <Field
-          label="Value"
+          label={t('cmsshared.coupon.value')}
           htmlFor="discount-value"
-          hint="Must be greater than 0 (max 100 for percentages)."
+          hint={t('cmsshared.coupon.value_hint')}
         >
           <Input
             id="discount-value"
@@ -208,7 +213,7 @@ export default function DiscountForm({
           />
         </Field>
 
-        <Field label="Start date" htmlFor="discount-start">
+        <Field label={t('cmsshared.coupon.start_date')} htmlFor="discount-start">
           <Input
             id="discount-start"
             name="startDate"
@@ -217,7 +222,7 @@ export default function DiscountForm({
           />
         </Field>
 
-        <Field label="End date" htmlFor="discount-end">
+        <Field label={t('cmsshared.coupon.end_date')} htmlFor="discount-end">
           <Input
             id="discount-end"
             name="endDate"
@@ -226,7 +231,7 @@ export default function DiscountForm({
           />
         </Field>
 
-        <Field label="Status" htmlFor="discount-status">
+        <Field label={t('cmsshared.coupon.status')} htmlFor="discount-status">
           <Select id="discount-status" name="status" defaultValue={discount?.status ?? 'Active'}>
             {DISCOUNT_STATUSES.map((option) => (
               <option key={option} value={option}>
@@ -238,10 +243,10 @@ export default function DiscountForm({
       </div>
 
       {kind === 'product' && products !== null && products.length === 0 ? (
-        <p className="text-sm text-zinc-500">There are no products in the catalogue yet.</p>
+        <p className="text-sm text-zinc-500">{t('cmsshared.discount.no_products')}</p>
       ) : null}
       {kind === 'category' && (categories ?? []).length === 0 ? (
-        <p className="text-sm text-zinc-500">There are no categories yet.</p>
+        <p className="text-sm text-zinc-500">{t('cmsshared.discount.no_categories')}</p>
       ) : null}
 
       <div className="flex items-center justify-end gap-2">
@@ -250,7 +255,7 @@ export default function DiscountForm({
             href={`/cms/discounts/${kind}`}
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Cancel
+            {t('cmsshared.action.cancel')}
           </Link>
         ) : null}
         <Button type="submit" variant="primary" size="md" disabled={busy}>
@@ -261,7 +266,7 @@ export default function DiscountForm({
           ) : (
             <Plus size={14} />
           )}
-          {editing ? 'Save changes' : 'Create discount'}
+          {editing ? t('cmsshared.action.save_changes') : t('cmsshared.discount.create')}
         </Button>
       </div>
     </form>

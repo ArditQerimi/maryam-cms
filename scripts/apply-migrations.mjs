@@ -12,6 +12,11 @@ const storeFrontMigrations = [
   'src/db/storefront-migrations/001_storefront_cart_wishlist.sql',
   'src/db/storefront-migrations/002_blog_cms.sql',
   'src/db/storefront-migrations/003_storefront_checkout.sql',
+  'src/db/storefront-migrations/004_contact_messages.sql',
+  'src/db/storefront-migrations/005_compare_items.sql',
+  'src/db/storefront-migrations/006_product_reviews.sql',
+  'src/db/storefront-migrations/007_auth_email_tokens.sql',
+  'src/db/storefront-migrations/008_user_type.sql',
   'drizzle/add_cms_tables.sql',
 ];
 

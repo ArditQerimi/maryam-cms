@@ -28,7 +28,7 @@ export async function logout() {
   const session = await getSession().catch(() => null);
   await clearSession();
   if (session?.platformRole === 'customer') {
-    redirect('/shop/login');
+    redirect('/home/login');
   }
   redirect('/login');
 }

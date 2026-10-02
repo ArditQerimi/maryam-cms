@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { connection } from 'next/server';
 import styles from '../bookstore.module.css';
+import ShopPageHeader from '../components/ShopPageHeader';
 import { getCategories, getProducts } from '@/lib/actions';
 import { getContextCompany } from '@/lib/tenant';
 import { parseImageUrl } from '@/lib/image-url';
+import { getT } from '@/lib/i18n/server';
 import { getStorefrontCatalogStock } from '../catalog-variants';
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ const StockIcon = () => (
 
 export default async function ShopAboutUsPage() {
   await connection();
+  const t = await getT();
 
   const [company, products, categories] = await Promise.all([
     getContextCompany().catch(() => null),
@@ -56,39 +58,31 @@ export default async function ShopAboutUsPage() {
   const storeName = company?.name?.trim() || 'Store';
 
   const stats = [
-    { number: numberFormatter.format(activeProducts.length), label: 'Tituj aktualë' },
-    { number: numberFormatter.format(inStock), label: 'Në stock' },
-    { number: numberFormatter.format(activeCategories.length), label: 'Kategori' },
-    { number: numberFormatter.format(brandCount), label: 'Brende' },
+    { number: numberFormatter.format(activeProducts.length), label: t('pages.about.statProducts') },
+    { number: numberFormatter.format(inStock), label: t('pages.about.statInStock') },
+    { number: numberFormatter.format(activeCategories.length), label: t('pages.about.statCategories') },
+    { number: numberFormatter.format(brandCount), label: t('pages.about.statBrands') },
   ];
 
   return (
     <div className={styles.aboutPage}>
-      <div className={styles.container}>
-        <nav className={styles.aboutBreadcrumb} aria-label="breadcrumbs">
-          <Link href="/shop">Home</Link>
-          <span>/</span>
-          <span>Rreth nesh</span>
-        </nav>
-        <h1 className={styles.aboutPageHeader}>Rreth nesh</h1>
-      </div>
+      {/* Same banner component as /home/products and /home/blogs. */}
+      <ShopPageHeader title={t('pages.about.title')} crumbs={[{ label: t('pages.about.title') }]} />
 
       <section className={styles.aboutIntro}>
         <div className={styles.container}>
           <div className={styles.aboutIntroInner}>
             <div>
               <p className={styles.aboutIntroLabel}>{storeName}</p>
-              <h2 className={styles.aboutIntroTitle}>KATALOGU YNË I LIBRAVE</h2>
+              <h2 className={styles.aboutIntroTitle}>{t('pages.about.introTitle')}</h2>
               <p className={styles.aboutIntroText}>
-                Kjo faqe tregon informacionet që vijnë nga katalogu aktual i
-                storefront-it. Titujt, çmimet, kategoritë dhe disponueshmëria
-                shfaqen nga të dhënat reale të tenant-it.
+                {t('pages.about.introText')}
               </p>
               <ul className={styles.aboutIntroChecks}>
-                <li>{numberFormatter.format(activeProducts.length)} tituj në katalog</li>
-                <li>{numberFormatter.format(inStock)} tituj me stock aktual</li>
-                <li>{numberFormatter.format(activeCategories.length)} kategori aktive</li>
-                <li>Informacione të produktit dhe variante të verifikuara nga serveri</li>
+                <li>{t('pages.about.checkCatalog', { count: numberFormatter.format(activeProducts.length) })}</li>
+                <li>{t('pages.about.checkStock', { count: numberFormatter.format(inStock) })}</li>
+                <li>{t('pages.about.checkCategories', { count: numberFormatter.format(activeCategories.length) })}</li>
+                <li>{t('pages.about.checkVerified')}</li>
               </ul>
             </div>
 
@@ -128,33 +122,32 @@ export default async function ShopAboutUsPage() {
             </div>
 
             <div>
-              <p className={styles.aboutFeatureLabel}>Katalogu aktual</p>
+              <p className={styles.aboutFeatureLabel}>{t('pages.about.featureLabel')}</p>
               <h2 className={styles.aboutFeatureTitle}>
-                {numberFormatter.format(activeProducts.length)} TITUJ NË KATALOG
+                {t('pages.about.featureTitle', { count: numberFormatter.format(activeProducts.length) })}
               </h2>
               <p className={styles.aboutFeatureText}>
-                Katalogu përfshin {numberFormatter.format(activeCategories.length)} kategori
-                dhe {numberFormatter.format(brandCount)} brende. Çdo titull hap faqen e vet
-                të produktit për sku, variant, çmim dhe informacion real disponueshmërie.
+                {t('pages.about.featureText1', {
+                  categories: numberFormatter.format(activeCategories.length),
+                  brands: numberFormatter.format(brandCount),
+                })}
               </p>
               <p className={styles.aboutFeatureText}>
-                Shfletoni katalogun, krahasoni titujt dhe vazhdoni te detajet e
-                produktit. Çmimet dhe disponueshmëria mund të ndryshojnë dhe validohen
-                përsëri nga backend-i para porosisë.
+                {t('pages.about.featureText2')}
               </p>
 
               <div className={styles.aboutFeatureIcons}>
                 <div className={styles.aboutFeatureIcon}>
                   <CatalogIcon />
-                  <span>Katalogu i tenant-it</span>
+                  <span>{t('pages.about.iconCatalog')}</span>
                 </div>
                 <div className={styles.aboutFeatureIcon}>
                   <StockIcon />
-                  <span>Stock i verifikuar</span>
+                  <span>{t('pages.about.iconStock')}</span>
                 </div>
                 <div className={styles.aboutFeatureIcon}>
                   <BookIcon />
-                  <span>Detaje reale produkti</span>
+                  <span>{t('pages.about.iconDetails')}</span>
                 </div>
               </div>
             </div>

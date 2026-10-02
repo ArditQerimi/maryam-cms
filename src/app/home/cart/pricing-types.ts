@@ -1,6 +1,6 @@
 /**
  * Shapes returned by the cart/checkout server actions
- * (`src/app/shop/cart/actions.ts`).
+ * (`src/app/home/cart/actions.ts`).
  *
  * This module is intentionally free of runtime imports: it is imported by
  * client components, and only `import type` may ever pull in server-only code.

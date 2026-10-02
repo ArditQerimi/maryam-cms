@@ -197,7 +197,7 @@ export const DEFAULT_HOMEPAGE: HomepageCustomizations = {
   heroTitle: '',
   heroSubtitle: '',
   ctaText: 'Shop now',
-  ctaUrl: '/shop/products',
+  ctaUrl: '/home/products',
 };
 
 const EMPTY_COLORS: ThemeColors = {

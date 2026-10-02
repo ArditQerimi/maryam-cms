@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type {
   CommerceHydrationStatus,
   CommerceStorageScope,
@@ -94,13 +95,6 @@ type StorageReadResult = StoredListResult & {
   available: boolean;
   readError: boolean;
 };
-
-const WISHLIST_READ_ERROR =
-  'Your saved wishlist could not be read in this browser. It is safe to try again, but changes will stay in memory for now.';
-const WISHLIST_WRITE_ERROR =
-  'Your wishlist changed, but this browser could not save it locally. It will remain available for this tab only.';
-const INVALID_WISHLIST_ITEM_ERROR = 'That wishlist item is not valid.';
-const AMBIGUOUS_WISHLIST_ERROR = 'Choose a specific product variant before changing it.';
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -520,6 +514,11 @@ function wishlistErrorText(error: unknown, fallback: string): string {
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
+  const wishlistReadError = t('tools.wishlist.storage_read_error');
+  const wishlistWriteError = t('tools.wishlist.storage_write_error');
+  const invalidWishlistError = t('tools.wishlist.error_invalid');
+  const ambiguousWishlistError = t('tools.wishlist.error_ambiguous');
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationStatus, setHydrationStatus] = useState<CommerceHydrationStatus>('loading');
@@ -571,7 +570,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     if (!storage) {
       storageWriteFailedRef.current = true;
       setStorageScope('memory');
-      setError(WISHLIST_WRITE_ERROR);
+      setError(wishlistWriteError);
       return false;
     }
 
@@ -583,15 +582,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         storageWarningRef.current = null;
       }
       setStorageScope('local');
-      setError((current) => current === WISHLIST_WRITE_ERROR ? null : current);
+      setError((current) => current === wishlistWriteError ? null : current);
       return true;
     } catch {
       storageWriteFailedRef.current = true;
       setStorageScope('memory');
-      setError(WISHLIST_WRITE_ERROR);
+      setError(wishlistWriteError);
       return false;
     }
-  }, []);
+  }, [wishlistWriteError]);
 
   const commit = useCallback(
     (next: WishlistItem[]): boolean => {
@@ -626,7 +625,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     let nextScope: CommerceStorageScope = result.available ? 'local' : 'memory';
 
     if (result.readError) {
-      nextError = WISHLIST_READ_ERROR;
+      nextError = wishlistReadError;
       nextScope = 'unavailable';
     } else if (result.hadInvalidEntries) {
       nextError = 'Some saved wishlist data was malformed. Valid items are shown, and the saved data was left unchanged.';
@@ -657,7 +656,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     endSync();
 
     if (deferred) persist(nextItems);
-  }, [beginSync, endSync, persist]);
+  }, [beginSync, endSync, persist, wishlistReadError]);
 
   useEffect(() => {
     hydrateFromStorage();
@@ -786,8 +785,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     (input: WishlistItemInput): WishlistMutationResult => {
       const normalized = normalizeInput(input);
       if (!normalized) {
-        setError(INVALID_WISHLIST_ITEM_ERROR);
-        return { ok: false, changed: false, reason: 'invalid', message: INVALID_WISHLIST_ITEM_ERROR };
+        setError(invalidWishlistError);
+        return { ok: false, changed: false, reason: 'invalid', message: invalidWishlistError };
       }
 
       const item = makeWishlistItem(
@@ -820,7 +819,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       }
       return { ok: true, changed: true };
     },
-    [commit, enqueueWishlistCommand, prepareLocalMutation],
+    [ambiguousWishlistError, commit, enqueueWishlistCommand, invalidWishlistError, prepareLocalMutation],
   );
 
   const removeFromWishlist = useCallback(
@@ -834,8 +833,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         if (normalized) {
           const candidates = itemsRef.current.filter((item) => item.productId === normalized.productId);
           if (!normalized.exactVariant && candidates.length > 1 && !candidates.some((item) => item.variantId === null)) {
-            setError(AMBIGUOUS_WISHLIST_ERROR);
-            return { ok: false, changed: false, reason: 'ambiguous', message: AMBIGUOUS_WISHLIST_ERROR };
+            setError(ambiguousWishlistError);
+            return { ok: false, changed: false, reason: 'ambiguous', message: ambiguousWishlistError };
           }
         }
         // Removing an item that is already absent is intentionally a no-op.
@@ -853,7 +852,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       }
       return { ok: true, changed: true };
     },
-    [commit, enqueueWishlistCommand, prepareLocalMutation],
+    [ambiguousWishlistError, commit, enqueueWishlistCommand, invalidWishlistError, prepareLocalMutation],
   );
 
   const clearWishlist = useCallback(() => {
@@ -884,8 +883,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       for (const input of items) {
         const normalized = normalizeInput(input);
         if (!normalized) {
-          setError(INVALID_WISHLIST_ITEM_ERROR);
-          return { ok: false, changed: false, reason: 'invalid', message: INVALID_WISHLIST_ITEM_ERROR };
+          setError(invalidWishlistError);
+          return { ok: false, changed: false, reason: 'invalid', message: invalidWishlistError };
         }
         const item = makeWishlistItem(
           normalized.item.productId,
@@ -908,7 +907,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       commit(normalizedItems);
       return { ok: true, changed: true };
     },
-    [commit, prepareLocalMutation],
+    [commit, invalidWishlistError, prepareLocalMutation],
   );
 
   const runServerSync = useCallback(async () => {
@@ -1093,15 +1092,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           setWishlist(incoming.items);
         } else {
           storageProtectedRef.current = true;
-          storageWarningRef.current = WISHLIST_READ_ERROR;
-          setError(WISHLIST_READ_ERROR);
+          storageWarningRef.current = wishlistReadError;
+          setError(wishlistReadError);
         }
         void runServerSync();
         return;
       }
       const result = readWishlistStorage();
       if (result.readError) {
-        setError(WISHLIST_READ_ERROR);
+        setError(wishlistReadError);
         return;
       }
       storageProtectedRef.current = false;
@@ -1124,7 +1123,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('storage', onStorage);
     };
-  }, [isHydrated, runServerSync]);
+  }, [isHydrated, runServerSync, wishlistReadError]);
 
   const clearError = useCallback(() => {
     setServerError(null);

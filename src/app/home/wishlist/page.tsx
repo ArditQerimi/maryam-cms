@@ -4,9 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Heart, LockKeyhole, ShoppingBag, Trash2 } from 'lucide-react';
+import ShopPageHeader from '../components/ShopPageHeader';
 import styles from '../commerce-pages.module.css';
 import { useCart } from '@/context/CartContext';
 import { useWishlist, type WishlistItem, type WishlistItemSelector } from '@/context/WishlistContext';
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('en-GB', {
@@ -15,10 +17,10 @@ function formatMoney(value: number): string {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
-function formatAddedAt(value: string): string {
-  if (!value) return 'Date unavailable';
+function formatAddedAt(value: string, t: Translator): string {
+  if (!value) return t('tools.wishlist.date_unavailable');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Date unavailable';
+  if (Number.isNaN(date.getTime())) return t('tools.wishlist.date_unavailable');
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -34,11 +36,11 @@ function itemKey(item: WishlistItem): string {
   return `${typeof item.productId}:${String(item.productId)}|${typeof item.variantId}:${String(item.variantId)}`;
 }
 
-function storageLabel(scope: string): string {
-  if (scope === 'local') return 'Saved in this browser';
-  if (scope === 'memory') return 'Available for this tab only';
-  if (scope === 'unavailable') return 'Browser storage unavailable';
-  return 'Local wishlist';
+function storageLabel(scope: string, t: Translator): string {
+  if (scope === 'local') return t('tools.wishlist.storage_local');
+  if (scope === 'memory') return t('tools.storage_memory');
+  if (scope === 'unavailable') return t('tools.storage_unavailable');
+  return t('tools.wishlist.storage_fallback');
 }
 
 function wishlistStatusLabel({
@@ -47,20 +49,24 @@ function wishlistStatusLabel({
   isLocalOnly,
   hasLocalDraft,
   scope,
+  t,
 }: {
   syncStatus: string;
   isServerSynced: boolean;
   isLocalOnly: boolean;
   hasLocalDraft: boolean;
   scope: string;
+  t: Translator;
 }): string {
-  if (syncStatus === 'syncing') return 'Checking your account wishlist…';
-  if (isServerSynced && !hasLocalDraft) return 'Synced to your account';
+  if (syncStatus === 'syncing') return t('tools.wishlist.status_syncing');
+  if (isServerSynced && !hasLocalDraft) return t('tools.wishlist.status_synced');
   if (hasLocalDraft) {
-    return syncStatus === 'error' ? 'Local draft — sync needs attention' : 'Local draft — waiting to sync';
+    return syncStatus === 'error'
+      ? t('tools.wishlist.status_draft_error')
+      : t('tools.wishlist.status_draft');
   }
-  if (isLocalOnly) return 'Local-only wishlist';
-  return storageLabel(scope);
+  if (isLocalOnly) return t('tools.wishlist.status_local_only');
+  return storageLabel(scope, t);
 }
 
 function canRenderImage(value: string): boolean {
@@ -68,11 +74,12 @@ function canRenderImage(value: string): boolean {
 }
 
 function LoadingState() {
+  const { t } = useLocale();
   return (
     <div className={styles.loadingState} role="status" aria-live="polite" aria-busy="true">
       <span className={styles.spinner} aria-hidden="true" />
-      <strong>Loading your wishlist…</strong>
-      <span>Checking local and account wishlist state.</span>
+      <strong>{t('tools.wishlist.loading_title')}</strong>
+      <span>{t('tools.wishlist.loading_text')}</span>
     </div>
   );
 }
@@ -96,6 +103,7 @@ export default function WishlistPage() {
     retrySync,
   } = useWishlist();
   const { addToCart } = useCart();
+  const { t } = useLocale();
   const [cartMessage, setCartMessage] = useState('');
   const visibleError = serverError ?? error;
   const handleRetry = () => {
@@ -114,60 +122,71 @@ export default function WishlistPage() {
     });
     setCartMessage(
       result.ok && result.changed
-        ? `${item.name} was added to your cart.`
+        ? t('tools.cart_added', { name: item.name })
         : result.reason === 'limit'
-          ? `${item.name} reached the cart quantity limit.`
-          : 'That item could not be added. Please review the cart message.',
+          ? t('tools.cart_limit', { name: item.name })
+          : t('tools.cart_failed'),
     );
   };
 
   return (
     <div className={styles.page}>
-      <header className={styles.pageHeader}>
-        <div className={styles.container}>
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/shop">Home</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">Wishlist</span>
-          </nav>
-          <div className={styles.titleRow}>
-            <div>
-              <p className={styles.eyebrow}>Saved for later</p>
-              <h1 className={styles.title}>Your wishlist</h1>
-              <p className={styles.subtitle}>
-                {serverAuthenticated
-                  ? 'Keep your account wishlist synchronized when you are signed in.'
-                  : 'Keep a private list of products to revisit on this device.'}
-              </p>
-            </div>
-            {!isHydrating && wishlist.length > 0 ? (
-              <span className={styles.countPill} aria-label={`${wishlist.length} saved items`}>
-                {wishlist.length} saved
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <ShopPageHeader
+        title={t('tools.wishlist.title')}
+        crumbs={[{ label: t('tools.wishlist.crumb') }]}
+        eyebrow={t('tools.wishlist.eyebrow')}
+        lead={
+          serverAuthenticated
+            ? t('tools.wishlist.lead_signed_in')
+            : t('tools.wishlist.lead_guest')
+        }
+      >
+        {!isHydrating && wishlist.length > 0 ? (
+          <span
+            className={styles.countPill}
+            aria-label={t('tools.wishlist.count_aria', { count: wishlist.length })}
+          >
+            {t('tools.wishlist.count_display', { count: wishlist.length })}
+          </span>
+        ) : null}
+      </ShopPageHeader>
 
-      <section className={styles.content} aria-label="Wishlist contents">
+      <section className={styles.content} aria-label={t('tools.wishlist.contents_aria')}>
         <div className={styles.container}>
           <div className={styles.statusBar} data-state={visibleError ? 'error' : 'ready'}>
             <span className={styles.statusDot} aria-hidden="true" />
             <span>
-              {wishlistStatusLabel({ syncStatus, isServerSynced, isLocalOnly, hasLocalDraft, scope: storageScope })}
-              {visibleError ? '' : isServerSynced && !hasLocalDraft ? ' · server product rows are authoritative' : hasLocalDraft ? ' · local changes are waiting to sync' : ' · guests keep this list in this browser'}
+              {wishlistStatusLabel({
+                syncStatus,
+                isServerSynced,
+                isLocalOnly,
+                hasLocalDraft,
+                scope: storageScope,
+                t,
+              })}
+              {visibleError
+                ? ''
+                : isServerSynced && !hasLocalDraft
+                  ? t('tools.wishlist.suffix_authoritative')
+                  : hasLocalDraft
+                    ? t('tools.wishlist.suffix_pending')
+                    : t('tools.wishlist.suffix_guests')}
             </span>
-            {isPending && !isHydrating ? <span className={styles.statusBusy}>{syncStatus === 'syncing' ? 'Syncing…' : 'Saving…'}</span> : null}
+            {isPending && !isHydrating ? (
+              <span className={styles.statusBusy}>
+                {syncStatus === 'syncing' ? t('tools.busy_syncing') : t('tools.busy_saving')}
+              </span>
+            ) : null}
           </div>
 
           {visibleError ? (
             <div className={styles.alert} data-tone="error" role="alert">
               <div>
-                <strong className={styles.alertTitle}>We could not complete that wishlist change</strong>
+                <strong className={styles.alertTitle}>{t('tools.wishlist.error_title')}</strong>
                 <p className={styles.alertText}>{visibleError}</p>
               </div>
               <button type="button" className={styles.buttonSecondary} onClick={handleRetry} disabled={isPending}>
-                Try again
+                {t('tools.try_again')}
               </button>
             </div>
           ) : null}
@@ -179,33 +198,33 @@ export default function WishlistPage() {
               <div className={styles.emptyIcon} aria-hidden="true">
                 <Heart size={28} strokeWidth={1.5} />
               </div>
-              <h2 id="empty-wishlist-title" className={styles.emptyTitle}>Your wishlist is empty</h2>
-              <p className={styles.emptyText}>Use the heart on a product to save it here for later.</p>
-              <Link href="/shop/products" className={styles.buttonPrimary}>Browse products</Link>
+              <h2 id="empty-wishlist-title" className={styles.emptyTitle}>{t('tools.wishlist.empty_title')}</h2>
+              <p className={styles.emptyText}>{t('tools.wishlist.empty_text')}</p>
+              <Link href="/home/products" className={styles.buttonPrimary}>{t('tools.browse')}</Link>
             </section>
           ) : (
             <>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
-                  <caption className={styles.tableCaption}>Products saved in this wishlist</caption>
+                  <caption className={styles.tableCaption}>{t('tools.wishlist.caption')}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">Product</th>
-                      <th scope="col">Price</th>
-                      <th scope="col">Added</th>
-                      <th scope="col">Availability</th>
-                      <th scope="col"><span className={styles.srOnly}>Actions</span></th>
+                      <th scope="col">{t('tools.th_product')}</th>
+                      <th scope="col">{t('tools.th_price')}</th>
+                      <th scope="col">{t('tools.wishlist.th_added')}</th>
+                      <th scope="col">{t('tools.wishlist.th_availability')}</th>
+                      <th scope="col"><span className={styles.srOnly}>{t('tools.wishlist.th_actions')}</span></th>
                     </tr>
                   </thead>
                   <tbody>
                     {wishlist.map((item) => {
-                      const productHref = `/shop/products/${encodeURIComponent(String(item.productId))}`;
+                      const productHref = `/home/products/${encodeURIComponent(String(item.productId))}`;
                       const inStock = item.available !== false && item.stockQuantity > 0;
                       const needsVariant = item.variantId === null;
                       const hasPrice = item.priceAvailable !== false;
                       return (
                         <tr key={itemKey(item)}>
-                          <td data-label="Product">
+                          <td data-label={t('tools.th_product')}>
                             <div className={styles.productCell}>
                               <Link href={productHref} className={styles.productImageLink}>
                                 {canRenderImage(item.imageUrl) ? (
@@ -224,31 +243,35 @@ export default function WishlistPage() {
                               <div className={styles.productDetails}>
                                 <Link href={productHref} className={styles.productName}>{item.name}</Link>
                                 {item.variantId !== null ? (
-                                  <span className={styles.variantLabel}>Variant {String(item.variantId)}</span>
+                                  <span className={styles.variantLabel}>
+                                    {t('tools.variant', { id: String(item.variantId) })}
+                                  </span>
                                 ) : null}
                                 <button
                                   type="button"
                                   className={styles.removeButton}
                                   onClick={() => removeFromWishlist(itemSelector(item))}
                                   disabled={isPending}
-                                  aria-label={`Remove ${item.name} from wishlist`}
+                                  aria-label={t('tools.wishlist.remove_aria', { name: item.name })}
                                 >
                                   <Trash2 size={14} aria-hidden="true" />
-                                  <span>Remove</span>
+                                  <span>{t('tools.wishlist.remove')}</span>
                                 </button>
                               </div>
                             </div>
                           </td>
-                          <td data-label="Price" className={styles.priceCell}>
-                            {hasPrice ? formatMoney(item.price) : 'Price unavailable'}
+                          <td data-label={t('tools.th_price')} className={styles.priceCell}>
+                            {hasPrice ? formatMoney(item.price) : t('catalog.price_unavailable')}
                           </td>
-                          <td data-label="Added" className={styles.mutedCell}>{formatAddedAt(item.addedAt)}</td>
-                          <td data-label="Availability">
+                          <td data-label={t('tools.wishlist.th_added')} className={styles.mutedCell}>
+                            {formatAddedAt(item.addedAt, t)}
+                          </td>
+                          <td data-label={t('tools.wishlist.th_availability')}>
                             <span className={inStock ? styles.stockGood : styles.stockMuted}>
-                              {inStock ? 'In stock' : 'Out of stock'}
+                              {inStock ? t('catalog.in_stock') : t('catalog.out_of_stock')}
                             </span>
                           </td>
-                          <td data-label="Action" className={styles.actionCell}>
+                          <td data-label={t('tools.wishlist.th_actions')} className={styles.actionCell}>
                             {inStock && !needsVariant ? (
                               <button
                                 type="button"
@@ -257,11 +280,11 @@ export default function WishlistPage() {
                                 disabled={isPending}
                               >
                                 <ShoppingBag size={15} aria-hidden="true" />
-                                <span>Add to cart</span>
+                                <span>{t('catalog.add_to_cart')}</span>
                               </button>
                             ) : (
                               <Link href={productHref} className={styles.buttonSecondary}>
-                                {needsVariant ? 'Select options' : 'View product'}
+                                {needsVariant ? t('tools.select_options') : t('tools.view_product')}
                               </Link>
                             )}
                           </td>
@@ -277,13 +300,13 @@ export default function WishlistPage() {
                 <div>
                   {serverAuthenticated && isServerSynced ? (
                     <>
-                      <strong>This wishlist is synced to your customer account.</strong>
-                      <p>Sign out switches this view back to the local browser copy; account rows are not shared through the URL.</p>
+                      <strong>{t('tools.wishlist.note_signed_in_title')}</strong>
+                      <p>{t('tools.wishlist.note_signed_in_text')}</p>
                     </>
                   ) : (
                     <>
-                      <strong>This wishlist is private to this browser.</strong>
-                      <p>Copying the current page URL does not share these items. A real share token and account sync are not connected yet.</p>
+                      <strong>{t('tools.wishlist.note_guest_title')}</strong>
+                      <p>{t('tools.wishlist.note_guest_text')}</p>
                     </>
                   )}
                 </div>

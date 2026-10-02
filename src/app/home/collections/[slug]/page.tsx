@@ -1,7 +1,7 @@
 import { permanentRedirect } from 'next/navigation';
 import { getCategories } from '@/lib/actions';
 
-const PRODUCT_CATALOG_PATH = '/shop/products';
+const PRODUCT_CATALOG_PATH = '/home/products';
 
 export const dynamic = 'force-dynamic';
 

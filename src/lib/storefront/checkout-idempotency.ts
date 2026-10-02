@@ -3,7 +3,7 @@ import type {
   CheckoutConfirmation,
   CheckoutCurrency,
   CheckoutRequest,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import { ORDER_CONFIRMATION_PATH } from './checkout-access';
 import type { CheckoutOwner } from './checkout-authorization';
 

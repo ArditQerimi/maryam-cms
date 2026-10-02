@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import {
   HERO_HEIGHTS,
   HERO_LAYOUTS,
@@ -82,8 +83,8 @@ function overlayFrom(color: string, opacity: number): string {
 
 export default function BookstoreHero({
   slides,
-  secondaryLabel = 'Të gjitha librat',
-  secondaryUrl = '/shop/products',
+  secondaryLabel,
+  secondaryUrl = '/home/products',
   design,
 }: {
   slides: BookstoreHeroSlide[];
@@ -91,6 +92,7 @@ export default function BookstoreHero({
   secondaryUrl?: string;
   design?: Partial<BookstoreHeroDesign>;
 }) {
+  const { t } = useLocale();
   const [preview, setPreview] = useState<PreviewHero | null>(null);
 
   // Inside the CMS customizer iframe (`?preview=1`) the hero re-renders from
@@ -115,7 +117,7 @@ export default function BookstoreHero({
               title: text(row.title),
               price: text(row.price),
               img: text(row.image),
-              href: text(row.url) || '/shop/products',
+              href: text(row.url) || '/home/products',
               ctaLabel: text(row.ctaLabel),
             };
           })
@@ -141,7 +143,8 @@ export default function BookstoreHero({
   }, []);
 
   const sourceSlides = preview ? preview.slides : slides;
-  const ctaSecondaryLabel = preview?.secondaryLabel || secondaryLabel;
+  // Preview label → explicit prop → localized default.
+  const ctaSecondaryLabel = preview?.secondaryLabel || (secondaryLabel ?? t('home.hero.allBooks'));
   const ctaSecondaryUrl = preview?.secondaryUrl || secondaryUrl;
   const look = preview?.design ?? { ...DESIGN_FALLBACK, ...design };
 
@@ -202,7 +205,7 @@ export default function BookstoreHero({
           <div className={styles.heroActions}>
             <Link href={slide.href} className={styles.heroCta}>
               <ShoppingBag size={17} aria-hidden="true" />
-              {slide.ctaLabel?.trim() || 'Shiko produktin'}
+              {slide.ctaLabel?.trim() || t('home.hero.viewProduct')}
             </Link>
             <Link href={ctaSecondaryUrl} className={styles.heroCtaSecondary}>
               {ctaSecondaryLabel}
@@ -227,20 +230,20 @@ export default function BookstoreHero({
 
       {safeSlides.length > 1 ? (
         <>
-          <button type="button" className={styles.heroArrowBtn} data-dir="prev" aria-label="Slide paraardhës" onClick={prev}>
+          <button type="button" className={styles.heroArrowBtn} data-dir="prev" aria-label={t('home.hero.prev')} onClick={prev}>
             <ChevronLeft size={20} strokeWidth={1.5} aria-hidden="true" />
           </button>
-          <button type="button" className={styles.heroArrowBtn} data-dir="next" aria-label="Slide pasardhës" onClick={next}>
+          <button type="button" className={styles.heroArrowBtn} data-dir="next" aria-label={t('home.hero.next')} onClick={next}>
             <ChevronRight size={20} strokeWidth={1.5} aria-hidden="true" />
           </button>
-          <div className={styles.heroDots} role="group" aria-label="Navigim">
+          <div className={styles.heroDots} role="group" aria-label={t('home.hero.nav')}>
             {safeSlides.map((item, index) => (
               <button
                 key={`${item.href}-dot-${index}`}
                 type="button"
                 className={styles.heroDot}
                 data-active={index === activeIndex ? 'true' : 'false'}
-                aria-label={`Slajdi ${index + 1}`}
+                aria-label={t('home.hero.dot', { n: index + 1 })}
                 aria-current={index === activeIndex ? 'true' : undefined}
                 onClick={() => setIdx(index)}
               />

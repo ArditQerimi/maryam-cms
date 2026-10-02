@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getContextCompany } from '@/lib/tenant';
+import { getT } from '@/lib/i18n/server';
 import styles from '../legal/legal.module.css';
 import PrintButton from './PrintButton';
 
@@ -14,38 +15,38 @@ export const metadata: Metadata = {
   title: 'Refund Policy',
   description,
   alternates: {
-    canonical: '/shop/refund-policy',
+    canonical: '/home/refund-policy',
   },
   openGraph: {
     title: 'Refund Policy',
     description,
-    url: '/shop/refund-policy',
+    url: '/home/refund-policy',
     type: 'website',
   },
 };
 
 const policyLinks = [
-  { href: '/shop/terms-conditions', label: 'Terms & Conditions' },
-  { href: '/shop/privacy-policy', label: 'Privacy Policy' },
-  { href: '/shop/refund-policy', label: 'Refund Policy' },
-  { href: '/shop/shipping-policy', label: 'Shipping Policy' },
-];
+  { href: '/home/terms-conditions', labelKey: 'pages.policy.linkTerms' },
+  { href: '/home/privacy-policy', labelKey: 'pages.policy.linkPrivacy' },
+  { href: '/home/refund-policy', labelKey: 'pages.policy.linkRefund' },
+  { href: '/home/shipping-policy', labelKey: 'pages.policy.linkShipping' },
+] as const;
 
 const tableOfContents = [
-  { href: '#merchant-details', label: 'Merchant details' },
-  { href: '#scope', label: 'Scope and rights' },
-  { href: '#eligibility', label: 'Return eligibility' },
-  { href: '#exclusions', label: 'Possible exclusions' },
-  { href: '#request', label: 'How to request a return' },
-  { href: '#returning', label: 'Returning an item' },
-  { href: '#inspection', label: 'Inspection and decision' },
-  { href: '#refund', label: 'Refund method and amount' },
-  { href: '#exchanges', label: 'Exchanges' },
-  { href: '#problems', label: 'Damaged or incorrect items' },
-  { href: '#cancellation', label: 'Order cancellation' },
-  { href: '#consumer-rights', label: 'Consumer rights' },
-  { href: '#contact', label: 'Contact' },
-];
+  { href: '#merchant-details', labelKey: 'pages.policy.merchantDetails' },
+  { href: '#scope', labelKey: 'pages.refund.toc.scope' },
+  { href: '#eligibility', labelKey: 'pages.refund.toc.eligibility' },
+  { href: '#exclusions', labelKey: 'pages.refund.toc.exclusions' },
+  { href: '#request', labelKey: 'pages.refund.toc.request' },
+  { href: '#returning', labelKey: 'pages.refund.toc.returning' },
+  { href: '#inspection', labelKey: 'pages.refund.toc.inspection' },
+  { href: '#refund', labelKey: 'pages.refund.toc.refund' },
+  { href: '#exchanges', labelKey: 'pages.refund.toc.exchanges' },
+  { href: '#problems', labelKey: 'pages.refund.toc.problems' },
+  { href: '#cancellation', labelKey: 'pages.refund.toc.cancellation' },
+  { href: '#consumer-rights', labelKey: 'pages.refund.toc.consumerRights' },
+  { href: '#contact', labelKey: 'pages.refund.toc.contact' },
+] as const;
 
 async function getMerchantName() {
   try {
@@ -63,6 +64,7 @@ async function getMerchantName() {
 }
 
 export default async function RefundPolicyPage() {
+  const t = await getT();
   const merchantName = await getMerchantName();
   const legalEntityName = process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim();
   const registeredAddress = process.env.NEXT_PUBLIC_LEGAL_REGISTERED_ADDRESS?.trim();
@@ -73,12 +75,12 @@ export default async function RefundPolicyPage() {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <a className={styles.skipLink} href="#policy-content">Skip to policy content</a>
+        <a className={styles.skipLink} href="#policy-content">{t('pages.policy.skip')}</a>
 
         <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
           <ol className={styles.breadcrumbList}>
-            <li><Link className={styles.breadcrumbLink} href="/shop">Home</Link></li>
-            <li aria-current="page">Refund Policy</li>
+            <li><Link className={styles.breadcrumbLink} href="/home">{t('pages.common.home')}</Link></li>
+            <li aria-current="page">{t('pages.policy.linkRefund')}</li>
           </ol>
         </nav>
 
@@ -91,22 +93,22 @@ export default async function RefundPolicyPage() {
               <path d="m10 14-3 3 3 3" />
             </svg>
           </div>
-          <p className={styles.eyebrow}>After your purchase</p>
-          <h1 className={styles.heroTitle} id="refund-title">Refund Policy</h1>
+          <p className={styles.eyebrow}>{t('pages.refund.eyebrow')}</p>
+          <h1 className={styles.heroTitle} id="refund-title">{t('pages.policy.linkRefund')}</h1>
           <p className={styles.lede}>
-            A clear process for return requests, eligible refunds, and problems with an order from {merchantName}.
+            {t('pages.refund.lede', { merchantName })}
           </p>
           <div className={styles.heroMeta}>
-            <span className={styles.lastUpdated}>Last updated <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
+            <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
             <PrintButton />
           </div>
         </header>
 
-        <nav className={styles.policyNav} aria-label="Store policies">
-          <p className={styles.policyNavLabel} id="policy-navigation-label">Policies and practical information</p>
+        <nav className={styles.policyNav} aria-label={t('pages.policy.navAria')}>
+          <p className={styles.policyNavLabel} id="policy-navigation-label">{t('pages.policy.navLabel')}</p>
           <ul className={styles.policyNavList} aria-labelledby="policy-navigation-label">
             {policyLinks.map((policy) => {
-              const isCurrent = policy.href === '/shop/refund-policy';
+              const isCurrent = policy.href === '/home/refund-policy';
 
               return (
                 <li key={policy.href}>
@@ -115,7 +117,7 @@ export default async function RefundPolicyPage() {
                     href={policy.href}
                     aria-current={isCurrent ? 'page' : undefined}
                   >
-                    {policy.label}
+                    {t(policy.labelKey)}
                   </Link>
                 </li>
               );
@@ -124,53 +126,53 @@ export default async function RefundPolicyPage() {
         </nav>
 
         <details className={styles.mobileToc}>
-          <summary className={styles.mobileTocSummary}>On this page</summary>
-          <nav aria-label="On this page">
+          <summary className={styles.mobileTocSummary}>{t('pages.policy.onThisPage')}</summary>
+          <nav aria-label={t('pages.policy.onThisPage')}>
             <ol className={styles.mobileTocList}>
               {tableOfContents.map((item) => (
-                <li key={item.href}><a href={item.href}>{item.label}</a></li>
+                <li key={item.href}><a href={item.href}>{t(item.labelKey)}</a></li>
               ))}
             </ol>
           </nav>
         </details>
 
         <div className={styles.layout}>
-          <nav className={styles.toc} aria-label="On this page">
-            <p className={styles.tocTitle}>On this page</p>
+          <nav className={styles.toc} aria-label={t('pages.policy.onThisPage')}>
+            <p className={styles.tocTitle}>{t('pages.policy.onThisPage')}</p>
             <ol className={styles.tocList}>
               {tableOfContents.map((item) => (
-                <li key={item.href}><a className={styles.tocLink} href={item.href}>{item.label}</a></li>
+                <li key={item.href}><a className={styles.tocLink} href={item.href}>{t(item.labelKey)}</a></li>
               ))}
             </ol>
           </nav>
 
           <article className={styles.content} id="policy-content" aria-labelledby="refund-title">
             <aside className={styles.reviewNotice} role="note">
-              <strong className={styles.noticeTitle}>Merchant configuration required</strong>
-              The store must approve the actual return window, product exclusions, return-postage terms, refund deductions, and any jurisdiction-specific exceptions before publication.
+              <strong className={styles.noticeTitle}>{t('pages.policy.merchantConfig')}</strong>
+              {t('pages.refund.noticeBody')}
             </aside>
 
             <section className={styles.merchantCard} id="merchant-details" aria-labelledby="merchant-details-title">
-              <h2 id="merchant-details-title">Merchant details</h2>
+              <h2 id="merchant-details-title">{t('pages.policy.merchantDetails')}</h2>
               <dl className={styles.merchantGrid}>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Store display name</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.policy.storeDisplayName')}</dt>
                   <dd className={styles.merchantValue}>{merchantName}</dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Legal entity</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.policy.legalEntity')}</dt>
                   <dd className={styles.merchantValue}>
                     {legalEntityName || <span className={styles.placeholder}>[registered legal entity name to be confirmed]</span>}
                   </dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Registered address</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.policy.registeredAddress')}</dt>
                   <dd className={styles.merchantValue}>
                     {registeredAddress || <span className={styles.placeholder}>[registered business address to be added]</span>}
                   </dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Returns contact</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.refund.returnsContact')}</dt>
                   <dd className={styles.merchantValue}>
                     {contactEmail ? <a href={`mailto:${contactEmail}`}>{contactEmail}</a> : <span className={styles.placeholder}>[monitored returns email to be added]</span>}
                   </dd>
@@ -180,125 +182,125 @@ export default async function RefundPolicyPage() {
 
             <div className={styles.prose}>
               <section className={styles.section} id="scope" aria-labelledby="scope-title">
-                <h2 id="scope-title">1. Scope and non-exclusion of rights</h2>
+                <h2 id="scope-title">{t('pages.refund.h2.scope')}</h2>
                 <p>
-                  This Refund Policy explains the voluntary returns process offered by {merchantName}. It applies to orders placed through this storefront unless an order or product page expressly provides a different process. Delivery arrangements are described in the <Link href="/shop/shipping-policy">Shipping Policy</Link>, and the purchase agreement is governed by the <Link href="/shop/terms-conditions">Terms &amp; Conditions</Link>.
+                  {t('pages.refund.scopeIntro', { merchantName })} <Link href="/home/shipping-policy">{t('pages.policy.linkShipping')}</Link>{t('pages.refund.scopeMiddle')} <Link href="/home/terms-conditions">{t('pages.policy.linkTerms')}</Link>.
                 </p>
                 <p>
-                  This policy does not remove, restrict, or replace a mandatory consumer right, warranty, remedy, or statutory cancellation right. Where local law gives you a right that is different from this policy, the stronger applicable protection should be honoured.
+                  {t('pages.refund.scopeRights')}
                 </p>
               </section>
 
               <section className={styles.section} id="eligibility" aria-labelledby="eligibility-title">
-                <h2 id="eligibility-title">2. Return eligibility and timing</h2>
+                <h2 id="eligibility-title">{t('pages.refund.h2.eligibility')}</h2>
                 <p>
-                  An item may be eligible for a return if it is unused, complete, in resalable condition, and accompanied by the packaging, accessories, labels, and documentation supplied with it. Eligibility also depends on the product, reason for return, proof of purchase, and any condition clearly displayed before purchase.
+                  {t('pages.refund.eligibilityParagraph')}
                 </p>
                 {returnWindow ? (
-                  <p><strong>Return window:</strong> {returnWindow}</p>
+                  <p><strong>{t('pages.refund.returnWindow')}</strong> {returnWindow}</p>
                 ) : (
                   <p><span className={styles.placeholder}>[state the merchant-approved return window, when it begins, and any proof-of-purchase requirement]</span></p>
                 )}
                 <p>
-                  Contact us before returning an item if you are unsure whether it qualifies. Approval of a return request does not guarantee a refund if the returned item fails the stated eligibility checks.
+                  {t('pages.refund.eligibilityContact')}
                 </p>
               </section>
 
               <section className={styles.section} id="exclusions" aria-labelledby="exclusions-title">
-                <h2 id="exclusions-title">3. Possible exclusions</h2>
+                <h2 id="exclusions-title">{t('pages.refund.h2.exclusions')}</h2>
                 <p>
-                  The following may be excluded only to the extent the product is actually sold that way, the exclusion is clearly communicated, and the law permits it:
+                  {t('pages.refund.exclusionsLead')}
                 </p>
                 <ul className={styles.list}>
-                  <li>items returned after the approved return window;</li>
-                  <li>items that were used, damaged, altered, incomplete, or no longer in resalable condition, except where the damage or defect is the merchant’s responsibility;</li>
-                  <li>perishable, hygiene-sensitive, sealed, personalised, or made-to-order items, where exclusion is lawful;</li>
-                  <li>digital content or services once lawfully supplied or downloaded, where the law allows this exception;</li>
-                  <li>gift cards, vouchers, or other value instruments if they cannot legally be refunded as money;</li>
-                  <li>items damaged after delivery, lost, or used contrary to care instructions; and</li>
-                  <li>items where a change of mind is not accepted because a mandatory exception applies.</li>
+                  <li>{t('pages.refund.exclusionsList1')}</li>
+                  <li>{t('pages.refund.exclusionsList2')}</li>
+                  <li>{t('pages.refund.exclusionsList3')}</li>
+                  <li>{t('pages.refund.exclusionsList4')}</li>
+                  <li>{t('pages.refund.exclusionsList5')}</li>
+                  <li>{t('pages.refund.exclusionsList6')}</li>
+                  <li>{t('pages.refund.exclusionsList7')}</li>
                 </ul>
                 <div className={styles.callout}>
                   <p>
-                    <strong>Inventory check required:</strong> <span className={styles.placeholder}>[list the exact product categories, seals, and exclusions that this store sells; remove categories that are not offered]</span>
+                    <strong>{t('pages.refund.inventoryCheck')}</strong> <span className={styles.placeholder}>[list the exact product categories, seals, and exclusions that this store sells; remove categories that are not offered]</span>
                   </p>
                 </div>
               </section>
 
               <section className={styles.section} id="request" aria-labelledby="request-title">
-                <h2 id="request-title">4. How to request a return</h2>
-                <p>Send the following information through the returns contact or <Link href="/shop/contact">contact page</Link>:</p>
+                <h2 id="request-title">{t('pages.refund.h2.request')}</h2>
+                <p>{t('pages.refund.requestLead')} <Link href="/home/contact">{t('pages.policy.contactPage')}</Link>:</p>
                 <ol className={styles.list}>
-                  <li>your order number and the email or telephone details associated with it;</li>
-                  <li>the product name, variant, and quantity;</li>
-                  <li>the reason for the return or a concise description of the problem;</li>
-                  <li>the date the order was received, if known; and</li>
-                  <li>clear photographs or other evidence where relevant, especially for damage or incorrect items.</li>
+                  <li>{t('pages.refund.requestList1')}</li>
+                  <li>{t('pages.refund.requestList2')}</li>
+                  <li>{t('pages.refund.requestList3')}</li>
+                  <li>{t('pages.refund.requestList4')}</li>
+                  <li>{t('pages.refund.requestList5')}</li>
                 </ol>
                 <p>
-                  Do not send payment-card numbers, passwords, or unnecessary sensitive information. A request does not guarantee eligibility and should be submitted through the verified returns channel rather than an unverified social-media message.
+                  {t('pages.refund.requestWarning')}
                 </p>
               </section>
 
               <section className={styles.section} id="returning" aria-labelledby="returning-title">
-                <h2 id="returning-title">5. Returning an item</h2>
+                <h2 id="returning-title">{t('pages.refund.h2.returning')}</h2>
                 <p>
-                  If a return is approved, wait for return instructions, including the authorised return address, packing guidance, and any required reference or authorisation code. Do not send an item to the registered business address unless the merchant confirms that it is the returns address.
+                  {t('pages.refund.returningInstructions')}
                 </p>
                 <p>
-                  Use a tracked service where available and keep the receipt and proof of postage. The risk of loss during return may remain with the customer until the merchant receives the item, unless the merchant offers a different arrangement or the law provides otherwise.
+                  {t('pages.refund.returningTracked')}
                 </p>
                 {returnShippingPolicy ? (
-                  <p><strong>Return postage:</strong> {returnShippingPolicy}</p>
+                  <p><strong>{t('pages.refund.returnPostage')}</strong> {returnShippingPolicy}</p>
                 ) : (
                   <p><span className={styles.placeholder}>[state who pays return postage and when reimbursement, if any, may be available]</span></p>
                 )}
               </section>
 
               <section className={styles.section} id="inspection" aria-labelledby="inspection-title">
-                <h2 id="inspection-title">6. Inspection and return decision</h2>
+                <h2 id="inspection-title">{t('pages.refund.h2.inspection')}</h2>
                 <p>
-                  The returned item and supporting information may be checked to confirm identity, condition, eligibility, and the reason for the request. We may contact you if clarification is needed or if evidence does not show a manufacturing fault or another covered issue.
+                  {t('pages.refund.inspectionCheck')}
                 </p>
                 <p>
-                  A decision will be communicated using the contact details supplied with the request. If a return is declined, the reasons will be provided to the extent appropriate. Rejection of this voluntary process does not remove a separate statutory remedy.
+                  {t('pages.refund.inspectionDecision')}
                 </p>
                 <p><span className={styles.placeholder}>[define the approved inspection method and any target decision time without promising an unverified deadline]</span></p>
               </section>
 
               <section className={styles.section} id="refund" aria-labelledby="refund-title-heading">
-                <h2 id="refund-title-heading">7. Refund method and amount</h2>
+                <h2 id="refund-title-heading">{t('pages.refund.h2.refund')}</h2>
                 <p>
-                  When a refund is approved, the usual amount is the price actually paid for the eligible returned item, adjusted for the order as required by law. Depending on the offer and the law, this may include deductions for missing parts, damage caused after delivery, early-return deductions permitted for a lawful exception, or the proportional effect of a discount. Any deduction must be explained.
+                  {t('pages.refund.refundAmount')}
                 </p>
                 <p>
-                  Refunds are generally sent to the original payment method. The time taken to appear depends on the payment provider and bank and is not fixed by this policy. Until a refund is sent, the merchant may cancel an undelivered order as protection against a second payment.
+                  {t('pages.refund.refundMethod')}
                 </p>
                 <div className={styles.tableWrap}>
                   <table className={styles.dataTable}>
-                    <caption>What may affect the final refund</caption>
+                    <caption>{t('pages.refund.tableCaption')}</caption>
                     <thead>
                       <tr>
-                        <th scope="col">Situation</th>
-                        <th scope="col">Possible treatment</th>
+                        <th scope="col">{t('pages.refund.thSituation')}</th>
+                        <th scope="col">{t('pages.refund.thTreatment')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td>Eligible item returned</td>
-                        <td>Refund to the original payment method, subject to the final order calculation</td>
+                        <td>{t('pages.refund.tableRowEligibleSituation')}</td>
+                        <td>{t('pages.refund.tableRowEligibleTreatment')}</td>
                       </tr>
                       <tr>
-                        <td>Original or return delivery charge</td>
-                        <td>Refundable only if the offer says so or applicable law requires it</td>
+                        <td>{t('pages.refund.tableRowDeliverySituation')}</td>
+                        <td>{t('pages.refund.tableRowDeliveryTreatment')}</td>
                       </tr>
                       <tr>
-                        <td>Applied discount or promotion</td>
-                        <td>May be recalculated according to the published promotion terms and applicable law</td>
+                        <td>{t('pages.refund.tableRowDiscountSituation')}</td>
+                        <td>{t('pages.refund.tableRowDiscountTreatment')}</td>
                       </tr>
                       <tr>
-                        <td>Item damaged by the customer</td>
-                        <td>A lawful deduction may apply, except for responsibility attributed to the merchant or carrier</td>
+                        <td>{t('pages.refund.tableRowDamagedSituation')}</td>
+                        <td>{t('pages.refund.tableRowDamagedTreatment')}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -307,82 +309,82 @@ export default async function RefundPolicyPage() {
               </section>
 
               <section className={styles.section} id="exchanges" aria-labelledby="exchanges-title">
-                <h2 id="exchanges-title">8. Exchanges</h2>
+                <h2 id="exchanges-title">{t('pages.refund.h2.exchanges')}</h2>
                 <p>
-                  An exchange is offered only if stock is available and the return is otherwise accepted. The replacement will be priced at its price when the exchange is arranged. If the replacement costs more, the additional amount will be shown for approval; if it costs less, any refund will follow the same process used for a returned item.
+                  {t('pages.refund.exchangesPricing')}
                 </p>
                 <p>
-                  An exchange is not guaranteed and may instead be resolved as a refund where no suitable item is available. <span className={styles.placeholder}>[confirm whether this store offers exchanges and any price-adjustment terms]</span>
+                  {t('pages.refund.exchangesNotGuaranteed')} <span className={styles.placeholder}>[confirm whether this store offers exchanges and any price-adjustment terms]</span>
                 </p>
               </section>
 
               <section className={styles.section} id="problems" aria-labelledby="problems-title">
-                <h2 id="problems-title">9. Damaged, incorrect, faulty, or missing items</h2>
+                <h2 id="problems-title">{t('pages.refund.h2.problems')}</h2>
                 <p>
-                  If an item arrives damaged, incorrect, faulty, or missing, contact us promptly with the order number, a description, and clear photographs of the item and packaging. Keep the item and packaging while the issue is reviewed unless it is unsafe or unnecessary to do so.
+                  {t('pages.refund.problemsReport')}
                 </p>
                 <p>
-                  Do not discard or repair an item before a covered claim is assessed, where reasonably possible. The merchant will offer a remedy permitted by the order terms and applicable law. The word “promptly” must be given a real, operational meaning for each market: <span className={styles.placeholder}>[insert a verified reporting deadline only if one has been approved]</span>.
+                  {t('pages.refund.problemsPromptly')} <span className={styles.placeholder}>[insert a verified reporting deadline only if one has been approved]</span>.
                 </p>
               </section>
 
               <section className={styles.section} id="cancellation" aria-labelledby="cancellation-title">
-                <h2 id="cancellation-title">10. Order cancellation</h2>
+                <h2 id="cancellation-title">{t('pages.refund.h2.cancellation')}</h2>
                 <p>
-                  To request cancellation of an order, contact us promptly. A request is not guaranteed because an order may already have entered fulfilment. If {merchantName} can cancel before dispatch, any amount charged will be handled under the refund process. If cancellation is not possible, the order may be treated as a return.
+                  {t('pages.refund.cancellationRequest', { merchantName })}
                 </p>
                 <p>
-                  Any mandatory right to cancel a distance contract or receive a refund after delivery cannot be removed by this policy. <span className={styles.placeholder}>[add a cancellation cut-off only after operations confirms the actual fulfilment workflow]</span>
+                  {t('pages.refund.cancellationMandatory')} <span className={styles.placeholder}>[add a cancellation cut-off only after operations confirms the actual fulfilment workflow]</span>
                 </p>
               </section>
 
               <section className={styles.section} id="consumer-rights" aria-labelledby="consumer-rights-title">
-                <h2 id="consumer-rights-title">11. Consumer rights and payment disputes</h2>
+                <h2 id="consumer-rights-title">{t('pages.refund.h2.consumerRights')}</h2>
                 <p>
-                  We ask you to use this process first so that the problem can be understood and resolved. This does not prevent you from using a mandatory consumer ombudsman, small-claims process, statutory rights, or a bank or card chargeback service where available.
+                  {t('pages.refund.consumerRightsProcess')}
                 </p>
                 <p>
-                  Before starting a chargeback, contact us so we can attempt to resolve the issue. Chargeback eligibility, timing, and consequences are determined by the relevant provider and law, not by this policy.
+                  {t('pages.refund.consumerRightsChargeback')}
                 </p>
               </section>
 
               <section className={styles.section} id="contact" aria-labelledby="contact-title">
-                <h2 id="contact-title">12. Returns contact</h2>
+                <h2 id="contact-title">{t('pages.refund.h2.contact')}</h2>
                 <p>
-                  Send return requests and questions to the verified channel below. Use the exact order details to help us locate the purchase, and keep copies of your messages and postage evidence.
+                  {t('pages.refund.contactParagraph')}
                 </p>
                 <div className={styles.contactBlock}>
-                  <p><strong>{merchantName} returns team</strong></p>
+                  <p><strong>{t('pages.refund.contactStrong', { merchantName })}</strong></p>
                   {legalEntityName && <p>{legalEntityName}</p>}
                   {contactEmail ? (
-                    <p>Email: <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
+                    <p>{t('pages.policy.email')} <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
                   ) : (
-                    <p>Email: <span className={styles.placeholder}>[monitored returns email to be added]</span></p>
+                    <p>{t('pages.policy.email')} <span className={styles.placeholder}>[monitored returns email to be added]</span></p>
                   )}
-                  <p>Request form and general enquiries: <Link href="/shop/contact">Contact us</Link>.</p>
+                  <p>{t('pages.refund.enquiriesLead')} <Link href="/home/contact">{t('pages.policy.contactUs')}</Link>.</p>
                 </div>
               </section>
             </div>
 
-            <nav className={styles.related} aria-label="Related policies">
-              <h2 className={styles.relatedTitle}>Continue reading</h2>
+            <nav className={styles.related} aria-label={t('pages.policy.relatedAria')}>
+              <h2 className={styles.relatedTitle}>{t('pages.policy.continueReading')}</h2>
               <div className={styles.relatedGrid}>
-                <Link className={styles.relatedLink} href="/shop/terms-conditions">
-                  <span className={styles.relatedLabel}>Order information</span>
-                  <span>Contract, payment, delivery, and mandatory rights</span>
+                <Link className={styles.relatedLink} href="/home/terms-conditions">
+                  <span className={styles.relatedLabel}>{t('pages.refund.relatedOrderLabel')}</span>
+                  <span>{t('pages.refund.relatedOrderText')}</span>
                 </Link>
-                <Link className={styles.relatedLink} href="/shop/shipping-policy">
-                  <span className={styles.relatedLabel}>Delivery issues</span>
-                  <span>Tracking, lost parcels, and delivery expectations</span>
+                <Link className={styles.relatedLink} href="/home/shipping-policy">
+                  <span className={styles.relatedLabel}>{t('pages.refund.relatedShippingLabel')}</span>
+                  <span>{t('pages.refund.relatedShippingText')}</span>
                 </Link>
-                <Link className={styles.relatedLink} href="/shop/privacy-policy">
-                  <span className={styles.relatedLabel}>Request privacy</span>
-                  <span>How information in a return request is used</span>
+                <Link className={styles.relatedLink} href="/home/privacy-policy">
+                  <span className={styles.relatedLabel}>{t('pages.refund.relatedPrivacyLabel')}</span>
+                  <span>{t('pages.refund.relatedPrivacyText')}</span>
                 </Link>
               </div>
             </nav>
 
-            <p className={styles.policyFooter}>Keep your order confirmation and return evidence until the matter is fully resolved.</p>
+            <p className={styles.policyFooter}>{t('pages.refund.footer')}</p>
           </article>
         </div>
       </div>

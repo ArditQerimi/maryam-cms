@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { deleteMedia, updateMedia, uploadMedia } from '@/app/cms/actions/media';
 import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Input, cn, inputClass } from '@/components/admin/ui';
 import { formatDate } from '@/lib/cms/format';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export type MediaItem = {
   id: number;
@@ -31,11 +33,11 @@ export type MediaItem = {
 
 type MediaKind = 'all' | 'images' | 'videos' | 'documents';
 
-const KINDS: Array<{ value: MediaKind; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'images', label: 'Images' },
-  { value: 'videos', label: 'Videos' },
-  { value: 'documents', label: 'Documents' },
+const KINDS: Array<{ value: MediaKind; labelKey: keyof Dictionary }> = [
+  { value: 'all', labelKey: 'cmsshared.media.kind_all' },
+  { value: 'images', labelKey: 'cmsshared.media.kind_images' },
+  { value: 'videos', labelKey: 'cmsshared.media.kind_videos' },
+  { value: 'documents', labelKey: 'cmsshared.media.kind_documents' },
 ];
 
 function isImage(item: MediaItem) {
@@ -53,6 +55,7 @@ function formatBytes(value: number | null | undefined) {
 }
 
 export default function MediaLibrary({ initialItems }: { initialItems: MediaItem[] }) {
+  const { t } = useLocale();
   const [items, setItems] = useState<MediaItem[]>(initialItems);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<MediaKind>('all');
@@ -80,11 +83,11 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
       const data = (await res.json()) as { items?: MediaItem[] };
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch {
-      toast.error('Could not load the media library.');
+      toast.error(t('cmsshared.media.load_error'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Debounced refresh whenever the search box or the type filter changes.
   useEffect(() => {
@@ -115,7 +118,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
   async function uploadFiles(files: File[]) {
     if (!files.length) return;
     if (files.length > 12) {
-      toast.error('Upload up to 12 files at a time.');
+      toast.error(t('cmsshared.media.upload_limit'));
       return;
     }
     setUploading(true);
@@ -124,13 +127,17 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
       for (const file of files) formData.append('files', file);
       const result = await uploadMedia(formData);
       if (!result.ok) {
-        toast.error(result.error || 'Upload failed.');
+        toast.error(result.error || t('cmsshared.media.upload_error'));
         return;
       }
-      toast.success(`Uploaded ${result.uploaded} file${result.uploaded === 1 ? '' : 's'}.`);
+      toast.success(
+        result.uploaded === 1
+          ? t('cmsshared.media.uploaded_one', { count: String(result.uploaded) })
+          : t('cmsshared.media.uploaded_many', { count: String(result.uploaded) }),
+      );
       await load(query, kind);
     } catch {
-      toast.error('Upload failed.');
+      toast.error(t('cmsshared.media.upload_error'));
     } finally {
       setUploading(false);
     }
@@ -156,10 +163,10 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
     try {
       const result = await updateMedia(draft.id, { originalName: name, altText: alt });
       if (!result.ok) {
-        toast.error(result.error || 'Could not update the file.');
+        toast.error(result.error || t('cmsshared.media.update_error'));
         return;
       }
-      toast.success('File updated.');
+      toast.success(t('cmsshared.media.updated'));
       setItems((current) =>
         current.map((item) =>
           item.id === draft.id
@@ -168,7 +175,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
         ),
       );
     } catch {
-      toast.error('Could not update the file.');
+      toast.error(t('cmsshared.media.update_error'));
     } finally {
       setSaving(false);
     }
@@ -178,28 +185,28 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
     if (!selected) return;
     try {
       await navigator.clipboard.writeText(selected.url);
-      toast.success('URL copied to clipboard.');
+      toast.success(t('cmsshared.media.copy_success'));
     } catch {
-      toast.error('Could not copy the URL.');
+      toast.error(t('cmsshared.media.copy_error'));
     }
   }
 
   async function onDelete() {
     if (!selected || deleting) return;
     const label = selected.originalName || selected.filename;
-    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    if (!window.confirm(t('cmsshared.media.delete_confirm', { label }))) return;
     setDeleting(true);
     try {
       const result = await deleteMedia(selected.id);
       if (!result.ok) {
-        toast.error(result.error || 'Could not delete the file.');
+        toast.error(result.error || t('cmsshared.media.delete_error'));
         return;
       }
-      toast.success('File deleted.');
+      toast.success(t('cmsshared.media.deleted'));
       setItems((current) => current.filter((item) => item.id !== selected.id));
       setSelectedId(null);
     } catch {
-      toast.error('Could not delete the file.');
+      toast.error(t('cmsshared.media.delete_error'));
     } finally {
       setDeleting(false);
     }
@@ -225,7 +232,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
               ) : (
                 <UploadCloud size={14} />
               )}
-              {uploading ? 'Uploading…' : 'Upload'}
+              {uploading ? t('cmsshared.media.uploading') : t('cmsshared.media.upload')}
             </Button>
             <div className="relative">
               <Search
@@ -236,14 +243,14 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search media…"
-                aria-label="Search media"
+                placeholder={t('cmsshared.media.search_placeholder')}
+                aria-label={t('cmsshared.media.search_aria')}
                 className={cn(inputClass, 'w-56 pl-9')}
               />
             </div>
             {loading ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400">
-                <Loader2 size={13} className="animate-spin" /> Loading…
+                <Loader2 size={13} className="animate-spin" /> {t('cmsshared.media.loading')}
               </span>
             ) : null}
           </div>
@@ -261,7 +268,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                     : 'text-zinc-500 hover:text-zinc-700',
                 )}
               >
-                {entry.label}
+                {t(entry.labelKey)}
               </button>
             ))}
           </div>
@@ -282,21 +289,25 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
         >
           {dragOver ? (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-[#6d6be8]/10 text-sm font-medium text-[#4f4dd6]">
-              Drop files to upload
+              {t('cmsshared.media.drop')}
             </div>
           ) : null}
 
           {items.length === 0 ? (
             <EmptyState
-              title={query || kind !== 'all' ? 'Nothing matches your search' : 'The library is empty'}
+              title={
+                query || kind !== 'all'
+                  ? t('cmsshared.media.no_results_title')
+                  : t('cmsshared.media.empty_title')
+              }
               description={
                 query || kind !== 'all'
-                  ? 'Try a different search term or switch the type filter back to All.'
-                  : 'Upload images, videos or PDFs — or drag and drop them right here.'
+                  ? t('cmsshared.media.no_results_description')
+                  : t('cmsshared.media.empty_description')
               }
               action={
                 <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                  <UploadCloud size={14} /> Upload files
+                  <UploadCloud size={14} /> {t('cmsshared.media.upload_files')}
                 </Button>
               }
               icon={<UploadCloud size={28} />}
@@ -347,8 +358,10 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
         </div>
 
         <p className="mt-3 text-xs text-zinc-400">
-          {items.length} {items.length === 1 ? 'file' : 'files'}
-          {uploading ? ' · Uploading…' : ''}
+          {items.length === 1
+            ? t('cmsshared.media.count_one', { count: items.length })
+            : t('cmsshared.media.count_many', { count: items.length })}
+          {uploading ? t('cmsshared.media.uploading_suffix') : ''}
         </p>
       </div>
 
@@ -357,10 +370,10 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
         <aside className="w-full shrink-0 xl:w-80">
           <Card>
             <CardHeader className="flex items-center justify-between">
-              <CardTitle>Details</CardTitle>
+              <CardTitle>{t('cmsshared.media.details_title')}</CardTitle>
               <button
                 type="button"
-                aria-label="Close details"
+                aria-label={t('cmsshared.media.close_aria')}
                 onClick={() => setSelectedId(null)}
                 className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
               >
@@ -383,7 +396,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                     ) : (
                       <FileText size={30} />
                     )}
-                    <span className="text-xs">{selected.mimeType || 'File'}</span>
+                    <span className="text-xs">{selected.mimeType || t('cmsshared.media.file_fallback')}</span>
                   </span>
                 )}
               </div>
@@ -394,7 +407,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                     htmlFor="media-filename"
                     className="mb-1.5 block text-sm font-medium text-zinc-700"
                   >
-                    File name
+                    {t('cmsshared.media.file_name_label')}
                   </label>
                   <Input
                     id="media-filename"
@@ -411,12 +424,12 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                     htmlFor="media-alt"
                     className="mb-1.5 block text-sm font-medium text-zinc-700"
                   >
-                    Alt text
+                    {t('cmsshared.media.alt_label')}
                   </label>
                   <Input
                     id="media-alt"
                     value={draft?.alt ?? ''}
-                    placeholder="Describe this file for screen readers"
+                    placeholder={t('cmsshared.media.alt_placeholder')}
                     onChange={(event) =>
                       setDraft((current) =>
                         current ? { ...current, alt: event.target.value } : current,
@@ -429,40 +442,40 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
               <div className="flex gap-2">
                 <Button size="sm" className="flex-1" onClick={onSave} disabled={saving}>
                   {saving ? <Loader2 size={13} className="animate-spin" /> : null}
-                  Save changes
+                  {t('cmsshared.action.save_changes')}
                 </Button>
                 <Button size="sm" variant="outline" onClick={onCopyUrl}>
-                  <Copy size={13} /> Copy URL
+                  <Copy size={13} /> {t('cmsshared.media.copy_url')}
                 </Button>
               </div>
 
               <dl className="space-y-1.5 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
                 <div className="flex justify-between gap-3">
-                  <dt>Type</dt>
+                  <dt>{t('cmsshared.media.meta_type')}</dt>
                   <dd className="truncate text-right text-zinc-700">
                     {selected.mimeType || '—'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>Size</dt>
+                  <dt>{t('cmsshared.media.meta_size')}</dt>
                   <dd className="text-right text-zinc-700">{formatBytes(selected.sizeBytes)}</dd>
                 </div>
                 {selected.width && selected.height ? (
                   <div className="flex justify-between gap-3">
-                    <dt>Dimensions</dt>
+                    <dt>{t('cmsshared.media.meta_dimensions')}</dt>
                     <dd className="text-right text-zinc-700">
                       {selected.width} × {selected.height}
                     </dd>
                   </div>
                 ) : null}
                 <div className="flex justify-between gap-3">
-                  <dt>Uploaded</dt>
+                  <dt>{t('cmsshared.media.meta_uploaded')}</dt>
                   <dd className="text-right text-zinc-700">
                     {formatDate(selected.createdAt, true)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>Folder</dt>
+                  <dt>{t('cmsshared.media.meta_folder')}</dt>
                   <dd className="truncate text-right text-zinc-700">{selected.folder}</dd>
                 </div>
               </dl>
@@ -476,7 +489,7 @@ export default function MediaLibrary({ initialItems }: { initialItems: MediaItem
                 disabled={deleting}
               >
                 {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                Delete file
+                {t('cmsshared.media.delete_file')}
               </Button>
             </CardContent>
           </Card>

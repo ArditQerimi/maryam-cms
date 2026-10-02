@@ -5,6 +5,7 @@ import { getContextDb } from '@/lib/tenant';
 import { customers, sales, users } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate, formatMoney } from '@/lib/cms/format';
+import { getT } from '@/lib/i18n/server';
 import {
   Badge,
   Button,
@@ -44,6 +45,7 @@ export default async function OrdersPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const params = await searchParams;
 
   const q = (params.q || '').trim().slice(0, 120);
@@ -120,11 +122,20 @@ export default async function OrdersPage({
   const stat = stats[0] ?? { total: 0, pending: 0, completed: 0, returned: 0, revenue: '0' };
 
   const statCards = [
-    { label: 'Total orders', value: stat.total.toLocaleString(), href: '/cms/orders' },
-    { label: 'Pending', value: stat.pending.toLocaleString(), href: '/cms/orders?status=Pending' },
-    { label: 'Completed', value: stat.completed.toLocaleString(), href: '/cms/orders?status=Completed' },
-    { label: 'Gross revenue', value: formatMoney(stat.revenue), href: '/cms/orders' },
+    { label: t('cmsorders.orders.stat_total'), value: stat.total.toLocaleString(), href: '/cms/orders' },
+    { label: t('cmsorders.status.pending'), value: stat.pending.toLocaleString(), href: '/cms/orders?status=Pending' },
+    { label: t('cmsorders.status.completed'), value: stat.completed.toLocaleString(), href: '/cms/orders?status=Completed' },
+    { label: t('cmsorders.orders.stat_revenue'), value: formatMoney(stat.revenue), href: '/cms/orders' },
   ];
+
+  // Display-only labels for the status tabs; href/status params keep raw values.
+  const statusLabel: Record<string, string> = {
+    All: t('cmsorders.status.all'),
+    Pending: t('cmsorders.status.pending'),
+    Completed: t('cmsorders.status.completed'),
+    Cancelled: t('cmsorders.status.cancelled'),
+    Returned: t('cmsorders.status.returned'),
+  };
 
   const paginationParams: Record<string, string | undefined> = {};
   if (q) paginationParams.q = q;
@@ -137,8 +148,8 @@ export default async function OrdersPage({
   return (
     <div>
       <PageHeader
-        title="Orders"
-        description="Track storefront and POS sales, fulfilment, refunds and notes."
+        title={t('cmsorders.orders.title')}
+        description={t('cmsorders.orders.description')}
       />
 
       {/* Stat strip */}
@@ -180,7 +191,7 @@ export default async function OrdersPage({
                   : 'rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50'
               }
             >
-              {tab}
+              {statusLabel[tab] ?? tab}
             </Link>
           );
         })}
@@ -196,7 +207,7 @@ export default async function OrdersPage({
             htmlFor="q"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Search
+            {t('cmsorders.orders.filter_search')}
           </label>
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -204,7 +215,7 @@ export default async function OrdersPage({
               id="q"
               name="q"
               defaultValue={q}
-              placeholder="Reference or customer…"
+              placeholder={t('cmsorders.orders.filter_placeholder')}
               className="pl-9"
             />
           </div>
@@ -214,7 +225,7 @@ export default async function OrdersPage({
             htmlFor="from"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            From
+            {t('cmsorders.orders.filter_from')}
           </label>
           <Input id="from" name="from" type="date" defaultValue={params.from || ''} />
         </div>
@@ -223,31 +234,33 @@ export default async function OrdersPage({
             htmlFor="to"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            To
+            {t('cmsorders.orders.filter_to')}
           </label>
           <Input id="to" name="to" type="date" defaultValue={params.to || ''} />
         </div>
         {status ? <input type="hidden" name="status" value={status} /> : null}
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="md">
-            Filter
+            {t('cmsorders.orders.filter_submit')}
           </Button>
           <Link
             href="/cms/orders"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Clear
+            {t('cmsorders.orders.filter_clear')}
           </Link>
         </div>
       </form>
 
       {rows.length === 0 ? (
         <EmptyState
-          title={hasFilters ? 'No orders match these filters' : 'No orders yet'}
+          title={
+            hasFilters ? t('cmsorders.orders.empty_filtered_title') : t('cmsorders.orders.empty_title')
+          }
           description={
             hasFilters
-              ? 'Try a different search term, date range or status.'
-              : 'Orders placed in the shop and at the POS will appear here.'
+              ? t('cmsorders.orders.empty_filtered_desc')
+              : t('cmsorders.orders.empty_desc')
           }
           icon={<Receipt size={28} />}
         />
@@ -255,14 +268,14 @@ export default async function OrdersPage({
         <Table>
           <thead>
             <tr>
-              <Th>Order</Th>
-              <Th>Date</Th>
-              <Th>Customer</Th>
-              <Th className="text-right">Items</Th>
-              <Th>Payment</Th>
-              <Th className="text-right">Total</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
+              <Th>{t('cmsorders.orders.th_order')}</Th>
+              <Th>{t('cmsorders.orders.th_date')}</Th>
+              <Th>{t('cmsorders.orders.th_customer')}</Th>
+              <Th className="text-right">{t('cmsorders.orders.th_items')}</Th>
+              <Th>{t('cmsorders.orders.th_payment')}</Th>
+              <Th className="text-right">{t('cmsorders.orders.th_total')}</Th>
+              <Th>{t('cmsorders.orders.th_status')}</Th>
+              <Th className="text-right">{t('cmsorders.orders.th_actions')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -276,14 +289,16 @@ export default async function OrdersPage({
                     {order.reference}
                   </Link>
                   <span className="block text-xs text-zinc-400">
-                    {order.isOnline ? 'Storefront' : 'Point of sale'}
+                    {order.isOnline
+                      ? t('cmsorders.orders.channel_storefront')
+                      : t('cmsorders.orders.channel_pos')}
                   </span>
                 </Td>
                 <Td className="whitespace-nowrap text-zinc-500">
                   {formatDate(order.createdAt, true)}
                 </Td>
                 <Td className="max-w-[200px] truncate">
-                  {order.customerName || 'Guest'}
+                  {order.customerName || t('cmsorders.orders.guest')}
                 </Td>
                 <Td className="text-right">
                   <Badge tone="neutral">{order.itemsCount}</Badge>
@@ -303,13 +318,13 @@ export default async function OrdersPage({
                       href={`/cms/orders/${order.id}`}
                       className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      View
+                      {t('cmsorders.orders.action_view')}
                     </Link>
                     <Link
                       href={`/cms/orders/${order.id}#fulfilment`}
                       className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      Fulfil
+                      {t('cmsorders.orders.action_fulfil')}
                     </Link>
                   </div>
                 </Td>

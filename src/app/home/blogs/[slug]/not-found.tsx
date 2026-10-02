@@ -1,20 +1,23 @@
 import Link from 'next/link';
 import { ArrowLeft, BookOpen } from 'lucide-react';
+import { getT } from '@/lib/i18n/server';
 import styles from '../blog.module.css';
 
-export default function BlogPostNotFound() {
+export default async function BlogPostNotFound() {
+  const t = await getT();
+
   return (
     <div className={styles.page}>
       <header className={styles.pageBanner}>
         <div className={styles.container}>
           <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-            <Link href="/shop">Home</Link>
+            <Link href="/home">{t('blog.crumb.home')}</Link>
             <span className={styles.breadcrumbSeparator} aria-hidden="true">
               /
             </span>
-            <Link href="/shop/blogs">Blog</Link>
+            <Link href="/home/blogs">{t('blog.title')}</Link>
           </nav>
-          <h1 className={styles.pageTitle}>Blog</h1>
+          <h1 className={styles.pageTitle}>{t('blog.title')}</h1>
         </div>
       </header>
       <section className={styles.notFound} aria-labelledby="story-not-found-title">
@@ -23,13 +26,13 @@ export default function BlogPostNotFound() {
             <BookOpen size={25} strokeWidth={1.4} />
           </span>
           <h2 id="story-not-found-title" className={styles.notFoundTitle}>
-            This post could not be found.
+            {t('blog.notFound.title')}
           </h2>
           <p className={styles.notFoundText}>
-            The address may be incomplete, or the post may have been moved. Return to the blog to browse the latest stories.
+            {t('blog.notFound.body')}
           </p>
-          <Link className={styles.emptyAction} href="/shop/blogs">
-            <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" /> Return to the blog
+          <Link className={styles.emptyAction} href="/home/blogs">
+            <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" /> {t('blog.notFound.return')}
           </Link>
         </div>
       </section>

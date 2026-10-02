@@ -151,7 +151,7 @@ export async function setActiveTheme(themeId: string): Promise<ActionResult> {
 
     revalidatePath('/cms/appearance/themes');
     revalidatePath('/cms/appearance/customize');
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true };
   } catch (error) {
     console.error('[cms/appearance] setActiveTheme failed', error);
@@ -178,7 +178,7 @@ export async function saveThemeCustomizations(payload: unknown): Promise<ActionR
     await patchThemeSettings(company.id, { customizations });
 
     revalidatePath('/cms/appearance/customize');
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true };
   } catch (error) {
     console.error('[cms/appearance] saveThemeCustomizations failed', error);
@@ -230,7 +230,7 @@ export async function saveNavMenu(input: SaveNavMenuInput): Promise<ActionResult
     await writeSettingsKey('nav_menus', menus);
 
     revalidatePath('/cms/appearance/menus');
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true };
   } catch (error) {
     console.error('[cms/appearance] saveNavMenu failed', error);
@@ -262,7 +262,7 @@ export async function saveWidgets(layout: unknown): Promise<ActionResult> {
     await patchThemeSettings(company.id, { widgets: normalized });
 
     revalidatePath('/cms/appearance/widgets');
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true };
   } catch (error) {
     console.error('[cms/appearance] saveWidgets failed', error);

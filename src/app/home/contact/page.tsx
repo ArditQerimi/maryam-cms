@@ -1,140 +1,93 @@
-'use client';
+import type { Metadata } from 'next';
+import { inArray } from 'drizzle-orm';
+import { settingsStore } from '@/db/schema-tenant';
+import { getContextCompany, getContextDb } from '@/lib/tenant';
+import ContactClient from './ContactClient';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import styles from '../bookstore.module.css';
+export const dynamic = 'force-dynamic';
 
-const faqs = [
-  {
-    q: 'Ku mund të shohër titujt dhe çmimet aktuale?',
-    a: 'Hap katalogun për filtrat e disponueshëm, ose hap një produkt për sku, variant, stock dhe çmim të verifikuar nga serveri.',
-  },
-  {
-    q: 'Ku mund të shohër politikat e dorëzimit dhe kthimit?',
-    a: 'Kontrollo politikat e publikuara të Shipping, Refund dhe Terms & Conditions. Ato duhet të përputhen me termat aktualë të tregtarit para publikimit.',
-  },
-  {
-    q: 'Si mund të krijoj një llogari?',
-    a: 'Përdord butonin Register në krye të faqes. Pas regjistrimit mund të shqyrtesh llogarinë dhe porositë e tua.',
-  },
-  {
-    q: 'Si kontactoj tregtarin?',
-    a: 'Kontaktet reale të tregtarit duhet të konfigurohen nga administratori. Faqja nuk paraqet numra, email-e ose adresa të panjohura si të verifikuara.',
-  },
-];
+export const metadata: Metadata = {
+  title: 'Na Kontaktoni',
+  description: 'Kontaktoni dyqanin — informacionet e kontaktit dhe formulari i mesazheve.',
+};
 
-export default function ShopContactPage() {
-  const [open, setOpen] = useState<number | null>(0);
+function readMerchantSettings(values: Record<string, string>) {
+  // Settings saved through the admin forms are JSON-stringified; older rows
+  // are plain text. Accept both so either source renders correctly.
+  const read = (key: string) => {
+    const raw = (values[key] || '').trim();
+    if (!raw) return null;
+    let value = raw;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === 'string') value = parsed.trim();
+    } catch {
+      // plain-text row — use as-is
+    }
+    return value.length > 0 ? value : null;
+  };
+  return {
+    email: read('email'),
+    phone: read('phone'),
+    address: read('address'),
+    mapCoordinates: read('general_map_coordinates'),
+  };
+}
 
-  return (
-    <div className={styles.contactPage}>
-      <div className={styles.container}>
-        <nav className={styles.contactBreadcrumb} aria-label="breadcrumbs">
-          <Link href="/shop">Home</Link>
-          <span>/</span>
-          <span>Na Kontaktoni</span>
-        </nav>
-        <h1 className={styles.contactPageHeader}>Na Kontaktoni</h1>
-      </div>
+/** "lat, lng" → normalized pair; anything else is ignored (address fallback). */
+function normalizeCoordinates(value: string | null): string | null {
+  if (!value) return null;
+  const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(value);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return `${lat},${lng}`;
+}
 
-      <section className={styles.contactMain}>
-        <div className={styles.container}>
-          <div className={styles.contactGrid}>
-            <div className={styles.contactInfo}>
-              <p className={styles.contactInfoTitle}>Informacionet e kontaktit</p>
+export default async function ShopContactPage() {
+  // Merchant contact details come from the tenant settings the admin edits
+  // under Settings → General (settings_store). Missing values stay null and
+  // the client keeps its honest "not configured" placeholders.
+  let merchant = {
+    email: null,
+    phone: null,
+    address: null,
+    mapCoordinates: null,
+  } as {
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    mapCoordinates: string | null;
+  };
+  try {
+    const db = await getContextDb();
+    const rows = await db
+      .select({ key: settingsStore.key, value: settingsStore.value })
+      .from(settingsStore)
+      .where(
+        inArray(settingsStore.key, ['email', 'phone', 'address', 'general_map_coordinates']),
+      );
+    merchant = readMerchantSettings(Object.fromEntries(rows.map((row) => [row.key, row.value])));
+  } catch (error) {
+    console.error('[Contact page] Settings load failed', error);
+  }
 
-              <div className={styles.contactInfoItem}>
-                <div className={styles.contactInfoBody}>
-                  <h3>Email</h3>
-                  <p>[Emaili i verifikuar i tregtarit]</p>
-                </div>
-              </div>
-              <div className={styles.contactInfoItem}>
-                <div className={styles.contactInfoBody}>
-                  <h3>Telefon</h3>
-                  <p>[Numri i verifikuar i tregtarit]</p>
-                </div>
-              </div>
-              <div className={styles.contactInfoItem}>
-                <div className={styles.contactInfoBody}>
-                  <h3>Adresa</h3>
-                  <p>[Adresa e verifikuar e tregtarit]</p>
-                </div>
-              </div>
+  // The map pin prefers the exact coordinates from Settings → General; the
+  // readable address (settings first, company record second) stays the caption.
+  merchant.mapCoordinates = normalizeCoordinates(merchant.mapCoordinates);
 
-              <p className={styles.contactInfoText}>
-                Administratori duhet të plotësojë këto të dhëna me informacionin e
-                vet të biznesit para se faqja të publikohet si kanal kontakti.
-              </p>
-            </div>
+  // Fallback: the company record carries the store's verified postal address,
+  // so the contact panel and the map stay correct before the admin fills
+  // Settings → General. An explicit settings value always wins.
+  if (!merchant.address) {
+    const company = await getContextCompany().catch(() => null);
+    const fallbackAddress = company?.address?.trim();
+    if (fallbackAddress) {
+      merchant = { ...merchant, address: fallbackAddress };
+    }
+  }
 
-            <div className={styles.contactFormPanel}>
-              <p className={styles.contactFormTitle}>Formulari i kontaktit</p>
-              <p className={styles.contactFormText}>
-                Dërgimi është i paaktivizuar derisa tregtari të konfigurojë një
-                ofrues email-i ose një endpoint të verifikuar.
-              </p>
-              <form className={styles.contactForm} aria-describedby="contact-form-unavailable">
-                <fieldset disabled>
-                  <div className={styles.contactFormRow}>
-                    <div className={styles.contactFormGroup}>
-                      <label htmlFor="name">Emri juaj</label>
-                      <input id="name" type="text" placeholder="Emri juaj" required />
-                    </div>
-                    <div className={styles.contactFormGroup}>
-                      <label htmlFor="email">Email juaj</label>
-                      <input id="email" type="email" placeholder="email@shembull.com" required />
-                    </div>
-                  </div>
-                  <div className={styles.contactFormGroup}>
-                    <label htmlFor="subject">Titulli</label>
-                    <input id="subject" type="text" placeholder="Çfarë dëshironi të ndjekë?" />
-                  </div>
-                  <div className={styles.contactFormGroup}>
-                    <label htmlFor="message">Mesazhi juaj</label>
-                    <textarea id="message" placeholder="Shkruani mesazhin tuaj" />
-                  </div>
-                  <button type="submit" className={styles.contactSubmitBtn} disabled>
-                    Dërgimi është i paaktivizuar
-                  </button>
-                </fieldset>
-              </form>
-              <p id="contact-form-unavailable" className={styles.contactFormText} role="note">
-                Ky nuk është një submit funksional dhe nuk ruajtë apo dërgon mesazhe.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.contactFaq}>
-        <div className={styles.container}>
-          <h2 className={styles.contactFaqTitle}>Pyetje të shpeshta</h2>
-          <div className={styles.contactFaqList}>
-            {faqs.map((faq, index) => (
-              <div key={faq.q} className={styles.contactFaqItem}>
-                <button
-                  type="button"
-                  className={styles.contactFaqBtn}
-                  data-open={open === index ? 'true' : 'false'}
-                  onClick={() => setOpen(open === index ? null : index)}
-                  aria-expanded={open === index}
-                >
-                  <span className={styles.contactFaqIcon}>{open === index ? '−' : '+'}</span>
-                  {faq.q}
-                </button>
-                {open === index ? <p className={styles.contactFaqAnswer}>{faq.a}</p> : null}
-              </div>
-            ))}
-          </div>
-
-          <div className={styles.contactFormRow}>
-            <Link href="/shop/shipping-policy">Shipping Policy</Link>
-            <Link href="/shop/refund-policy">Refund Policy</Link>
-            <Link href="/shop/terms-conditions">Terms &amp; Conditions</Link>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+  return <ContactClient merchant={merchant} />;
 }

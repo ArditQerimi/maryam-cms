@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { getContextDb } from '@/lib/tenant';
 import { blogCategories } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import PostForm from '@/components/content/PostForm';
 
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewPostPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const db = await getContextDb();
   const categories = await db
@@ -20,8 +22,8 @@ export default async function NewPostPage() {
   return (
     <div>
       <PageHeader
-        title="New post"
-        description="Draft an article for the storefront blog."
+        title={t('cmscontent.posts.new')}
+        description={t('cmscontent.posts.newDescription')}
       />
       <PostForm
         categories={categories}

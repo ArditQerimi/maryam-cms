@@ -106,10 +106,10 @@ test('client strength guidance never reports a strong score for short input', ()
 });
 
 test('account return paths stay root-relative and inside the account segment', () => {
-  assert.equal(getSafeAccountReturnTo('/shop/account/profile'), '/shop/account/profile');
-  assert.equal(getSafeAccountReturnTo('/shop/account?token=client'), '/shop/account');
-  assert.equal(getSafeAccountReturnTo('https://evil.example/shop/account'), '/shop/account');
-  assert.equal(getSafeAccountReturnTo('//evil.example/shop/account'), '/shop/account');
-  assert.equal(getSafeAccountReturnTo('/customer/orders'), '/shop/account');
-  assert.equal(getSafeAccountReturnTo('/shop/account%2f..%2fcustomer'), '/shop/account');
+  assert.equal(getSafeAccountReturnTo('/home/account/profile'), '/home/account/profile');
+  assert.equal(getSafeAccountReturnTo('/home/account?token=client'), '/home/account');
+  assert.equal(getSafeAccountReturnTo('https://evil.example/home/account'), '/home/account');
+  assert.equal(getSafeAccountReturnTo('//evil.example/home/account'), '/home/account');
+  assert.equal(getSafeAccountReturnTo('/customer/orders'), '/home/account');
+  assert.equal(getSafeAccountReturnTo('/home/account%2f..%2fcustomer'), '/home/account');
 });

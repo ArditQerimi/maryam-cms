@@ -52,6 +52,8 @@ import {
   type ThemeDefinition,
 } from '@/lib/theme/types';
 import { GOOGLE_FONTS } from '@/lib/theme/fonts';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 /** All toggleable homepage sections, derived from the canonical type. */
 const HOMEPAGE_SECTION_KEYS = Object.keys(DEFAULT_CUSTOMIZATIONS.homepage.sections) as Array<
@@ -70,12 +72,12 @@ function defaultCustomizations(theme: ThemeDefinition): ThemeCustomizations {
 }
 
 const SECTIONS = [
-  { id: 'colors', label: 'Colors', icon: Palette },
-  { id: 'typography', label: 'Typography', icon: Type },
-  { id: 'header', label: 'Header', icon: PanelTop },
-  { id: 'footer', label: 'Footer', icon: PanelBottom },
-  { id: 'homepage', label: 'Homepage', icon: Home },
-] as const;
+  { id: 'colors', labelKey: 'cmsshared.customizer.section_colors', icon: Palette },
+  { id: 'typography', labelKey: 'cmsshared.customizer.section_typography', icon: Type },
+  { id: 'header', labelKey: 'cmsshared.customizer.section_header', icon: PanelTop },
+  { id: 'footer', labelKey: 'cmsshared.customizer.section_footer', icon: PanelBottom },
+  { id: 'homepage', labelKey: 'cmsshared.customizer.section_homepage', icon: Home },
+] as const satisfies ReadonlyArray<{ id: string; labelKey: keyof Dictionary; icon: unknown }>;
 
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -96,32 +98,41 @@ function blankSlide(): HeroSlide {
   };
 }
 
-const COLOR_ROWS: Array<{ key: keyof ThemeColors; label: string }> = [
-  { key: 'primary', label: 'Primary' },
-  { key: 'secondary', label: 'Secondary' },
-  { key: 'background', label: 'Background' },
-  { key: 'surface', label: 'Surface' },
-  { key: 'text', label: 'Text' },
-  { key: 'accent', label: 'Accent' },
+const COLOR_ROWS: Array<{ key: keyof ThemeColors; labelKey: keyof Dictionary }> = [
+  { key: 'primary', labelKey: 'cmsshared.customizer.color_primary' },
+  { key: 'secondary', labelKey: 'cmsshared.customizer.color_secondary' },
+  { key: 'background', labelKey: 'cmsshared.customizer.color_background' },
+  { key: 'surface', labelKey: 'cmsshared.customizer.color_surface' },
+  { key: 'text', labelKey: 'cmsshared.customizer.color_text' },
+  { key: 'accent', labelKey: 'cmsshared.customizer.color_accent' },
 ];
 
-const SECTION_LABELS: Record<HomepageSectionKey, string> = {
-  hero: 'Hero',
-  featured: 'Featured products',
-  categories: 'Categories',
-  latestPosts: 'Latest blog posts',
-  testimonials: 'Testimonials',
-  stats: 'Stats',
+const SECTION_LABEL_KEYS: Record<HomepageSectionKey, keyof Dictionary> = {
+  hero: 'cmsshared.customizer.home_hero',
+  featured: 'cmsshared.customizer.home_featured',
+  categories: 'cmsshared.customizer.home_categories',
+  latestPosts: 'cmsshared.customizer.home_latest_posts',
+  testimonials: 'cmsshared.customizer.home_testimonials',
+  stats: 'cmsshared.customizer.home_stats',
 };
+
+const HEADER_BG_MODES: Array<{
+  value: ThemeCustomizations['header']['headerBgMode'];
+  labelKey: keyof Dictionary;
+}> = [
+  { value: 'transparent', labelKey: 'cmsshared.customizer.bg_transparent' },
+  { value: 'white', labelKey: 'cmsshared.customizer.bg_white' },
+  { value: 'custom', labelKey: 'cmsshared.customizer.bg_custom' },
+];
 
 /** Widths are the viewport the iframe actually renders at — the preview is scaled
  *  down to fit the panel so the storefront's media queries see a real device
  *  width instead of the narrow panel (which made desktop render the mobile layout). */
 const DEVICES = [
-  { id: 'desktop', label: 'Desktop', icon: Monitor, width: 1440 },
-  { id: 'tablet', label: 'Tablet', icon: Tablet, width: 768 },
-  { id: 'mobile', label: 'Mobile', icon: Smartphone, width: 375 },
-] as const;
+  { id: 'desktop', labelKey: 'cmsshared.customizer.device_desktop', icon: Monitor, width: 1440 },
+  { id: 'tablet', labelKey: 'cmsshared.customizer.device_tablet', icon: Tablet, width: 768 },
+  { id: 'mobile', labelKey: 'cmsshared.customizer.device_mobile', icon: Smartphone, width: 375 },
+] as const satisfies ReadonlyArray<{ id: string; labelKey: keyof Dictionary; icon: unknown; width: number }>;
 
 type DeviceId = (typeof DEVICES)[number]['id'];
 
@@ -203,13 +214,14 @@ function ColorRow({
   value: string;
   onChange: (next: string) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div>
       <Label>{label}</Label>
       <div className="flex items-center gap-2">
         <input
           type="color"
-          aria-label={`${label} colour picker`}
+          aria-label={t('cmsshared.customizer.color_picker_aria', { label })}
           className="h-9 w-11 cursor-pointer rounded border border-zinc-300 bg-white p-1"
           value={isHex(value) ? value : '#000000'}
           onChange={(event) => onChange(event.target.value)}
@@ -237,6 +249,7 @@ function SortableSlide({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: slide.id,
   });
+  const { t } = useLocale();
 
   return (
     <div
@@ -251,7 +264,7 @@ function SortableSlide({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            aria-label={`Reorder slide ${index + 1}`}
+            aria-label={t('cmsshared.customizer.slide_reorder_aria', { number: index + 1 })}
             className="cursor-grab rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing"
             {...attributes}
             {...listeners}
@@ -259,12 +272,12 @@ function SortableSlide({
             <GripVertical size={13} />
           </button>
           <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-            Slide {index + 1}
+            {t('cmsshared.customizer.slide_number', { number: index + 1 })}
           </span>
         </div>
         <button
           type="button"
-          aria-label="Remove slide"
+          aria-label={t('cmsshared.customizer.remove_slide_aria')}
           onClick={onRemove}
           className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
         >
@@ -286,13 +299,15 @@ function SortableSlide({
           </span>
         )}
         <span className="text-xs text-zinc-500">
-          {slide.image ? 'Change image' : 'Choose slide image'}
+          {slide.image
+            ? t('cmsshared.customizer.change_image')
+            : t('cmsshared.customizer.choose_slide_image')}
         </span>
       </button>
 
       <div className="mt-2 space-y-2">
         <div>
-          <Label>Eyebrow / category</Label>
+          <Label>{t('cmsshared.customizer.eyebrow')}</Label>
           <TextInput
             value={slide.category}
             onChange={(value) => onPatch({ category: value })}
@@ -300,7 +315,7 @@ function SortableSlide({
           />
         </div>
         <div>
-          <Label>Title</Label>
+          <Label>{t('cmsshared.field.title')}</Label>
           <TextInput
             value={slide.title}
             onChange={(value) => onPatch({ title: value })}
@@ -309,7 +324,7 @@ function SortableSlide({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label>Price</Label>
+            <Label>{t('cmsshared.customizer.price')}</Label>
             <TextInput
               value={slide.price}
               onChange={(value) => onPatch({ price: value })}
@@ -317,16 +332,16 @@ function SortableSlide({
             />
           </div>
           <div>
-            <Label>Link</Label>
+            <Label>{t('cmsshared.customizer.link')}</Label>
             <TextInput
               value={slide.url}
               onChange={(value) => onPatch({ url: value })}
-              placeholder="/shop/products/12"
+              placeholder="/home/products/12"
             />
           </div>
         </div>
         <div>
-          <Label>Button label</Label>
+          <Label>{t('cmsshared.customizer.button_label')}</Label>
           <TextInput
             value={slide.ctaLabel}
             onChange={(value) => onPatch({ ctaLabel: value })}
@@ -358,6 +373,7 @@ export default function Customizer({
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
+  const { t } = useLocale();
 
   const slideSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -376,7 +392,7 @@ export default function Customizer({
 
   const dirty = JSON.stringify(state) !== JSON.stringify(initial);
 
-  const previewUrl = stamp ? `/shop?preview=1&ts=${stamp}` : '/shop?preview=1';
+  const previewUrl = stamp ? `/home?preview=1&ts=${stamp}` : '/home?preview=1';
 
   /** Debounced postMessage — never reloads the iframe. */
   useEffect(() => {
@@ -415,11 +431,11 @@ export default function Customizer({
     setSaving(true);
     try {
       const result = await saveThemeCustomizations(state);
-      if (result.ok) toast.success('Theme published — the storefront is updated.');
-      else toast.error(result.error || 'Could not publish the theme.');
+      if (result.ok) toast.success(t('cmsshared.customizer.published'));
+      else toast.error(result.error || t('cmsshared.customizer.publish_error'));
     } catch (error) {
       console.error('[cms/appearance] publish failed', error);
-      toast.error('Something went wrong while publishing.');
+      toast.error(t('cmsshared.customizer.publish_failed'));
     } finally {
       setSaving(false);
     }
@@ -432,13 +448,13 @@ export default function Customizer({
       const result = await resetThemeCustomizations();
       if (result.ok) {
         setState(defaultCustomizations(theme));
-        toast.success('Customizations reset to the theme defaults.');
+        toast.success(t('cmsshared.customizer.reset_done'));
       } else {
-        toast.error(result.error || 'Could not reset the customizations.');
+        toast.error(result.error || t('cmsshared.customizer.reset_error'));
       }
     } catch (error) {
       console.error('[cms/appearance] reset failed', error);
-      toast.error('Something went wrong while resetting.');
+      toast.error(t('cmsshared.customizer.reset_failed'));
     } finally {
       setSaving(false);
     }
@@ -553,13 +569,12 @@ export default function Customizer({
         return (
           <div className="space-y-4">
             <p className="text-[11px] leading-relaxed text-zinc-400">
-              Defaults come from the “{theme.name}” theme — anything you change here is stored as
-              an override.
+              {t('cmsshared.customizer.colors_help', { name: theme.name })}
             </p>
             {COLOR_ROWS.map((row) => (
               <ColorRow
                 key={row.key}
-                label={row.label}
+                label={t(row.labelKey)}
                 value={state.colors[row.key]}
                 onChange={(value) => setColor(row.key, value)}
               />
@@ -571,7 +586,7 @@ export default function Customizer({
         return (
           <div className="space-y-4">
             <div>
-              <Label>Heading font</Label>
+              <Label>{t('cmsshared.customizer.heading_font')}</Label>
               <Select
                 className="py-1.5 text-xs"
                 value={state.fonts.heading}
@@ -585,7 +600,7 @@ export default function Customizer({
               </Select>
             </div>
             <div>
-              <Label>Body font</Label>
+              <Label>{t('cmsshared.customizer.body_font')}</Label>
               <Select
                 className="py-1.5 text-xs"
                 value={state.fonts.body}
@@ -599,14 +614,14 @@ export default function Customizer({
               </Select>
             </div>
             <div>
-              <Label>Base font size</Label>
+              <Label>{t('cmsshared.customizer.base_font_size')}</Label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
                   min={12}
                   max={20}
                   step={1}
-                  aria-label="Base font size"
+                  aria-label={t('cmsshared.customizer.base_font_size')}
                   className="flex-1 accent-[#6d6be8]"
                   value={state.fonts.baseSize}
                   onChange={(event) =>
@@ -623,13 +638,13 @@ export default function Customizer({
                 className="text-lg font-semibold text-zinc-900"
                 style={{ fontFamily: `'${state.fonts.heading}', serif` }}
               >
-                Heading preview
+                {t('cmsshared.customizer.heading_preview')}
               </p>
               <p
                 className="mt-1 text-xs text-zinc-600"
                 style={{ fontFamily: `'${state.fonts.body}', sans-serif` }}
               >
-                Body preview — the quick brown fox jumps over the lazy dog.
+                {t('cmsshared.customizer.body_preview')}
               </p>
             </div>
           </div>
@@ -639,7 +654,7 @@ export default function Customizer({
         return (
           <div className="space-y-4">
             <div>
-              <Label>Logo</Label>
+              <Label>{t('cmsshared.customizer.logo')}</Label>
               <button
                 type="button"
                 onClick={() => setPicker({ kind: 'logo' })}
@@ -654,7 +669,9 @@ export default function Customizer({
                   </span>
                 )}
                 <span className="text-xs text-zinc-500">
-                  {state.header.logo ? 'Change logo' : 'Choose from media library'}
+                  {state.header.logo
+                    ? t('cmsshared.customizer.change_logo')
+                    : t('cmsshared.customizer.choose_media')}
                 </span>
               </button>
               {state.header.logo ? (
@@ -663,29 +680,29 @@ export default function Customizer({
                   className="mt-1 text-[11px] text-zinc-400 hover:text-red-500"
                   onClick={() => patchSection('header', { logo: '' })}
                 >
-                  Remove logo
+                  {t('cmsshared.customizer.remove_logo')}
                 </button>
               ) : null}
             </div>
 
             <div>
-              <Label>Site name</Label>
+              <Label>{t('cmsshared.customizer.site_name')}</Label>
               <TextInput
                 value={state.header.siteName}
                 onChange={(value) => patchSection('header', { siteName: value })}
-                placeholder="My store"
+                placeholder={t('cmsshared.customizer.site_name_ph')}
               />
             </div>
             <div>
-              <Label>Tagline</Label>
+              <Label>{t('cmsshared.customizer.tagline')}</Label>
               <TextInput
                 value={state.header.tagline}
                 onChange={(value) => patchSection('header', { tagline: value })}
-                placeholder="Just another store"
+                placeholder={t('cmsshared.customizer.tagline_ph')}
               />
             </div>
             <div>
-              <Label>Navigation style</Label>
+              <Label>{t('cmsshared.customizer.nav_style')}</Label>
               <Select
                 className="py-1.5 text-xs"
                 value={state.header.navStyle}
@@ -695,46 +712,46 @@ export default function Customizer({
                   })
                 }
               >
-                <option value="standard">Standard</option>
-                <option value="centered">Centered</option>
-                <option value="minimal">Minimal</option>
+                <option value="standard">{t('cmsshared.customizer.nav_standard')}</option>
+                <option value="centered">{t('cmsshared.customizer.nav_centered')}</option>
+                <option value="minimal">{t('cmsshared.customizer.nav_minimal')}</option>
               </Select>
             </div>
 
             <Toggle
-              label="Show search"
+              label={t('cmsshared.customizer.show_search')}
               checked={state.header.showSearch}
               onChange={(value) => patchSection('header', { showSearch: value })}
             />
             <Toggle
-              label="Show cart"
+              label={t('cmsshared.customizer.show_cart')}
               checked={state.header.showCart}
               onChange={(value) => patchSection('header', { showCart: value })}
             />
 
             <div>
-              <Label>Header background</Label>
+              <Label>{t('cmsshared.customizer.header_background')}</Label>
               <div className="grid grid-cols-3 gap-1">
-                {(['transparent', 'white', 'custom'] as const).map((option) => (
+                {HEADER_BG_MODES.map((option) => (
                   <button
-                    key={option}
+                    key={option.value}
                     type="button"
-                    onClick={() => patchSection('header', { headerBgMode: option })}
+                    onClick={() => patchSection('header', { headerBgMode: option.value })}
                     className={cn(
                       'rounded border py-1.5 text-xs capitalize transition',
-                      state.header.headerBgMode === option
+                      state.header.headerBgMode === option.value
                         ? 'border-[#6d6be8] bg-[#6d6be8] text-white'
                         : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50',
                     )}
                   >
-                    {option}
+                    {t(option.labelKey)}
                   </button>
                 ))}
               </div>
               {state.header.headerBgMode === 'custom' ? (
                 <div className="mt-2">
                   <ColorRow
-                    label="Custom header colour"
+                    label={t('cmsshared.customizer.custom_header_colour')}
                     value={state.header.headerBgColor || '#ffffff'}
                     onChange={(value) => patchSection('header', { headerBgColor: value })}
                   />
@@ -748,7 +765,7 @@ export default function Customizer({
         return (
           <div className="space-y-4">
             <div>
-              <Label>Footer columns</Label>
+              <Label>{t('cmsshared.customizer.footer_columns')}</Label>
               <div className="grid grid-cols-4 gap-1">
                 {[1, 2, 3, 4].map((count) => (
                   <button
@@ -769,35 +786,35 @@ export default function Customizer({
             </div>
 
             <div>
-              <Label>Copyright text</Label>
+              <Label>{t('cmsshared.customizer.copyright')}</Label>
               <TextInput
                 value={state.footer.copyright}
                 onChange={(value) => patchSection('footer', { copyright: value })}
-                placeholder="© 2026 My store. All rights reserved."
+                placeholder={t('cmsshared.customizer.copyright_ph')}
               />
             </div>
 
             <ColorRow
-              label="Footer background (empty = default)"
+              label={t('cmsshared.customizer.footer_bg')}
               value={state.footer.background || '#faf7f1'}
               onChange={(value) => patchSection('footer', { background: value })}
             />
 
             <div className="space-y-3 border-t border-zinc-100 pt-3">
               <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Columns
+                {t('cmsshared.customizer.columns')}
               </span>
               {state.footer.items.slice(0, state.footer.columns).map((column, columnIndex) => (
                 <div key={columnIndex} className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                      Column {columnIndex + 1}
+                      {t('cmsshared.customizer.column_number', { number: columnIndex + 1 })}
                     </span>
                   </div>
                   <TextInput
                     value={column.title}
                     onChange={(value) => patchColumn(columnIndex, { title: value })}
-                    placeholder="Column title"
+                    placeholder={t('cmsshared.customizer.column_title_ph')}
                   />
 
                   <div className="mt-2 space-y-2">
@@ -808,12 +825,12 @@ export default function Customizer({
                       >
                         <div className="mb-1.5 flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                            Link {linkIndex + 1}
+                            {t('cmsshared.customizer.link_number', { number: linkIndex + 1 })}
                           </span>
                           <div className="flex gap-1">
                             <button
                               type="button"
-                              aria-label="Move link up"
+                              aria-label={t('cmsshared.customizer.move_link_up')}
                               disabled={linkIndex === 0}
                               onClick={() => moveLink(columnIndex, linkIndex, -1)}
                               className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
@@ -822,7 +839,7 @@ export default function Customizer({
                             </button>
                             <button
                               type="button"
-                              aria-label="Move link down"
+                              aria-label={t('cmsshared.customizer.move_link_down')}
                               disabled={linkIndex === column.links.length - 1}
                               onClick={() => moveLink(columnIndex, linkIndex, 1)}
                               className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
@@ -831,7 +848,7 @@ export default function Customizer({
                             </button>
                             <button
                               type="button"
-                              aria-label="Remove link"
+                              aria-label={t('cmsshared.customizer.remove_link')}
                               onClick={() => removeLink(columnIndex, linkIndex)}
                               className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
                             >
@@ -842,13 +859,13 @@ export default function Customizer({
                         <TextInput
                           value={link.label}
                           onChange={(value) => patchLink(columnIndex, linkIndex, { label: value })}
-                          placeholder="Label"
+                          placeholder={t('cmsshared.field.label')}
                         />
                         <div className="mt-1.5">
                           <TextInput
                             value={link.url}
                             onChange={(value) => patchLink(columnIndex, linkIndex, { url: value })}
-                            placeholder="/shop/collections/…"
+                            placeholder="/home/collections/…"
                           />
                         </div>
                       </div>
@@ -858,7 +875,7 @@ export default function Customizer({
                       onClick={() => addLink(columnIndex)}
                       className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-300 py-1.5 text-[11px] text-zinc-500 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
                     >
-                      <Plus size={12} /> Add link
+                      <Plus size={12} /> {t('cmsshared.widgets.add_link')}
                     </button>
                   </div>
                 </div>
@@ -871,12 +888,12 @@ export default function Customizer({
         return (
           <div className="space-y-4">
             <div>
-              <Label>Homepage sections</Label>
+              <Label>{t('cmsshared.customizer.homepage_sections')}</Label>
               <div className="space-y-2">
                 {HOMEPAGE_SECTION_KEYS.map((key) => (
                   <Toggle
                     key={key}
-                    label={SECTION_LABELS[key]}
+                    label={t(SECTION_LABEL_KEYS[key])}
                     checked={state.homepage.sections[key]}
                     onChange={(value) =>
                       setState((previous) => ({
@@ -894,24 +911,24 @@ export default function Customizer({
 
             <div className="border-t border-zinc-100 pt-3">
               <div className="mb-1.5 flex items-center justify-between">
-                <Label>Hero carousel slides</Label>
+                <Label>{t('cmsshared.customizer.hero_slides')}</Label>
                 <button
                   type="button"
                   onClick={addSlide}
                   disabled={state.homepage.heroSlides.length >= MAX_HERO_SLIDES}
                   className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#4f4dd6] transition hover:bg-zinc-100 disabled:opacity-30"
                 >
-                  <Plus size={12} /> Add slide
+                  <Plus size={12} /> {t('cmsshared.customizer.add_slide')}
                 </button>
               </div>
 
               {state.homepage.heroSlides.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-zinc-300 px-3 py-4 text-center text-[11px] leading-relaxed text-zinc-400">
-                  No slides yet — the hero stays hidden on the storefront until you
-                  add one.
+                  {t('cmsshared.customizer.no_slides')}
                 </p>
               ) : (
                 <DndContext
+                  id="hero-slides"
                   sensors={slideSensors}
                   collisionDetection={closestCenter}
                   onDragEnd={handleSlideDragEnd}
@@ -938,7 +955,7 @@ export default function Customizer({
 
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-100 pt-3">
                 <div>
-                  <Label>Secondary button</Label>
+                  <Label>{t('cmsshared.customizer.secondary_button')}</Label>
                   <TextInput
                     value={state.homepage.heroSecondaryLabel}
                     onChange={(value) => patchSection('homepage', { heroSecondaryLabel: value })}
@@ -946,50 +963,50 @@ export default function Customizer({
                   />
                 </div>
                 <div>
-                  <Label>Secondary link</Label>
+                  <Label>{t('cmsshared.customizer.secondary_link')}</Label>
                   <TextInput
                     value={state.homepage.heroSecondaryUrl}
                     onChange={(value) => patchSection('homepage', { heroSecondaryUrl: value })}
-                    placeholder="/shop/products"
+                    placeholder="/home/products"
                   />
                 </div>
               </div>
             </div>
 
             <div className="border-t border-zinc-100 pt-3">
-              <Label>Hero layout &amp; style</Label>
+              <Label>{t('cmsshared.customizer.hero_layout_title')}</Label>
 
               <div className="space-y-2">
                 <div>
-                  <Label>Layout</Label>
+                  <Label>{t('cmsshared.customizer.layout')}</Label>
                   <Select
                     value={state.homepage.heroLayout}
                     onChange={(event) =>
                       patchSection('homepage', { heroLayout: event.target.value as HeroLayout })
                     }
                   >
-                    <option value="image-right">Image right</option>
-                    <option value="image-left">Image left</option>
-                    <option value="image-full">Full-bleed background</option>
+                    <option value="image-right">{t('cmsshared.customizer.layout_image_right')}</option>
+                    <option value="image-left">{t('cmsshared.customizer.layout_image_left')}</option>
+                    <option value="image-full">{t('cmsshared.customizer.layout_full')}</option>
                   </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label>Height</Label>
+                    <Label>{t('cmsshared.customizer.height')}</Label>
                     <Select
                       value={state.homepage.heroHeight}
                       onChange={(event) =>
                         patchSection('homepage', { heroHeight: event.target.value as HeroHeight })
                       }
                     >
-                      <option value="compact">Compact</option>
-                      <option value="standard">Standard</option>
-                      <option value="full">Full screen</option>
+                      <option value="compact">{t('cmsshared.customizer.height_compact')}</option>
+                      <option value="standard">{t('cmsshared.customizer.height_standard')}</option>
+                      <option value="full">{t('cmsshared.customizer.height_full')}</option>
                     </Select>
                   </div>
                   <div>
-                    <Label>Text alignment</Label>
+                    <Label>{t('cmsshared.customizer.text_alignment')}</Label>
                     <Select
                       value={state.homepage.heroTextAlign}
                       onChange={(event) =>
@@ -998,19 +1015,19 @@ export default function Customizer({
                         })
                       }
                     >
-                      <option value="left">Left</option>
-                      <option value="center">Center</option>
+                      <option value="left">{t('cmsshared.customizer.align_left')}</option>
+                      <option value="center">{t('cmsshared.customizer.align_center')}</option>
                     </Select>
                   </div>
                 </div>
 
                 <ColorRow
-                  label="Background"
+                  label={t('cmsshared.customizer.color_background')}
                   value={state.homepage.heroBackground}
                   onChange={(value) => patchSection('homepage', { heroBackground: value })}
                 />
                 <ColorRow
-                  label="Text colour"
+                  label={t('cmsshared.customizer.text_colour')}
                   value={state.homepage.heroTextColor}
                   onChange={(value) => patchSection('homepage', { heroTextColor: value })}
                 />
@@ -1018,12 +1035,16 @@ export default function Customizer({
                 {state.homepage.heroLayout === 'image-full' ? (
                   <>
                     <ColorRow
-                      label="Overlay colour"
+                      label={t('cmsshared.customizer.overlay_colour')}
                       value={state.homepage.heroOverlayColor}
                       onChange={(value) => patchSection('homepage', { heroOverlayColor: value })}
                     />
                     <div>
-                      <Label>Overlay opacity — {state.homepage.heroOverlayOpacity}%</Label>
+                      <Label>
+                        {t('cmsshared.customizer.overlay_opacity', {
+                          value: state.homepage.heroOverlayOpacity,
+                        })}
+                      </Label>
                       <input
                         type="range"
                         min={0}
@@ -1042,13 +1063,17 @@ export default function Customizer({
                 ) : null}
 
                 <Toggle
-                  label="Autoplay slides"
+                  label={t('cmsshared.customizer.autoplay')}
                   checked={state.homepage.heroAutoplay}
                   onChange={(value) => patchSection('homepage', { heroAutoplay: value })}
                 />
                 {state.homepage.heroAutoplay ? (
                   <div>
-                    <Label>Seconds per slide — {state.homepage.heroIntervalSeconds}s</Label>
+                    <Label>
+                      {t('cmsshared.customizer.interval', {
+                        value: state.homepage.heroIntervalSeconds,
+                      })}
+                    </Label>
                     <input
                       type="range"
                       min={3}
@@ -1068,7 +1093,7 @@ export default function Customizer({
             </div>
 
             <div className="border-t border-zinc-100 pt-3">
-              <Label>Hero background image</Label>
+              <Label>{t('cmsshared.customizer.hero_bg_image')}</Label>
               <button
                 type="button"
                 onClick={() => setPicker({ kind: 'hero' })}
@@ -1087,7 +1112,9 @@ export default function Customizer({
                   </span>
                 )}
                 <span className="text-xs text-zinc-500">
-                  {state.homepage.heroImage ? 'Change image' : 'Choose from media library'}
+                  {state.homepage.heroImage
+                    ? t('cmsshared.customizer.change_image')
+                    : t('cmsshared.customizer.choose_media')}
                 </span>
               </button>
               {state.homepage.heroImage ? (
@@ -1096,42 +1123,42 @@ export default function Customizer({
                   className="mt-1 text-[11px] text-zinc-400 hover:text-red-500"
                   onClick={() => patchSection('homepage', { heroImage: '' })}
                 >
-                  Remove image
+                  {t('cmsshared.customizer.remove_image')}
                 </button>
               ) : null}
             </div>
 
             <div>
-              <Label>Hero title</Label>
+              <Label>{t('cmsshared.customizer.hero_title')}</Label>
               <TextInput
                 value={state.homepage.heroTitle}
                 onChange={(value) => patchSection('homepage', { heroTitle: value })}
-                placeholder="New season, new stories"
+                placeholder={t('cmsshared.customizer.hero_title_ph')}
               />
             </div>
             <div>
-              <Label>Hero subtitle</Label>
+              <Label>{t('cmsshared.customizer.hero_subtitle')}</Label>
               <TextInput
                 value={state.homepage.heroSubtitle}
                 onChange={(value) => patchSection('homepage', { heroSubtitle: value })}
-                placeholder="Hand-picked pieces, delivered fast."
+                placeholder={t('cmsshared.customizer.hero_subtitle_ph')}
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>CTA text</Label>
+                <Label>{t('cmsshared.customizer.cta_text')}</Label>
                 <TextInput
                   value={state.homepage.ctaText}
                   onChange={(value) => patchSection('homepage', { ctaText: value })}
-                  placeholder="Shop now"
+                  placeholder={t('cmsshared.customizer.cta_ph')}
                 />
               </div>
               <div>
-                <Label>CTA URL</Label>
+                <Label>{t('cmsshared.customizer.cta_url')}</Label>
                 <TextInput
                   value={state.homepage.ctaUrl}
                   onChange={(value) => patchSection('homepage', { ctaUrl: value })}
-                  placeholder="/shop"
+                  placeholder="/home"
                 />
               </div>
             </div>
@@ -1144,6 +1171,7 @@ export default function Customizer({
   }
 
   const activeDevice = DEVICES.find((entry) => entry.id === device) || DEVICES[0];
+  const activeSection = SECTIONS.find((entry) => entry.id === section);
   const previewScale = stage.width > 0 ? Math.min(1, stage.width / activeDevice.width) : 1;
 
   return (
@@ -1153,20 +1181,20 @@ export default function Customizer({
         <div className="flex min-w-0 items-center gap-2.5">
           <Palette size={16} className="shrink-0 text-[#5b59d6]" />
           <span className="truncate text-sm font-semibold text-zinc-900">
-            Customize · {theme.name}
+            {t('cmsshared.customizer.customize', { name: theme.name })}
           </span>
           {dirty ? (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              Unsaved
+              {t('cmsshared.menu_builder.unsaved')}
             </span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => void reset()} disabled={saving}>
-            <RefreshCw size={13} /> Reset to defaults
+            <RefreshCw size={13} /> {t('cmsshared.customizer.reset_defaults')}
           </Button>
           <Button size="sm" onClick={() => void publish()} disabled={saving || !dirty}>
-            {saving ? 'Saving…' : 'Publish'}
+            {saving ? t('cmsshared.menu_builder.saving') : t('cmsshared.customizer.publish')}
           </Button>
         </div>
       </div>
@@ -1175,7 +1203,7 @@ export default function Customizer({
         {/* Panel 1 — sections */}
         <aside className="w-[200px] shrink-0 overflow-y-auto border-r border-zinc-200 bg-zinc-50/70 p-3">
           <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            Sections
+            {t('cmsshared.customizer.sections_label')}
           </p>
           <div className="space-y-1">
             {SECTIONS.map((entry) => (
@@ -1191,7 +1219,7 @@ export default function Customizer({
                 )}
               >
                 <entry.icon size={14} />
-                {entry.label}
+                {t(entry.labelKey)}
               </button>
             ))}
           </div>
@@ -1200,7 +1228,7 @@ export default function Customizer({
         {/* Panel 2 — settings */}
         <aside className="w-[320px] shrink-0 overflow-y-auto border-r border-zinc-200 bg-white p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            {SECTIONS.find((entry) => entry.id === section)?.label}
+            {activeSection ? t(activeSection.labelKey) : null}
           </p>
           {renderSectionPanel()}
         </aside>
@@ -1213,8 +1241,10 @@ export default function Customizer({
                 <button
                   key={entry.id}
                   type="button"
-                  title={entry.label}
-                  aria-label={`Preview width: ${entry.label}`}
+                  title={t(entry.labelKey)}
+                  aria-label={t('cmsshared.customizer.preview_width_aria', {
+                    device: t(entry.labelKey),
+                  })}
                   onClick={() => setDevice(entry.id)}
                   className={cn(
                     'rounded-md px-2.5 py-1.5 text-zinc-500 transition',
@@ -1228,11 +1258,13 @@ export default function Customizer({
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-zinc-400">Live preview</span>
+              <span className="text-[11px] text-zinc-400">
+                {t('cmsshared.customizer.live_preview')}
+              </span>
               <button
                 type="button"
-                title="Reload preview"
-                aria-label="Reload preview"
+                title={t('cmsshared.customizer.reload_preview')}
+                aria-label={t('cmsshared.customizer.reload_preview')}
                 onClick={() => setStamp(Date.now())}
                 className="rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
               >
@@ -1250,7 +1282,7 @@ export default function Customizer({
                 ref={frameRef}
                 key={previewUrl}
                 src={previewUrl}
-                title="Storefront live preview"
+                title={t('cmsshared.customizer.iframe_title')}
                 onLoad={sendNow}
                 className="block border-0"
                 style={{

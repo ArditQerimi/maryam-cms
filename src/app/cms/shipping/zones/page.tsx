@@ -9,6 +9,7 @@ import {
   shippingZones,
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT, type Translator } from '@/lib/i18n/server';
 import { EmptyState, PageHeader } from '@/components/admin/ui';
 import AddZoneForm from '@/components/shipping/AddZoneForm';
 import ZoneCard from '@/components/shipping/ZoneCard';
@@ -37,10 +38,13 @@ function locationLabel(
   location: { type: string; code: string },
   countryByCode: Map<string, string>,
   stateById: Map<string, { name: string; countryName: string }>,
+  t: Translator,
 ): string {
   if (location.type === 'state') {
     const state = stateById.get(location.code);
-    return state ? `${state.name} — ${state.countryName}` : `State ${location.code}`;
+    return state
+      ? `${state.name} — ${state.countryName}`
+      : t('cmsorders.shipping.state_fallback', { code: location.code });
   }
   const code = location.code.trim().toUpperCase();
   const name = code === KOSOVO.code ? KOSOVO.name : countryByCode.get(code);
@@ -49,6 +53,7 @@ function locationLabel(
 
 export default async function ShippingZonesPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const company = await getContextCompany();
   const db = await getContextDb();
@@ -100,7 +105,7 @@ export default async function ShippingZonesPage() {
       id: location.id,
       type: location.type,
       code: location.code,
-      label: locationLabel(location, countryByCode, stateById),
+      label: locationLabel(location, countryByCode, stateById, t),
     });
     locationsByZone.set(location.zoneId, list);
   }
@@ -133,8 +138,8 @@ export default async function ShippingZonesPage() {
   return (
     <div>
       <PageHeader
-        title="Shipping zones"
-        description="Zones decide which shipping methods a customer sees at checkout, based on the destination country and state."
+        title={t('cmsorders.shipping.zones_title')}
+        description={t('cmsorders.shipping.zones_description')}
       />
 
       <div className="mb-6">
@@ -143,9 +148,9 @@ export default async function ShippingZonesPage() {
 
       {zoneViews.length === 0 ? (
         <EmptyState
-          description="Create your first zone (for example “Europe” or “Kosovo local pickup”) to start offering delivery methods at checkout."
+          description={t('cmsorders.shipping.zones_empty_desc')}
           icon={<Globe size={28} />}
-          title="No shipping zones yet"
+          title={t('cmsorders.shipping.zones_empty_title')}
         />
       ) : (
         <div className="space-y-4">
@@ -157,8 +162,7 @@ export default async function ShippingZonesPage() {
 
       <p className="mt-6 flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-500">
         <MapPin className="mt-0.5 shrink-0 text-[#5b59d6]" size={14} />
-        Zones are matched top-down against the shipping address country and state. When no zone
-        matches, checkout falls back to a free “Standard shipping” method so orders never break.
+        {t('cmsorders.shipping.zones_help')}
       </p>
     </div>
   );

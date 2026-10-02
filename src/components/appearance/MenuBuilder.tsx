@@ -37,6 +37,8 @@ import {
   type NavMenuLocation,
   type NavMenus,
 } from '@/lib/theme/types';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export type MenuPageOption = { id: number; title: string; slug: string };
 export type MenuPostOption = { id: number; title: string; slug: string };
@@ -44,12 +46,19 @@ export type MenuProductOption = { id: number; name: string };
 
 type TabId = 'pages' | 'posts' | 'products' | 'custom';
 
-const TABS: Array<{ id: TabId; label: string; icon: typeof FileText }> = [
-  { id: 'pages', label: 'Pages', icon: FileText },
-  { id: 'posts', label: 'Posts', icon: FileText },
-  { id: 'products', label: 'Products', icon: Package },
-  { id: 'custom', label: 'Custom Link', icon: Link2 },
+const TABS: Array<{ id: TabId; labelKey: keyof Dictionary; icon: typeof FileText }> = [
+  { id: 'pages', labelKey: 'cmsshared.menu_builder.tab_pages', icon: FileText },
+  { id: 'posts', labelKey: 'cmsshared.menu_builder.tab_posts', icon: FileText },
+  { id: 'products', labelKey: 'cmsshared.menu_builder.tab_products', icon: Package },
+  { id: 'custom', labelKey: 'cmsshared.menu_builder.tab_custom', icon: Link2 },
 ];
+
+/** Display labels for the menu locations (source constant is shared with themes). */
+const LOCATION_LABEL_KEYS: Record<NavMenuLocation, keyof Dictionary> = {
+  primary: 'cmsshared.menu_location.primary',
+  footer: 'cmsshared.menu_location.footer',
+  mobile: 'cmsshared.menu_location.mobile',
+};
 
 function makeId(): string {
   return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -83,6 +92,7 @@ function SortableMenuRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
+  const { t } = useLocale();
 
   const canIndent = index > 0 && items[index - 1].depth === 0 && item.depth === 0;
   const canOutdent = item.depth === 1;
@@ -102,7 +112,7 @@ function SortableMenuRow({
           type="button"
           {...attributes}
           {...listeners}
-          aria-label="Drag to reorder"
+          aria-label={t('cmsshared.menu_builder.drag_aria')}
           className="cursor-grab touch-none text-zinc-400 transition hover:text-zinc-600 active:cursor-grabbing"
         >
           <GripVertical size={15} />
@@ -115,13 +125,13 @@ function SortableMenuRow({
           <input
             className={cn(inputClass, 'flex-1 px-2 py-1.5 text-xs font-medium')}
             value={item.label}
-            placeholder="Navigation label"
+            placeholder={t('cmsshared.menu_builder.label_placeholder')}
             onChange={(event) => onPatch({ label: event.target.value })}
           />
           <input
             className={cn(inputClass, 'w-[42%] px-2 py-1.5 text-xs')}
             value={item.url}
-            placeholder="/shop/…"
+            placeholder="/home/…"
             onChange={(event) => onPatch({ url: event.target.value })}
           />
         </div>
@@ -129,8 +139,8 @@ function SortableMenuRow({
         <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
-            aria-label="Indent item"
-            title="Indent (one level)"
+            aria-label={t('cmsshared.menu_builder.indent_aria')}
+            title={t('cmsshared.menu_builder.indent_title')}
             disabled={!canIndent}
             onClick={onIndent}
             className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
@@ -139,8 +149,8 @@ function SortableMenuRow({
           </button>
           <button
             type="button"
-            aria-label="Outdent item"
-            title="Outdent"
+            aria-label={t('cmsshared.menu_builder.outdent_aria')}
+            title={t('cmsshared.menu_builder.outdent_title')}
             disabled={!canOutdent}
             onClick={onOutdent}
             className="rounded p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
@@ -149,7 +159,7 @@ function SortableMenuRow({
           </button>
           <button
             type="button"
-            aria-label="Remove from menu"
+            aria-label={t('cmsshared.menu_builder.remove_aria')}
             onClick={onDelete}
             className="rounded p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
           >
@@ -190,6 +200,7 @@ export default function MenuBuilder({
   const [productsLoading, setProductsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const { t } = useLocale();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -226,7 +237,7 @@ export default function MenuBuilder({
 
   function addItems(entries: Array<{ label: string; url: string }>) {
     if (!entries.length) {
-      toast.error('Select at least one item first.');
+      toast.error(t('cmsshared.menu_builder.select_first'));
       return;
     }
     commit([
@@ -239,7 +250,11 @@ export default function MenuBuilder({
       })),
     ]);
     setChecked({});
-    toast.success(`${entries.length} item${entries.length > 1 ? 's' : ''} added to the menu.`);
+    toast.success(
+      entries.length > 1
+        ? t('cmsshared.menu_builder.added_many', { count: entries.length })
+        : t('cmsshared.menu_builder.added_one', { count: entries.length }),
+    );
   }
 
   function switchMenu(name: string) {
@@ -272,7 +287,7 @@ export default function MenuBuilder({
   async function handleSave() {
     if (saving) return;
     if (!currentName.trim()) {
-      toast.error('Give the menu a name first.');
+      toast.error(t('cmsshared.menu_builder.name_required'));
       return;
     }
     setSaving(true);
@@ -282,13 +297,13 @@ export default function MenuBuilder({
         setMenus((previous) => ({ ...previous, [currentName.trim()]: { items, location } }));
         setCurrentName(currentName.trim());
         setDirty(false);
-        toast.success(`Menu “${currentName.trim()}” saved.`);
+        toast.success(t('cmsshared.menu_builder.saved', { name: currentName.trim() }));
       } else {
-        toast.error(result.error || 'Could not save the menu.');
+        toast.error(result.error || t('cmsshared.menu_builder.save_error'));
       }
     } catch (error) {
       console.error('[cms/appearance] save menu failed', error);
-      toast.error('Something went wrong while saving the menu.');
+      toast.error(t('cmsshared.menu_builder.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -357,7 +372,7 @@ export default function MenuBuilder({
         {/* Add items */}
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Add items</CardTitle>
+            <CardTitle>{t('cmsshared.menu_builder.add_items')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-3 flex flex-wrap gap-1">
@@ -373,7 +388,7 @@ export default function MenuBuilder({
                       : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50',
                   )}
                 >
-                  {entry.label}
+                  {t(entry.labelKey)}
                 </button>
               ))}
             </div>
@@ -381,25 +396,25 @@ export default function MenuBuilder({
             <div className="max-h-[360px] space-y-1.5 overflow-y-auto pr-1">
               {tab === 'pages'
                 ? pages.length === 0
-                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">No published pages yet.</p>
+                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">{t('cmsshared.menu_builder.no_pages')}</p>
                   : pages.map((page) =>
-                      checkboxRow(`page-${page.id}`, page.title, `/shop/pages/${page.slug}`),
+                      checkboxRow(`page-${page.id}`, page.title, `/home/pages/${page.slug}`),
                     )
                 : null}
 
               {tab === 'posts'
                 ? posts.length === 0
-                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">No posts yet.</p>
+                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">{t('cmsshared.menu_builder.no_posts')}</p>
                   : posts.map((post) =>
-                      checkboxRow(`post-${post.id}`, post.title, `/shop/blogs/${post.slug}`),
+                      checkboxRow(`post-${post.id}`, post.title, `/home/blogs/${post.slug}`),
                     )
                 : null}
 
               {tab === 'products'
                 ? productsLoading
-                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">Loading products…</p>
+                  ? <p className="px-1 py-4 text-center text-xs text-zinc-400">{t('cmsshared.menu_builder.loading_products')}</p>
                   : products.length === 0
-                    ? <p className="px-1 py-4 text-center text-xs text-zinc-400">No products found.</p>
+                    ? <p className="px-1 py-4 text-center text-xs text-zinc-400">{t('cmsshared.menu_builder.no_products')}</p>
                     : products.map((product) =>
                         checkboxRow(`product-${product.id}`, product.name, `#${product.id}`),
                       )
@@ -408,7 +423,7 @@ export default function MenuBuilder({
               {tab === 'custom' ? (
                 <div className="space-y-2 rounded-lg border border-dashed border-zinc-300 p-3">
                   <div>
-                    <span className="mb-1 block text-[11px] font-medium text-zinc-600">Label</span>
+                    <span className="mb-1 block text-[11px] font-medium text-zinc-600">{t('cmsshared.field.label')}</span>
                     <Input
                       className="py-1.5 text-xs"
                       placeholder="Instagram"
@@ -417,7 +432,7 @@ export default function MenuBuilder({
                     />
                   </div>
                   <div>
-                    <span className="mb-1 block text-[11px] font-medium text-zinc-600">URL</span>
+                    <span className="mb-1 block text-[11px] font-medium text-zinc-600">{t('cmsshared.field.url')}</span>
                     <Input
                       className="py-1.5 text-xs"
                       placeholder="https://instagram.com/…"
@@ -431,7 +446,7 @@ export default function MenuBuilder({
                     className="w-full"
                     onClick={() => {
                       if (!customLabel.trim() || !customUrl.trim()) {
-                        toast.error('Both a label and a URL are required.');
+                        toast.error(t('cmsshared.menu_builder.custom_required'));
                         return;
                       }
                       addItems([{ label: customLabel.trim(), url: customUrl.trim() }]);
@@ -439,7 +454,7 @@ export default function MenuBuilder({
                       setCustomUrl('');
                     }}
                   >
-                    <Plus size={13} /> Add custom link
+                    <Plus size={13} /> {t('cmsshared.menu_builder.add_custom_link')}
                   </Button>
                 </div>
               ) : null}
@@ -455,26 +470,27 @@ export default function MenuBuilder({
                   if (tab === 'pages') {
                     for (const page of pages) {
                       if (checked[`page-${page.id}`]) {
-                        selected.push({ label: page.title, url: `/shop/pages/${page.slug}` });
+                        selected.push({ label: page.title, url: `/home/pages/${page.slug}` });
                       }
                     }
                   } else if (tab === 'posts') {
                     for (const post of posts) {
                       if (checked[`post-${post.id}`]) {
-                        selected.push({ label: post.title, url: `/shop/blogs/${post.slug}` });
+                        selected.push({ label: post.title, url: `/home/blogs/${post.slug}` });
                       }
                     }
                   } else {
                     for (const product of products) {
                       if (checked[`product-${product.id}`]) {
-                        selected.push({ label: product.name, url: `/shop/products/${product.id}` });
+                        selected.push({ label: product.name, url: `/home/products/${product.id}` });
                       }
                     }
                   }
                   addItems(selected);
                 }}
               >
-                <Plus size={13} /> Add to Menu{selectedCount ? ` (${selectedCount})` : ''}
+                <Plus size={13} /> {t('cmsshared.menu_builder.add_to_menu')}
+                {selectedCount ? ` (${selectedCount})` : ''}
               </Button>
             ) : null}
           </CardContent>
@@ -483,11 +499,11 @@ export default function MenuBuilder({
         {/* Menu structure */}
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Menu structure</CardTitle>
+            <CardTitle>{t('cmsshared.menu_builder.structure_title')}</CardTitle>
             <div className="flex items-center gap-2">
               {menuNames.length > 0 ? (
                 <select
-                  aria-label="Switch menu"
+                  aria-label={t('cmsshared.menu_builder.switch_aria')}
                   className={cn(inputClass, 'w-44 py-1.5 text-xs')}
                   value={currentName}
                   onChange={(event) => switchMenu(event.target.value)}
@@ -500,7 +516,7 @@ export default function MenuBuilder({
                 </select>
               ) : null}
               <Button variant="outline" size="sm" onClick={newMenu}>
-                <Plus size={13} /> New menu
+                <Plus size={13} /> {t('cmsshared.menu_builder.new_menu')}
               </Button>
             </div>
           </CardHeader>
@@ -508,11 +524,13 @@ export default function MenuBuilder({
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-end gap-3">
               <label className="min-w-[220px] flex-1">
-                <span className="mb-1.5 block text-xs font-medium text-zinc-600">Menu name</span>
+                <span className="mb-1.5 block text-xs font-medium text-zinc-600">
+                  {t('cmsshared.menu_builder.name_label')}
+                </span>
                 <Input
                   className="py-1.5 text-sm"
                   value={currentName}
-                  placeholder="Primary menu"
+                  placeholder={t('cmsshared.menu_builder.name_placeholder')}
                   onChange={(event) => {
                     setCurrentName(event.target.value);
                     setDirty(true);
@@ -521,16 +539,18 @@ export default function MenuBuilder({
               </label>
               {dirty ? (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                  Unsaved
+                  {t('cmsshared.menu_builder.unsaved')}
                 </span>
               ) : null}
             </div>
 
             {items.length === 0 ? (
               <div className="rounded-lg border-2 border-dashed border-zinc-200 px-4 py-10 text-center">
-                <p className="text-sm font-medium text-zinc-600">This menu is empty</p>
+                <p className="text-sm font-medium text-zinc-600">
+                  {t('cmsshared.menu_builder.empty_title')}
+                </p>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Pick pages, posts, products or custom links on the left and press “Add to Menu”.
+                  {t('cmsshared.menu_builder.empty_description')}
                 </p>
               </div>
             ) : (
@@ -565,7 +585,7 @@ export default function MenuBuilder({
 
             {items.some((item) => item.depth === 1) ? (
               <p className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-                <ExternalLink size={11} /> Indented items appear as a single nested sub-menu level.
+                <ExternalLink size={11} /> {t('cmsshared.menu_builder.indent_note')}
               </p>
             ) : null}
           </CardContent>
@@ -575,7 +595,7 @@ export default function MenuBuilder({
       {/* Location + save */}
       <Card>
         <CardHeader>
-          <CardTitle>Assign to location</CardTitle>
+          <CardTitle>{t('cmsshared.menu_builder.location_title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <fieldset className="flex flex-wrap gap-2">
@@ -599,13 +619,13 @@ export default function MenuBuilder({
                     setDirty(true);
                   }}
                 />
-                {option.label}
+                {t(LOCATION_LABEL_KEYS[option.value])}
               </label>
             ))}
           </fieldset>
 
           <Button onClick={() => void handleSave()} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Menu'}
+            {saving ? t('cmsshared.menu_builder.saving') : t('cmsshared.menu_builder.save_menu')}
           </Button>
         </CardContent>
       </Card>

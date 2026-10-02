@@ -19,6 +19,7 @@ import {
   Select,
   Textarea,
 } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type PostFormInitial = {
   id: number | null;
@@ -55,6 +56,7 @@ export default function PostForm({
   viewHref: string;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
 
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -84,14 +86,14 @@ export default function PostForm({
         ? await updatePost(initial.id, formData)
         : await createPost(formData);
       if (!result.ok) {
-        toast.error(result.error || 'Could not save the post.');
+        toast.error(result.error || t('cmsshared.post_form.save_error'));
         return;
       }
-      toast.success(initial.id ? 'Post updated.' : 'Post created.');
+      toast.success(initial.id ? t('cmsshared.post_form.updated') : t('cmsshared.post_form.created'));
       router.push('/cms/posts');
       router.refresh();
     } catch {
-      toast.error('Something went wrong while saving the post.');
+      toast.error(t('cmsshared.post_form.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -99,19 +101,19 @@ export default function PostForm({
 
   async function onDelete() {
     if (!initial.id || deleting) return;
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    if (!window.confirm(t('cmsshared.post_form.delete_confirm', { title }))) return;
     setDeleting(true);
     try {
       const result = await deletePost(initial.id);
       if (!result.ok) {
-        toast.error(result.error || 'Could not delete the post.');
+        toast.error(result.error || t('cmsshared.post_form.delete_error'));
         return;
       }
-      toast.success('Post deleted.');
+      toast.success(t('cmsshared.post_form.deleted'));
       router.push('/cms/posts');
       router.refresh();
     } catch {
-      toast.error('Could not delete the post.');
+      toast.error(t('cmsshared.post_form.delete_error'));
     } finally {
       setDeleting(false);
     }
@@ -122,20 +124,24 @@ export default function PostForm({
       <div className="space-y-6 lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle>Post details</CardTitle>
+            <CardTitle>{t('cmsshared.post_form.details_title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Field label="Title" htmlFor="post-title">
+            <Field label={t('cmsshared.field.title')} htmlFor="post-title">
               <Input
                 id="post-title"
                 name="title"
                 value={title}
                 onChange={(event) => onTitleChange(event.target.value)}
-                placeholder="Five ways to style your new arrivals"
+                placeholder={t('cmsshared.post_form.title_placeholder')}
                 autoFocus
               />
             </Field>
-            <Field label="Slug" htmlFor="post-slug" hint={`The post will live at /${slug || 'your-slug'}`}>
+            <Field
+              label={t('cmsshared.product_editor.slug_label')}
+              htmlFor="post-slug"
+              hint={t('cmsshared.post_form.slug_hint', { slug: slug || 'your-slug' })}
+            >
               <Input
                 id="post-slug"
                 name="slug"
@@ -148,9 +154,9 @@ export default function PostForm({
               />
             </Field>
             <Field
-              label="Excerpt"
+              label={t('cmsshared.post_form.excerpt_label')}
               htmlFor="post-excerpt"
-              hint="Shown in post listings. Up to 320 characters."
+              hint={t('cmsshared.post_form.excerpt_hint')}
             >
               <Textarea
                 id="post-excerpt"
@@ -159,7 +165,7 @@ export default function PostForm({
                 maxLength={320}
                 value={excerpt}
                 onChange={(event) => setExcerpt(event.target.value)}
-                placeholder="A short summary that makes people want to read on…"
+                placeholder={t('cmsshared.post_form.excerpt_placeholder')}
               />
             </Field>
           </CardContent>
@@ -167,14 +173,14 @@ export default function PostForm({
 
         <Card>
           <CardHeader>
-            <CardTitle>Content</CardTitle>
+            <CardTitle>{t('cmsshared.post_form.content_title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <input type="hidden" name="content" value={content} />
             <TiptapEditor
               value={content}
               onChange={setContent}
-              placeholder="Start writing your post…"
+              placeholder={t('cmsshared.post_form.content_placeholder')}
               minHeight={420}
             />
           </CardContent>
@@ -184,25 +190,25 @@ export default function PostForm({
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Publish</CardTitle>
+            <CardTitle>{t('cmsshared.post_form.publish_title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Field label="Status" htmlFor="post-status">
+            <Field label={t('cmsshared.field.status')} htmlFor="post-status">
               <Select
                 id="post-status"
                 name="status"
                 value={status}
                 onChange={(event) => setStatus(event.target.value as StatusValue)}
               >
-                <option value="Draft">Draft</option>
-                <option value="Published">Published</option>
-                <option value="Archived">Archived</option>
+                <option value="Draft">{t('cmsshared.post_form.status_draft')}</option>
+                <option value="Published">{t('cmsshared.post_form.status_published')}</option>
+                <option value="Archived">{t('cmsshared.post_form.status_archived')}</option>
               </Select>
             </Field>
             <Field
-              label="Published date"
+              label={t('cmsshared.post_form.published_label')}
               htmlFor="post-published-at"
-              hint="Leave empty to publish immediately when the status is Published."
+              hint={t('cmsshared.post_form.published_hint')}
             >
               <Input
                 id="post-published-at"
@@ -212,14 +218,14 @@ export default function PostForm({
                 onChange={(event) => setPublishedAt(event.target.value)}
               />
             </Field>
-            <Field label="Category" htmlFor="post-category">
+            <Field label={t('cmsshared.product_editor.category_label')} htmlFor="post-category">
               <Select
                 id="post-category"
                 name="categoryId"
                 value={categoryId}
                 onChange={(event) => setCategoryId(event.target.value)}
               >
-                <option value="">Uncategorized</option>
+                <option value="">{t('cmsshared.post_form.uncategorized')}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -230,13 +236,13 @@ export default function PostForm({
 
             <Button type="submit" className="w-full" disabled={saving || deleting}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : null}
-              {initial.id ? 'Save changes' : 'Create post'}
+              {initial.id ? t('cmsshared.action.save_changes') : t('cmsshared.post_form.create')}
             </Button>
             <Link
               href="/cms/posts"
               className="block text-center text-xs font-medium text-zinc-500 hover:text-zinc-700"
             >
-              Cancel
+              {t('cmsshared.action.cancel')}
             </Link>
 
             {initial.id ? (
@@ -248,10 +254,10 @@ export default function PostForm({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5b59d6] hover:underline"
                   >
-                    <ExternalLink size={13} /> View post
+                    <ExternalLink size={13} /> {t('cmsshared.post_form.view')}
                   </Link>
                 ) : (
-                  <span className="text-xs text-zinc-400">No public URL yet</span>
+                  <span className="text-xs text-zinc-400">{t('cmsshared.post_form.no_url')}</span>
                 )}
                 <Button
                   type="button"
@@ -262,7 +268,7 @@ export default function PostForm({
                   disabled={deleting || saving}
                 >
                   {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                  Delete
+                  {t('cmsshared.action.delete')}
                 </Button>
               </div>
             ) : null}
@@ -271,7 +277,7 @@ export default function PostForm({
 
         <Card>
           <CardHeader>
-            <CardTitle>Cover image</CardTitle>
+            <CardTitle>{t('cmsshared.post_form.cover_title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {coverImageUrl ? (
@@ -279,12 +285,12 @@ export default function PostForm({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={coverImageUrl}
-                  alt={excerpt || title || 'Cover image'}
+                  alt={excerpt || title || t('cmsshared.post_form.cover_alt')}
                   className="aspect-video w-full rounded-lg border border-zinc-200 bg-zinc-50 object-cover"
                 />
                 <button
                   type="button"
-                  aria-label="Remove cover image"
+                  aria-label={t('cmsshared.post_form.remove_cover_aria')}
                   onClick={() => setCoverImageUrl('')}
                   className="absolute right-2 top-2 rounded-md bg-zinc-900/70 p-1.5 text-white transition hover:bg-zinc-900"
                 >
@@ -300,7 +306,9 @@ export default function PostForm({
               onClick={() => setPickerOpen(true)}
             >
               <ImagePlus size={14} />
-              {coverImageUrl ? 'Change image' : 'Choose from media library'}
+              {coverImageUrl
+                ? t('cmsshared.post_form.change_image')
+                : t('cmsshared.post_form.choose_library')}
             </Button>
           </CardContent>
         </Card>

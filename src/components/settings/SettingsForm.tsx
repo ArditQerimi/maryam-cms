@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Input, Label, Select, Textarea, cn, inputClass } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { SettingField, SettingsValues, SettingValue } from './types';
 
 type ActionLikeResult = { ok: boolean; error?: string };
@@ -73,7 +74,7 @@ export default function SettingsForm({
   fields,
   initialValues,
   onSubmit,
-  saveLabel = 'Save changes',
+  saveLabel,
   columns = 2,
   children,
 }: {
@@ -87,6 +88,7 @@ export default function SettingsForm({
   const [values, setValues] = useState<SettingsValues>(initialValues);
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const { t } = useLocale();
 
   function setValue(key: string, next: SettingValue) {
     setValues((previous) => ({ ...previous, [key]: next }));
@@ -99,13 +101,13 @@ export default function SettingsForm({
     try {
       const result = await onSubmit(values);
       if (result?.ok) {
-        toast.success('Settings saved.');
+        toast.success(t('cmsshared.settings.saved'));
       } else {
-        toast.error(result?.error || 'Could not save the settings.');
+        toast.error(result?.error || t('cmsshared.settings.save_error'));
       }
     } catch (error) {
       console.error('[cms/settings] save failed', error);
-      toast.error('Something went wrong while saving. Please try again.');
+      toast.error(t('cmsshared.settings.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -156,7 +158,9 @@ export default function SettingsForm({
               />
               <button
                 type="button"
-                aria-label={visible ? 'Hide value' : 'Show value'}
+                aria-label={
+                  visible ? t('cmsshared.settings.hide_value') : t('cmsshared.settings.show_value')
+                }
                 onClick={() =>
                   setShowSecrets((previous) => ({ ...previous, [field.key]: !previous[field.key] }))
                 }
@@ -318,7 +322,7 @@ export default function SettingsForm({
                     </label>
                     {checked && option.value === 'custom' ? (
                       <input
-                        aria-label="Custom permalink mask"
+                        aria-label={t('cmsshared.settings.custom_mask_aria')}
                         className={cn(inputClass, 'mt-2 py-1.5 text-xs')}
                         placeholder="/%year%/%monthnum%/%postname%/"
                         value={
@@ -336,7 +340,7 @@ export default function SettingsForm({
 
             <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                Example URL
+                {t('cmsshared.settings.example_url')}
               </p>
               <p className="mt-0.5 break-all font-mono text-xs text-zinc-700">
                 {example || '—'}
@@ -361,7 +365,9 @@ export default function SettingsForm({
 
       <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
         <Button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : saveLabel}
+          {saving
+            ? t('cmsshared.menu_builder.saving')
+            : saveLabel ?? t('cmsshared.action.save_changes')}
         </Button>
       </div>
     </form>

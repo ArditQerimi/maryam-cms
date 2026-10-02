@@ -21,72 +21,77 @@ import {
   ShoppingBag,
   Tag,
   Truck,
+  UserCheck,
   Users,
   Warehouse,
 } from 'lucide-react';
 import { cn } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 type NavItem = {
   href: string;
-  label: string;
+  /** Dictionary key — resolved with `t()` at render time. */
+  labelKey: keyof Dictionary;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   match?: string[];
 };
 
-type NavSection = { label: string; items: NavItem[] };
+type NavSection = { labelKey: keyof Dictionary; items: NavItem[] };
 
 export const NAV_SECTIONS: NavSection[] = [
   {
-    label: 'Content',
+    labelKey: 'cmsnav.section.content',
     items: [
-      { href: '/cms/dashboard', label: 'Dashboard', icon: LayoutGrid },
-      { href: '/cms/pages', label: 'Pages', icon: FileText, match: ['/cms/pages'] },
-      { href: '/cms/posts', label: 'Posts', icon: FileText, match: ['/cms/posts'] },
-      { href: '/cms/media', label: 'Media', icon: Image, match: ['/cms/media'] },
+      { href: '/cms/dashboard', labelKey: 'cmsnav.item.dashboard', icon: LayoutGrid },
+      { href: '/cms/pages', labelKey: 'cmsnav.item.pages', icon: FileText, match: ['/cms/pages'] },
+      { href: '/cms/posts', labelKey: 'cmsnav.item.posts', icon: FileText, match: ['/cms/posts'] },
+      { href: '/cms/media', labelKey: 'cmsnav.item.media', icon: Image, match: ['/cms/media'] },
     ],
   },
   {
-    label: 'Store',
+    labelKey: 'cmsnav.section.store',
     items: [
-      { href: '/cms/products', label: 'Products', icon: Package, match: ['/cms/products'] },
-      { href: '/cms/orders', label: 'Orders', icon: Receipt, match: ['/cms/orders'] },
-      { href: '/cms/customers', label: 'Customers', icon: Users, match: ['/cms/customers'] },
-      { href: '/cms/coupons', label: 'Coupons', icon: Tag, match: ['/cms/coupons'] },
-      { href: '/cms/discounts/product', label: 'Discounts', icon: Percent, match: ['/cms/discounts'] },
-      { href: '/cms/shipping/zones', label: 'Shipping', icon: Truck, match: ['/cms/shipping'] },
-      { href: '/cms/shipping/classes', label: 'Shipping classes', icon: Ruler, match: ['/cms/shipping/classes'] },
+      { href: '/cms/products', labelKey: 'cmsnav.item.products', icon: Package, match: ['/cms/products'] },
+      { href: '/cms/orders', labelKey: 'cmsnav.item.orders', icon: Receipt, match: ['/cms/orders'] },
+      { href: '/cms/customers', labelKey: 'cmsnav.item.customers', icon: Users, match: ['/cms/customers'] },
+      { href: '/cms/store-accounts', labelKey: 'cmsnav.item.store_accounts', icon: UserCheck, match: ['/cms/store-accounts'] },
+      { href: '/cms/coupons', labelKey: 'cmsnav.item.coupons', icon: Tag, match: ['/cms/coupons'] },
+      { href: '/cms/discounts/product', labelKey: 'cmsnav.item.discounts', icon: Percent, match: ['/cms/discounts'] },
+      { href: '/cms/shipping/zones', labelKey: 'cmsnav.item.shipping', icon: Truck, match: ['/cms/shipping'] },
+      { href: '/cms/shipping/classes', labelKey: 'cmsnav.item.shipping_classes', icon: Ruler, match: ['/cms/shipping/classes'] },
     ],
   },
   {
-    label: 'Reports',
+    labelKey: 'cmsnav.section.reports',
     items: [
-      { href: '/cms/reports/sales', label: 'Sales', icon: BarChart3, match: ['/cms/reports/sales'] },
-      { href: '/cms/reports/products', label: 'Products', icon: Package, match: ['/cms/reports/products'] },
-      { href: '/cms/reports/customers', label: 'Customers', icon: Users, match: ['/cms/reports/customers'] },
-      { href: '/cms/reports/stock', label: 'Stock', icon: Warehouse, match: ['/cms/reports/stock'] },
+      { href: '/cms/reports/sales', labelKey: 'cmsnav.item.sales', icon: BarChart3, match: ['/cms/reports/sales'] },
+      { href: '/cms/reports/products', labelKey: 'cmsnav.item.products', icon: Package, match: ['/cms/reports/products'] },
+      { href: '/cms/reports/customers', labelKey: 'cmsnav.item.customers', icon: Users, match: ['/cms/reports/customers'] },
+      { href: '/cms/reports/stock', labelKey: 'cmsnav.item.stock', icon: Warehouse, match: ['/cms/reports/stock'] },
     ],
   },
   {
-    label: 'Appearance',
+    labelKey: 'cmsnav.section.appearance',
     items: [
-      { href: '/cms/appearance/themes', label: 'Themes', icon: Palette, match: ['/cms/appearance/themes'] },
-      { href: '/cms/appearance/customize', label: 'Customize', icon: Palette, match: ['/cms/appearance/customize'] },
-      { href: '/cms/appearance/menus', label: 'Menus', icon: Menu, match: ['/cms/appearance/menus'] },
-      { href: '/cms/appearance/widgets', label: 'Widgets', icon: LayoutTemplate, match: ['/cms/appearance/widgets'] },
+      { href: '/cms/appearance/themes', labelKey: 'cmsnav.item.themes', icon: Palette, match: ['/cms/appearance/themes'] },
+      { href: '/cms/appearance/customize', labelKey: 'cmsnav.item.customize', icon: Palette, match: ['/cms/appearance/customize'] },
+      { href: '/cms/appearance/menus', labelKey: 'cmsnav.item.menus', icon: Menu, match: ['/cms/appearance/menus'] },
+      { href: '/cms/appearance/widgets', labelKey: 'cmsnav.item.widgets', icon: LayoutTemplate, match: ['/cms/appearance/widgets'] },
     ],
   },
   {
-    label: 'Settings',
+    labelKey: 'cmsnav.section.settings',
     items: [
-      { href: '/cms/settings/general', label: 'General', icon: Settings, match: ['/cms/settings/general'] },
-      { href: '/cms/settings/reading', label: 'Reading', icon: FileText, match: ['/cms/settings/reading'] },
-      { href: '/cms/settings/discussion', label: 'Discussion', icon: Mail, match: ['/cms/settings/discussion'] },
-      { href: '/cms/settings/media', label: 'Media', icon: Image, match: ['/cms/settings/media'] },
-      { href: '/cms/settings/permalinks', label: 'Permalinks', icon: Menu, match: ['/cms/settings/permalinks'] },
-      { href: '/cms/settings/email', label: 'Email', icon: Mail, match: ['/cms/settings/email'] },
-      { href: '/cms/settings/payments', label: 'Payments', icon: Receipt, match: ['/cms/settings/payments'] },
-      { href: '/cms/settings/tax', label: 'Tax', icon: Percent, match: ['/cms/settings/tax'] },
-      { href: '/cms/builder', label: 'Page builder', icon: ShoppingBag, match: ['/cms/builder'] },
+      { href: '/cms/settings/general', labelKey: 'cmsnav.item.general', icon: Settings, match: ['/cms/settings/general'] },
+      { href: '/cms/settings/reading', labelKey: 'cmsnav.item.reading', icon: FileText, match: ['/cms/settings/reading'] },
+      { href: '/cms/settings/discussion', labelKey: 'cmsnav.item.discussion', icon: Mail, match: ['/cms/settings/discussion'] },
+      { href: '/cms/settings/media', labelKey: 'cmsnav.item.media', icon: Image, match: ['/cms/settings/media'] },
+      { href: '/cms/settings/permalinks', labelKey: 'cmsnav.item.permalinks', icon: Menu, match: ['/cms/settings/permalinks'] },
+      { href: '/cms/settings/email', labelKey: 'cmsnav.item.email', icon: Mail, match: ['/cms/settings/email'] },
+      { href: '/cms/settings/payments', labelKey: 'cmsnav.item.payments', icon: Receipt, match: ['/cms/settings/payments'] },
+      { href: '/cms/settings/tax', labelKey: 'cmsnav.item.tax', icon: Percent, match: ['/cms/settings/tax'] },
+      { href: '/cms/builder', labelKey: 'cmsnav.item.builder', icon: ShoppingBag, match: ['/cms/builder'] },
     ],
   },
 ];
@@ -98,6 +103,7 @@ function isActive(pathname: string, item: NavItem) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -119,7 +125,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? t('cmsnav.expand') : t('cmsnav.collapse')}
           className="rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"
         >
           <ChevronLeft
@@ -131,21 +137,22 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-2.5 py-4">
         {NAV_SECTIONS.map((section) => (
-          <div key={section.label} className="mb-5">
+          <div key={section.labelKey} className="mb-5">
             {!collapsed && (
               <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-white/35">
-                {section.label}
+                {t(section.labelKey)}
               </p>
             )}
             <ul className="space-y-1">
               {section.items.map((item) => {
                 const active = isActive(pathname, item);
                 const Icon = item.icon;
+                const label = t(item.labelKey);
                 return (
-                  <li key={item.href + item.label}>
+                  <li key={item.href + item.labelKey}>
                     <Link
                       href={item.href}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? label : undefined}
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition',
                         active
@@ -155,7 +162,7 @@ export default function Sidebar() {
                       )}
                     >
                       <Icon size={18} className="shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && <span className="truncate">{label}</span>}
                     </Link>
                   </li>
                 );
@@ -167,7 +174,7 @@ export default function Sidebar() {
 
       {!collapsed && (
         <div className="border-t border-white/5 px-4 py-3 text-[11px] text-white/35">
-          Shared database · port 3003
+          {t('cmsnav.footer')}
         </div>
       )}
     </aside>

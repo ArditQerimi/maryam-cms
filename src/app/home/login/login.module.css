@@ -245,6 +245,24 @@
   margin-top: 0.08rem;
 }
 
+.successAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0 0 1.1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #cdd6b8;
+  background: #f4f7ec;
+  color: #3f5222;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.successAlert svg {
+  flex: 0 0 auto;
+  margin-top: 0.08rem;
+}
+
 .field {
   display: grid;
   gap: 0.42rem;

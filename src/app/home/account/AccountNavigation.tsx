@@ -15,19 +15,28 @@ import {
   UserRound,
 } from 'lucide-react';
 import { logoutCustomer } from '@/lib/account/actions';
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import styles from './account.module.css';
 
+type AccountNavKey = Parameters<Translator>[0];
+
 const ACCOUNT_LINKS = [
-  { href: '/shop/account', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/shop/account/orders', label: 'Orders', icon: PackageSearch, exact: false },
-  { href: '/shop/account/wishlist', label: 'Wishlist', icon: Heart, exact: false },
-  { href: '/shop/account/profile', label: 'Profile', icon: UserRound, exact: false },
-  { href: '/shop/account/security', label: 'Security', icon: ShieldCheck, exact: false },
-  { href: '/shop/account/addresses', label: 'Addresses', icon: MapPin, exact: false },
-] as const;
+  { href: '/home/account', labelKey: 'account.nav.overview', icon: LayoutDashboard, exact: true },
+  { href: '/home/account/orders', labelKey: 'account.nav.orders', icon: PackageSearch, exact: false },
+  { href: '/home/account/wishlist', labelKey: 'account.nav.wishlist', icon: Heart, exact: false },
+  { href: '/home/account/profile', labelKey: 'account.nav.profile', icon: UserRound, exact: false },
+  { href: '/home/account/security', labelKey: 'account.nav.security', icon: ShieldCheck, exact: false },
+  { href: '/home/account/addresses', labelKey: 'account.nav.addresses', icon: MapPin, exact: false },
+] satisfies ReadonlyArray<{
+  href: string;
+  labelKey: AccountNavKey;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+}>;
 
 function LogoutSubmit() {
   const { pending } = useFormStatus();
+  const { t } = useLocale();
 
   return (
     <button
@@ -37,13 +46,14 @@ function LogoutSubmit() {
       aria-busy={pending}
     >
       <LogOut size={17} aria-hidden="true" />
-      <span>{pending ? 'Signing out…' : 'Sign out'}</span>
+      <span>{pending ? t('account.nav.signingOut') : t('account.nav.signOut')}</span>
     </button>
   );
 }
 
 export default function AccountNavigation({ storeName }: { storeName: string }) {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <div className={styles.sidebarCard}>
@@ -52,12 +62,12 @@ export default function AccountNavigation({ storeName }: { storeName: string }) 
           {storeName.trim().slice(0, 1).toLocaleUpperCase()}
         </span>
         <div>
-          <span className={styles.sidebarLabel}>Customer account</span>
+          <span className={styles.sidebarLabel}>{t('account.nav.identityLabel')}</span>
           <strong>{storeName}</strong>
         </div>
       </div>
 
-      <nav className={styles.accountNav} aria-label="Customer account">
+      <nav className={styles.accountNav} aria-label={t('account.nav.aria')}>
         <ul className={styles.accountNavList}>
           {ACCOUNT_LINKS.map((item) => {
             const Icon = item.icon;
@@ -74,7 +84,7 @@ export default function AccountNavigation({ storeName }: { storeName: string }) 
                   aria-current={active ? 'page' : undefined}
                 >
                   <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </Link>
               </li>
             );
@@ -83,11 +93,11 @@ export default function AccountNavigation({ storeName }: { storeName: string }) 
       </nav>
 
       <div className={styles.sidebarActions}>
-        <Link href="/shop" className={styles.returnLink}>
+        <Link href="/home" className={styles.returnLink}>
           <Store size={17} aria-hidden="true" />
-          <span>Return to store</span>
+          <span>{t('account.nav.returnToStore')}</span>
         </Link>
-        <Form action={logoutCustomer} aria-label="Sign out of customer account">
+        <Form action={logoutCustomer} aria-label={t('account.nav.signOutAria')}>
           <LogoutSubmit />
         </Form>
       </div>

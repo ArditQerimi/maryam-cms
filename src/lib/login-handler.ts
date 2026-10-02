@@ -45,7 +45,8 @@ type LoginErrorCode =
   | 'tenant-domain-required'
   | 'company-not-found'
   | 'database-error'
-  | 'invalid-credentials';
+  | 'invalid-credentials'
+  | 'wrong-audience';
 
 function resolveHostname(host?: string | null) {
   return String(host || '').split(',')[0].trim().toLowerCase();
@@ -64,7 +65,7 @@ function getErrorRedirect(
     error,
     returnTo: getSafeCustomerReturnTo(returnTo),
   });
-  return `/shop/login?${params.toString()}`;
+  return `/home/login?${params.toString()}`;
 }
 
 async function hashPasswordLegacySha256(password: string) {
@@ -234,14 +235,28 @@ export async function authenticateLogin(
       return fail('invalid-credentials');
     }
 
-    if (user.status !== 'Active' || !isRoleAllowedForAudience(user.roleName, audience)) {
+    // The password matched, so the account is known to whoever submitted it.
+    // From here a distinct message is safe and far more helpful than a
+    // generic "incorrect email or password".
+    if (user.status !== 'Active') {
       await logInfo('Login Failure', {
         flow: audience,
-        reason: 'inactive-user-or-role-mismatch',
+        reason: 'account-suspended',
         companyId: company.id,
         userId: user.id,
       });
-      return fail('invalid-credentials');
+      return fail('account-suspended');
+    }
+
+    if (!isRoleAllowedForAudience(user.roleName, audience)) {
+      await logInfo('Login Failure', {
+        flow: audience,
+        reason: 'wrong-audience',
+        companyId: company.id,
+        userId: user.id,
+        roleName: user.roleName,
+      });
+      return fail('wrong-audience');
     }
 
     if (passwordResult.isLegacy) {

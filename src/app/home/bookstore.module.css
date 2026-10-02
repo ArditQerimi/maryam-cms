@@ -44,12 +44,12 @@
   background: var(--hero-bg, var(--cream));
   position: relative;
   overflow: hidden;
-  min-height: clamp(440px, 54vw, 620px);
+  min-height: clamp(380px, 40vw, 500px);
   display: flex;
   align-items: center;
 }
 
-.hero[data-height='compact'] { min-height: clamp(320px, 36vw, 430px); }
+.hero[data-height='compact'] { min-height: clamp(300px, 30vw, 380px); }
 .hero[data-height='full'] { min-height: 100svh; }
 
 .hero[data-layout='image-left'] .heroContent { order: 2; }
@@ -101,9 +101,9 @@
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 3rem clamp(2rem, 5vw, 6rem);
-  gap: 4rem;
-  min-height: clamp(440px, 54vw, 620px);
+  padding: 2.5rem clamp(2rem, 5vw, 6rem);
+  gap: 3rem;
+  min-height: clamp(380px, 40vw, 500px);
 }
 
 .heroContent {
@@ -194,7 +194,7 @@
 
 .heroImageWrap {
   position: relative;
-  height: clamp(360px, 50vw, 560px);
+  height: clamp(280px, 32vw, 400px);
 }
 
 .heroImageWrap a {
@@ -204,13 +204,13 @@
   line-height: 0;
 }
 
-/* `object-fit: contain` letterboxes the slide, and the bars belong to the <img>
-   box itself — so the img needs the cream too, not just its ancestors. */
+/* Nothing in the image column paints its own background. `object-fit: contain`
+   makes the <img> box fill the wrap, so any fill there reads as a flat panel
+   around the artwork — and an opaque <a> would hide the slide beneath it. */
 .page .hero .heroImageWrap,
 .page .hero .heroImageWrap a,
 .page .hero .heroImageWrap .heroImg {
-  background: #f1efec;
-  background-color: #f1efec;
+  background: transparent;
 }
 
 .heroImg {
@@ -472,6 +472,30 @@
   letter-spacing: 0.005em;
 }
 
+/* buildThemeCss injects `.shopWrapper h1..h6 { color: var(--cms-text) }` at
+   specificity (0,2,1); under a dark theme (e.g. Dark Pro, cream text) that
+   washes headings out on the light paper/cream sections below, so re-assert
+   the ink with a selector that beats it. Keep this above the
+   `.productTitleLink:hover` rule so the hover still wins ties. */
+:global(.shopWrapper.shopWrapper)
+  :is(.productsSection, .categoryShop, .blog, .unlock, .novel, .mind, .story, .stats, .aboutPage, .contactPage)
+  :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--ink);
+}
+
+:global(.shopWrapper.shopWrapper) .productTitle {
+  color: var(--ink);
+}
+
+/* The shared card's title (catalog module) hovers to the catalog accent —
+   re-assert it above the section ink so the homepage cards match the
+   /home/products listing, where the `.catalogPage` rules already do this. */
+:global(.shopWrapper.shopWrapper)
+  :is(.productsSection, .categoryShop)
+  .productTitle:hover {
+  color: var(--catalog-accent-dark);
+}
+
 /* =========================================================
    PRODUCT CARDS
    ========================================================= */
@@ -694,15 +718,34 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* Like the demo: the quick actions slide in on hover — keyboard focus
+     reveals them too, and touch devices (no hover) always see them. */
   opacity: 0;
   transform: translateX(6px);
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 2;
 }
 
-.productCard:hover .productQuick {
+.productCard:hover .productQuick,
+.productCard:focus-within .productQuick,
+.listItem:hover .productQuick,
+.listItem:focus-within .productQuick {
   opacity: 1;
   transform: translateX(0);
+}
+
+@media (hover: none) {
+  .productQuick {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .productQuick {
+    transform: none;
+    transition: none;
+  }
 }
 
 .productQuick button {
@@ -730,13 +773,6 @@
   color: var(--paper);
 }
 
-@media (hover: none) {
-  .productQuick {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 .productTitle {
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
   font-size: 1.1rem;
@@ -751,12 +787,14 @@
   display: flex;
   gap: 2px;
   justify-content: center;
-  color: var(--gold);
+  /* Bright amber, like the demo cards (not the darker price gold). */
+  color: #f5a623;
   font-size: 1.1rem;
+  line-height: 1;
   margin-bottom: 0.45rem;
 }
 
-.productStars span[data-empty] { color: var(--cream-2); }
+.productStars span[data-empty] { color: #dcdcdc; }
 
 .productPriceRow {
   display: flex;
@@ -784,8 +822,8 @@
    ========================================================= */
 
 .stats {
-  background: var(--cream);
-  color: var(--ink);
+  background: var(--cream) !important;
+  color: var(--ink) !important;
   padding: 3rem 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -807,7 +845,8 @@
 .statNumber {
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
   font-size: clamp(2.2rem, 4vw, 3rem);
-  color: var(--ink);
+  /* buildThemeCss overrides colour at (0,2,1) — re-assert */
+  color: #1a1611 !important;
   line-height: 1;
   margin: 0 0 0.35rem;
   font-weight: 400;
@@ -815,7 +854,7 @@
 }
 
 .statLabel {
-  color: var(--muted);
+  color: #6b6355 !important;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-size: 0.72rem;
@@ -1375,11 +1414,13 @@
    ========================================================= */
 
 .productAddBtn {
-  width: min(100%, 16rem);
-  min-height: 4rem;
-  margin: 1.25rem auto 0;
-  padding: 1rem 1.25rem;
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 1rem auto 0;
+  padding: 0.7rem 1.25rem;
   border: 0;
+  /* Demo palette: the olive/gold ADD TO CART; hovering the button itself
+     darkens it to ink, exactly like the reference theme. */
   background: #6b5e2b;
   color: #ffffff;
   font-family: inherit;
@@ -1388,16 +1429,76 @@
   text-transform: uppercase;
   font-size: 0.78rem;
   cursor: pointer;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+  /* Style C: the black ADD TO CART slides in when the card is hovered
+     (the space stays reserved, so the grid never jumps). It remains
+     reachable for keyboards through :focus-within, and touch devices
+     — where hover doesn't exist — see it at once. */
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
-.productAddBtn:hover:not(:disabled) { background: var(--ink); }
+.productCard:hover .productAddBtn,
+.productCard:focus-within .productAddBtn,
+.listItem:hover .productAddBtn,
+.listItem:focus-within .productAddBtn {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
 .productAddBtn:disabled {
   cursor: not-allowed;
+}
+
+.productCard:hover .productAddBtn:disabled,
+.productCard:focus-within .productAddBtn:disabled,
+.listItem:hover .productAddBtn:disabled,
+.listItem:focus-within .productAddBtn:disabled {
   opacity: 0.55;
+}
+
+/* No hover on touch devices — the button must be tappable right away. */
+@media (hover: none) {
+  .productAddBtn {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .productAddBtn:disabled {
+    opacity: 0.55;
+  }
+}
+
+/* A reveal without movement for reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  .productAddBtn {
+    transform: none;
+    transition: background 0.16s ease, color 0.16s ease;
+  }
+}
+
+.productAddBtn:hover:not(:disabled) {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+/* No lifting, sliding or smooth-scrolling when reduced motion is asked for. */
+@media (prefers-reduced-motion: reduce) {
+  .productCard {
+    transition: none;
+  }
+  .productCard:hover {
+    transform: none;
+  }
+  .carouselTrack {
+    scroll-behavior: auto;
+  }
 }
 
 .productVariantBadge {
@@ -4032,20 +4133,21 @@
   --ink: #1a1611;
   --paper: #ffffff;
   --cream: #f1efec;
-  --gold: #8a6f2b;
+  --gold: #7e6f38;
   --muted: #6b6355;
   --line: #e0d8c8;
 
   display: flex;
   flex-direction: column;
-  background: var(--paper);
-  color: var(--ink);
+  /* buildThemeCss injects background/color overrides; re-assert with !important */
+  background: #ffffff !important;
+  color: #1a1611 !important;
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
 }
 
 .aboutPage :where(h1, h2, h3, h4) {
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
-  color: var(--ink);
+  color: #1a1611 !important;
   margin: 0;
 }
 
@@ -4083,7 +4185,7 @@
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: #7e6f38 !important;
   margin-bottom: 0.75rem;
 }
 .aboutIntroTitle {
@@ -4092,9 +4194,10 @@
   letter-spacing: -0.01em;
   margin-bottom: 1rem;
   line-height: 1.25;
+  color: #1a1611 !important;
 }
 .aboutIntroText {
-  color: var(--muted);
+  color: #6b6355 !important;
   font-size: 0.9rem;
   line-height: 1.7;
   margin-bottom: 1.5rem;
@@ -4112,12 +4215,12 @@
   align-items: flex-start;
   gap: 0.6rem;
   font-size: 0.875rem;
-  color: var(--ink);
+  color: #1a1611 !important;
   line-height: 1.5;
 }
 .aboutIntroChecks li::before {
   content: '✓';
-  color: var(--gold);
+  color: #7e6f38 !important;
   font-weight: 700;
   flex-shrink: 0;
   margin-top: 0.1em;
@@ -4160,7 +4263,7 @@
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: #7e6f38 !important;
   margin-bottom: 0.75rem;
 }
 .aboutFeatureTitle {
@@ -4169,9 +4272,10 @@
   letter-spacing: -0.01em;
   margin-bottom: 1rem;
   line-height: 1.3;
+  color: #1a1611 !important;
 }
 .aboutFeatureText {
-  color: var(--muted);
+  color: #6b6355 !important;
   font-size: 0.9rem;
   line-height: 1.7;
   margin-bottom: 0.75rem;
@@ -4192,20 +4296,20 @@
 .aboutFeatureIcon svg {
   width: 2.25rem;
   height: 2.25rem;
-  color: var(--gold);
+  color: #7e6f38 !important;
 }
 .aboutFeatureIcon span {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--muted);
+  color: #6b6355 !important;
   line-height: 1.3;
 }
 
 /* ---- Brand strip ---- */
 .aboutBrandStrip {
-  background: var(--cream);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  background: #f1efec !important;
+  border-top: 1px solid #e0d8c8;
+  border-bottom: 1px solid #e0d8c8;
   padding: 2.25rem 0;
 }
 .aboutBrandList {
@@ -4218,10 +4322,10 @@
 .aboutBrandList svg {
   width: 3rem;
   height: 3rem;
-  color: #b0a896;
+  color: #b0a896 !important;
   transition: color 0.2s;
 }
-.aboutBrandList svg:hover { color: var(--gold); }
+.aboutBrandList svg:hover { color: #7e6f38 !important; }
 
 /* ---- Responsive ---- */
 @media (max-width: 860px) {
@@ -4430,12 +4534,28 @@
 }
 
 /* ---- Map ---- */
+.contactMapSection {
+  padding-bottom: 3rem;
+}
 .contactMap {
   width: 100%;
   height: 380px;
   overflow: hidden;
   border: 0;
   display: block;
+}
+.contactMapCaption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.contactMapCaption svg {
+  color: var(--gold);
+  flex-shrink: 0;
 }
 
 /* ---- FAQ ---- */

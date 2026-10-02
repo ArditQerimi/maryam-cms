@@ -1,5 +1,6 @@
 import { requireCmsSession } from '@/lib/cms/session';
 import { PageHeader } from '@/components/admin/ui';
+import { getT } from '@/lib/i18n/server';
 import ProductEditor from '@/components/store/ProductEditor';
 import { getProductEditorData, getProductLookups, toTaxonomy } from '../../editor-data';
 
@@ -11,6 +12,7 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isSafeInteger(id) || id <= 0) {
@@ -25,8 +27,8 @@ export default async function EditProductPage({
   return (
     <div>
       <PageHeader
-        title={`Edit: ${product.name}`}
-        description="Update details, pricing, images, variants and stock."
+        title={t('cmscatalog.edit_title', { name: product.name })}
+        description={t('cmscatalog.edit_description')}
       />
       <ProductEditor
         mode="edit"

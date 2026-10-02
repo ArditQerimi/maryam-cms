@@ -5,7 +5,7 @@ import type {
   CheckoutFieldName,
   CheckoutPaymentMethodId,
   CheckoutRequest,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 
 const CONTACT_KEYS = ['email', 'phone', 'marketingOptIn'] as const;
 const BILLING_KEYS = ['sameAsShipping', 'address'] as const;

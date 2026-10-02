@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
-import type { CheckoutCurrency } from '@/app/shop/checkout/checkout-contract';
+import type { CheckoutCurrency } from '@/app/home/checkout/checkout-contract';
 import { CheckoutConfigurationError } from './checkout-config';
 import { CheckoutServiceError } from './checkout-service';
 import { checkoutErrorResponse } from './checkout-handler';

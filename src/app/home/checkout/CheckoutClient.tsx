@@ -5,9 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   AlertCircle,
   ArrowRight,
-  Banknote,
   CheckCircle2,
-  ChevronDown,
   LoaderCircle,
   Lock,
   PackageCheck,
@@ -15,16 +13,18 @@ import {
   Truck,
 } from 'lucide-react';
 import { useCart, type CartItem } from '@/context/CartContext';
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import { recordCheckoutShippingNote } from '@/app/cms/actions/shipping';
 import {
   getCartPricing,
   getCheckoutTaxQuote,
   validateCartCoupon,
-} from '@/app/shop/cart/actions';
-import type { CartPricedLine, TaxQuote } from '@/app/shop/cart/pricing-types';
+} from '@/app/home/cart/actions';
+import type { CartPricedLine, TaxQuote } from '@/app/home/cart/pricing-types';
 import {
   clearStoredCoupon,
   readStoredCoupon,
+  writeStoredCoupon,
 } from '@/lib/cart-coupon';
 import AddressFields, {
   addressInputId,
@@ -49,27 +49,29 @@ import type {
 } from './checkout-contract';
 import styles from './checkout.module.css';
 
-const CHECKOUT_RETURN_TO = '/shop/checkout';
-const LOGIN_HREF = `/shop/login?returnTo=${encodeURIComponent(CHECKOUT_RETURN_TO)}`;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const DELIVERY_OPTIONS: ReadonlyArray<{
   id: CheckoutDeliveryMethodId;
-  label: string;
-  detail: string;
+  label: Parameters<Translator>[0];
+  detail: Parameters<Translator>[0];
 }> = [
-  { id: 'standard', label: 'Standard delivery', detail: 'Availability is confirmed by the store server' },
+  {
+    id: 'standard',
+    label: 'checkout.delivery.standard.label',
+    detail: 'checkout.delivery.standard.detail',
+  },
 ];
 
 const PAYMENT_OPTIONS: ReadonlyArray<{
   id: CheckoutPaymentMethodId;
-  label: string;
-  detail: string;
+  label: Parameters<Translator>[0];
+  detail: Parameters<Translator>[0];
 }> = [
   {
     id: 'cash_on_delivery',
-    label: 'Cash on delivery',
-    detail: 'Pay when the order is delivered',
+    label: 'checkout.payment.cashOnDelivery.label',
+    detail: 'checkout.payment.cashOnDelivery.detail',
   },
 ];
 
@@ -198,44 +200,45 @@ function getSafeConfirmationPath(value: string): string | null {
 function requiredAddressErrors(
   address: CheckoutAddress,
   prefix: AddressPrefix,
+  t: Translator,
 ): CheckoutFieldErrors {
   const errors: CheckoutFieldErrors = {};
-  const requiredFields: Array<[keyof CheckoutAddress, string]> = [
-    ['firstName', 'Enter a first name.'],
-    ['lastName', 'Enter a last name.'],
-    ['address1', 'Enter a street address.'],
-    ['country', 'Select a country or region.'],
-    ['city', 'Enter a city.'],
-    ['region', 'Enter a state or province.'],
-    ['postalCode', 'Enter a postal code.'],
+  const requiredFields: Array<[keyof CheckoutAddress, Parameters<Translator>[0]]> = [
+    ['firstName', 'checkout.validation.firstName'],
+    ['lastName', 'checkout.validation.lastName'],
+    ['address1', 'checkout.validation.address1'],
+    ['country', 'checkout.validation.country'],
+    ['city', 'checkout.validation.city'],
+    ['region', 'checkout.validation.region'],
+    ['postalCode', 'checkout.validation.postalCode'],
   ];
 
-  for (const [key, message] of requiredFields) {
+  for (const [key, messageKey] of requiredFields) {
     if (!address[key].trim()) {
-      errors[`${prefix}.${key}`] = message;
+      errors[`${prefix}.${key}`] = t(messageKey);
     }
   }
   return errors;
 }
 
-function validateCheckoutForm(form: CheckoutFormState): CheckoutFieldErrors {
+function validateCheckoutForm(form: CheckoutFormState, t: Translator): CheckoutFieldErrors {
   const errors: CheckoutFieldErrors = {};
 
   if (!form.contact.email.trim()) {
-    errors['contact.email'] = 'Enter an email address.';
+    errors['contact.email'] = t('checkout.validation.emailRequired');
   } else if (!EMAIL_PATTERN.test(form.contact.email.trim())) {
-    errors['contact.email'] = 'Enter an email address in the format name@example.com.';
+    errors['contact.email'] = t('checkout.validation.emailFormat');
   }
 
-  Object.assign(errors, requiredAddressErrors(form.shippingAddress, 'shippingAddress'));
+  Object.assign(errors, requiredAddressErrors(form.shippingAddress, 'shippingAddress', t));
 
   if (!form.billingSameAsShipping) {
-    Object.assign(errors, requiredAddressErrors(form.billingAddress, 'billingAddress'));
+    Object.assign(errors, requiredAddressErrors(form.billingAddress, 'billingAddress', t));
   }
 
-  if (!form.deliveryMethod) errors['delivery.methodId'] = 'Choose a delivery method.';
-  if (!form.paymentMethod) errors['payment.methodId'] = 'Choose a payment method.';
-  if (!form.termsAccepted) errors['terms.accepted'] = 'Accept the terms before placing your order.';
+  if (!form.deliveryMethod) errors['delivery.methodId'] = t('checkout.validation.delivery');
+  if (!form.paymentMethod) errors['payment.methodId'] = t('checkout.validation.payment');
+  if (!form.termsAccepted) errors['terms.accepted'] = t('checkout.validation.terms');
 
   return errors;
 }
@@ -276,14 +279,15 @@ function hasServerCheckoutIdentity(cart: readonly CartItem[]): boolean {
   ));
 }
 
-function deliveryOptionLabel(id: CheckoutDeliveryMethodId): string {
-  return DELIVERY_OPTIONS.find((option) => option.id === id)?.label ?? 'Delivery';
+function deliveryOptionLabel(id: CheckoutDeliveryMethodId, t: Translator): string {
+  const option = DELIVERY_OPTIONS.find((entry) => entry.id === id);
+  return t(option ? option.label : 'checkout.delivery.fallbackLabel');
 }
 
-const SHIPPING_TYPE_LABELS: Record<string, string> = {
-  flat_rate: 'Flat Rate',
-  free_shipping: 'Free Shipping',
-  local_pickup: 'Local Pickup',
+const SHIPPING_TYPE_LABELS: Record<string, Parameters<Translator>[0]> = {
+  flat_rate: 'checkout.shippingType.flat_rate',
+  free_shipping: 'checkout.shippingType.free_shipping',
+  local_pickup: 'checkout.shippingType.local_pickup',
 };
 
 function formatShippingMoney(value: number): string {
@@ -315,61 +319,37 @@ function readShippingMethods(payload: unknown): ShippingMethodOption[] | null {
   return methods;
 }
 
-function CheckoutSteps() {
-  return (
-    <ol className={styles.steps} aria-label="Checkout progress">
-      <li className={styles.step}>
-        <span className={styles.stepNumber}>1</span>
-        <span className={styles.stepText}>
-          <strong>Contact</strong>
-          <small>Email details</small>
-        </span>
-      </li>
-      <li className={styles.step}>
-        <span className={styles.stepNumber}>2</span>
-        <span className={styles.stepText}>
-          <strong>Delivery</strong>
-          <small>Address &amp; method</small>
-        </span>
-      </li>
-      <li className={styles.step}>
-        <span className={styles.stepNumber}>3</span>
-        <span className={styles.stepText}>
-          <strong>Payment</strong>
-          <small>Review &amp; place</small>
-        </span>
-      </li>
-    </ol>
-  );
-}
-
 function LoadingState() {
+  const { t } = useLocale();
+
   return (
     <div className={styles.loadingState} role="status" aria-live="polite" aria-busy="true">
       <LoaderCircle className={styles.spinner} size={24} aria-hidden="true" />
-      <strong>Loading your checkout…</strong>
-      <span>Reading the canonical cart saved in this browser.</span>
+      <strong>{t('checkout.loading.title')}</strong>
+      <span>{t('checkout.loading.text')}</span>
     </div>
   );
 }
 
 function EmptyCartState() {
+  const { t } = useLocale();
+
   return (
     <section className={styles.emptyState} aria-labelledby="empty-checkout-title">
       <span className={styles.emptyIcon} aria-hidden="true">
         <ShoppingBag size={28} strokeWidth={1.6} />
       </span>
-      <p className={styles.emptyEyebrow}>Nothing to check out</p>
-      <h2 id="empty-checkout-title">Your cart is empty</h2>
-      <p>
-        Add a product before starting checkout. Your current cart has not been changed.
-      </p>
+      <p className={styles.emptyEyebrow}>{t('checkout.empty.eyebrow')}</p>
+      <h2 id="empty-checkout-title">{t('checkout.empty.title')}</h2>
+      <p>{t('checkout.empty.copy')}</p>
       <div className={styles.emptyActions}>
-        <Link className={styles.primaryLink} href="/shop/products">
-          Browse products
+        <Link className={styles.primaryLink} href="/home/products">
+          {t('checkout.empty.browse')}
           <ArrowRight size={16} aria-hidden="true" />
         </Link>
-        <Link className={styles.secondaryLink} href="/shop/cart">View cart</Link>
+        <Link className={styles.secondaryLink} href="/home/cart">
+          {t('checkout.empty.viewCart')}
+        </Link>
       </div>
     </section>
   );
@@ -380,6 +360,7 @@ function SuccessState({
 }: {
   confirmation: CheckoutConfirmation;
 }) {
+  const { t } = useLocale();
   const confirmationPath = getSafeConfirmationPath(confirmation.confirmationPath);
 
   return (
@@ -392,84 +373,35 @@ function SuccessState({
       <span className={styles.successIcon} aria-hidden="true">
         <CheckCircle2 size={34} strokeWidth={1.7} />
       </span>
-      <p className={styles.successEyebrow}>Server confirmed</p>
-      <h2 id="checkout-success-title">Order placed</h2>
+      <p className={styles.successEyebrow}>{t('checkout.success.eyebrow')}</p>
+      <h2 id="checkout-success-title">{t('checkout.success.title')}</h2>
       <p className={styles.successLead}>
-        A confirmation was recorded for order <strong>{confirmation.orderNumber}</strong>.
+        {t('checkout.success.leadPrefix')}
+        <strong>{confirmation.orderNumber}</strong>
+        {t('checkout.success.leadSuffix')}
       </p>
       <dl className={styles.confirmationDetails}>
         <div>
-          <dt>Confirmation email</dt>
+          <dt>{t('checkout.success.email')}</dt>
           <dd>{confirmation.contactEmail}</dd>
         </div>
         <div>
-          <dt>Order reference</dt>
+          <dt>{t('checkout.success.reference')}</dt>
           <dd>{confirmation.orderNumber}</dd>
         </div>
       </dl>
       <div className={styles.successActions}>
         {confirmationPath ? (
           <Link className={styles.primaryLink} href={confirmationPath}>
-            View order
+            {t('checkout.success.viewOrder')}
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
         ) : null}
-        <Link className={styles.secondaryLink} href="/customer/orders">Order history</Link>
+        <Link className={styles.secondaryLink} href="/home/account/orders">
+          {t('checkout.success.history')}
+        </Link>
       </div>
     </section>
-  );
-}
-
-/**
- * Shipping-aware totals continuation rendered directly below OrderSummary.
- * It reuses the checkout's existing summary CSS-module classes; OrderSummary
- * itself keeps its "display-only" server-quote wording untouched.
- *
- * All amounts arrive as integer cents computed from the same pricing rules the
- * server re-applies inside the order transaction.
- */
-function ShippingTotalsBlock({
-  subtotalCents,
-  discountCents,
-  shippingCents,
-  taxCents,
-  label,
-}: {
-  subtotalCents: number;
-  discountCents: number;
-  shippingCents: number;
-  taxCents: number;
-  label: string;
-}) {
-  const safeShipping = Number.isFinite(shippingCents) && shippingCents > 0
-    ? Math.round(shippingCents)
-    : 0;
-  const totalCents = Math.max(
-    0,
-    subtotalCents - discountCents + safeShipping + taxCents,
-  );
-
-  return (
-    <div className={styles.summaryCard}>
-      <dl className={styles.summaryTotals}>
-        <div className={styles.summaryTotalRow}>
-          <dt>Shipping{label ? ` · ${label}` : ''}</dt>
-          <dd>{formatShippingMoney(safeShipping / 100)}</dd>
-        </div>
-        <div className={styles.summaryGrandTotal}>
-          <dt>Order total</dt>
-          <dd>{formatShippingMoney(totalCents / 100)}</dd>
-        </div>
-      </dl>
-      <div className={styles.estimateNotice}>
-        <span className={styles.estimateDot} aria-hidden="true" />
-        <p>
-          Subtotal after discounts, minus any promotion, plus shipping and tax.
-          The server verifies the final amount, stock, and availability before
-          the order is created.
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -485,6 +417,7 @@ export default function CheckoutClient({
     isHydrating,
     error: cartError,
   } = useCart();
+  const { t } = useLocale();
   const [form, setForm] = useState<CheckoutFormState>(INITIAL_FORM);
   const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
   const [submission, setSubmission] = useState<SubmissionState>({ status: 'idle' });
@@ -582,6 +515,41 @@ export default function CheckoutClient({
   }, [isHydrated, appliedCode, subtotalCents]);
 
   const discountCents = Math.min(couponDiscountCents, subtotalCents);
+
+  /* Inline "Have a coupon?" prompt inside the order card. */
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    try {
+      const result = await validateCartCoupon(code, subtotalCents);
+      if (!result.ok) {
+        setCouponError(result.message);
+        return;
+      }
+      writeStoredCoupon({ code, label: result.label });
+      setAppliedCode(code);
+      setAppliedLabel(result.label);
+      setCouponDiscountCents(result.discountCents);
+      setCouponOpen(false);
+      setCouponInput('');
+      setCouponError(null);
+    } catch {
+      setCouponError('Coupons are temporarily unavailable. Try again.');
+    }
+  };
+
+  const removeCoupon = () => {
+    clearStoredCoupon();
+    setAppliedCode(null);
+    setAppliedLabel(null);
+    setCouponDiscountCents(0);
+    setCouponOpen(false);
+    setCouponInput('');
+    setCouponError(null);
+  };
 
   const destinationCountry = form.shippingAddress.country.trim();
   const destinationRegion = form.shippingAddress.region.trim();
@@ -708,12 +676,12 @@ export default function CheckoutClient({
     event.preventDefault();
     if (submission.status === 'pending') return;
 
-    const errors = validateCheckoutForm(form);
+    const errors = validateCheckoutForm(form, t);
     if (Object.keys(errors).length > 0) {
       showFailure(
         {
           code: 'validation_failed',
-          message: 'Check the highlighted fields before placing your order.',
+          message: t('checkout.failure.validation'),
           retryable: true,
         },
         errors,
@@ -724,7 +692,7 @@ export default function CheckoutClient({
     if (!submitCheckout) {
       showFailure({
         code: 'checkout_unavailable',
-        message: 'Order placement is unavailable until secure server checkout is connected. No order or payment was created.',
+        message: t('checkout.failure.unavailable'),
         retryable: false,
       });
       return;
@@ -733,7 +701,7 @@ export default function CheckoutClient({
     if (!hasServerCheckoutIdentity(cart)) {
       showFailure({
         code: 'cart_not_synchronized',
-        message: 'This local cart must be synchronized with a variant-aware server cart before it can be checked out. No order was created.',
+        message: t('checkout.failure.cartNotSynced'),
         retryable: false,
       });
       return;
@@ -743,7 +711,7 @@ export default function CheckoutClient({
     if (!idempotencyKey) {
       showFailure({
         code: 'secure_random_unavailable',
-        message: 'This browser could not create a secure checkout request key. No order was created.',
+        message: t('checkout.failure.noRandom'),
         retryable: false,
       });
       return;
@@ -812,7 +780,7 @@ export default function CheckoutClient({
       }
       showFailure({
         code: 'checkout_request_failed',
-        message: 'We could not reach secure checkout. No order was created. Check your connection and try again.',
+        message: t('checkout.failure.requestFailed'),
         retryable: true,
       });
     } finally {
@@ -832,7 +800,7 @@ export default function CheckoutClient({
     : 0;
   const currentDeliveryLabel = selectedShippingOption
     ? selectedShippingOption.title
-    : deliveryOptionLabel(form.deliveryMethod);
+    : deliveryOptionLabel(form.deliveryMethod, t);
 
   const shippingCents = Math.round(shippingCostValue * 100);
   const destinationPostcode = form.shippingAddress.postalCode.trim();
@@ -893,15 +861,15 @@ export default function CheckoutClient({
           label: option.title,
           detail:
             (option.instructions || '').trim()
-            || SHIPPING_TYPE_LABELS[option.type]
+            || t(SHIPPING_TYPE_LABELS[option.type])
             || option.type,
           price: formatShippingMoney(Number(option.cost)),
         }))
       : DELIVERY_OPTIONS.map((option) => ({
           key: option.id,
-          label: option.label,
-          detail: option.detail,
-          price: shippingLoading ? 'Loading…' : 'Server quote',
+          label: t(option.label),
+          detail: t(option.detail),
+          price: shippingLoading ? t('checkout.delivery.loading') : t('checkout.delivery.serverQuote'),
         }));
   const selectedDeliveryKey = shippingOptions.length > 0 ? selectedShippingId : form.deliveryMethod;
 
@@ -914,26 +882,13 @@ export default function CheckoutClient({
       <header className={styles.pageHeader}>
         <div className={styles.container}>
           <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/shop">Home</Link>
+            <Link href="/home">{t('checkout.crumb.home')}</Link>
             <span aria-hidden="true">/</span>
-            <Link href="/shop/cart">Cart</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">Checkout</span>
+            <span aria-current="page">{t('checkout.crumb.checkout')}</span>
           </nav>
           <div className={styles.titleRow}>
-            <div>
-              <p className={styles.eyebrow}>Storefront checkout</p>
-              <h1 className={styles.title}>Checkout</h1>
-              <p className={styles.subtitle}>
-                Complete the details in one secure, reviewable flow.
-              </p>
-            </div>
-            <span className={styles.serverPriceBadge}>
-              <Lock size={14} aria-hidden="true" />
-              Final price confirmed by server
-            </span>
+            <h1 className={styles.title}>{t('checkout.header.title')}</h1>
           </div>
-          {submission.status !== 'success' ? <CheckoutSteps /> : null}
         </div>
       </header>
 
@@ -946,139 +901,125 @@ export default function CheckoutClient({
           ) : cart.length === 0 ? (
             <EmptyCartState />
           ) : (
-            <div className={styles.checkoutLayout}>
-              <div className={styles.checkoutMain}>
-                <details className={styles.mobileSummary}>
-                  <summary className={styles.mobileSummarySummary}>
-                    <span>
-                      <small>Order summary</small>
-                      <strong>{totalItems} {totalItems === 1 ? 'item' : 'items'}</strong>
-                    </span>
-                    <span className={styles.mobileSummaryAction}>
-                      View
-                      <ChevronDown size={16} aria-hidden="true" />
-                    </span>
-                  </summary>
-                  <div className={styles.mobileSummaryBody}>
-                    <OrderSummary
-                      cart={cart}
-                      deliveryLabel={currentDeliveryLabel}
-                      headingId="mobile-order-summary-title"
-                      itemCount={totalItems}
-                      pricing={pricing}
-                      promotion={promotion}
-                      subtotalCents={subtotalCents}
-                      taxQuote={taxQuote}
-                    />
-                    <ShippingTotalsBlock
-                      label={currentDeliveryLabel}
-                      discountCents={discountCents}
-                      shippingCents={shippingCents}
-                      subtotalCents={subtotalCents}
-                      taxCents={taxCents}
-                    />
-                  </div>
-                </details>
+            <form
+              aria-busy={isPending}
+              aria-labelledby="checkout-form-title"
+              className={styles.checkoutForm}
+              noValidate
+              onSubmit={handleSubmit}
+            >
+              <h2 className={styles.visuallyHidden} id="checkout-form-title">{t('checkout.form.title')}</h2>
 
-                {cartError ? (
-                  <div className={styles.cartWarning} role="alert">
-                    <AlertCircle size={18} aria-hidden="true" />
+              <fieldset className={styles.formFields} disabled={isPending}>
+                <legend className={styles.visuallyHidden}>{t('checkout.form.legend')}</legend>
+
+                {!submitCheckout ? (
+                  <div className={styles.endpointNotice} id="checkout-availability-note">
+                    <span className={styles.noticeIcon} aria-hidden="true">
+                      <Lock size={18} />
+                    </span>
                     <div>
-                      <strong>Your local cart needs attention</strong>
-                      <p>{cartError}</p>
+                      <strong>{t('checkout.preview.noticeTitle')}</strong>
+                      <p>{t('checkout.preview.noticeCopy')}</p>
                     </div>
                   </div>
                 ) : null}
 
-                <form
-                  aria-busy={isPending}
-                  aria-labelledby="checkout-form-title"
-                  className={styles.checkoutForm}
-                  noValidate
-                  onSubmit={handleSubmit}
-                >
-                  <h2 className={styles.visuallyHidden} id="checkout-form-title">Checkout details</h2>
+                {isPending ? (
+                  <div className={styles.pendingStatus} role="status" aria-live="polite">
+                    <LoaderCircle className={styles.spinner} size={17} aria-hidden="true" />
+                    {t('checkout.pending')}
+                  </div>
+                ) : null}
 
-                  {!submitCheckout ? (
-                    <div className={styles.endpointNotice} id="checkout-availability-note">
-                      <span className={styles.noticeIcon} aria-hidden="true">
-                        <Lock size={18} />
-                      </span>
-                      <div>
-                        <strong>Checkout preview — order placement is disabled</strong>
-                        <p>
-                          Secure checkout is not connected yet. No payment will be taken and
-                          no order will be created from this page.
-                        </p>
-                      </div>
+                {submission.status === 'failure' ? (
+                  <div
+                    className={styles.submissionError}
+                    id="checkout-submission-status"
+                    role="alert"
+                    tabIndex={-1}
+                  >
+                    <AlertCircle size={20} aria-hidden="true" />
+                    <div>
+                      <strong>{t('checkout.failure.title')}</strong>
+                      <p>{submission.error.message}</p>
+                      {!submission.error.retryable ? (
+                        <small>{t('checkout.failure.noOrder')}</small>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </div>
+                ) : null}
 
-                  {isPending ? (
-                    <div className={styles.pendingStatus} role="status" aria-live="polite">
-                      <LoaderCircle className={styles.spinner} size={17} aria-hidden="true" />
-                      Contacting secure checkout. Do not close this page…
-                    </div>
-                  ) : null}
+                {errorEntries.length > 0 ? (
+                  <section className={styles.errorSummary} aria-labelledby="checkout-errors-title">
+                    <h2 id="checkout-errors-title">
+                      {errorEntries.length === 1
+                        ? t('checkout.errors.one')
+                        : t('checkout.errors.many', { count: errorEntries.length })}
+                    </h2>
+                    <ul>
+                      {errorEntries.map(([field, message]) => (
+                        <li key={field}>
+                          <a href={`#${fieldDomId(field)}`}>{message}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
 
-                  {submission.status === 'failure' ? (
-                    <div
-                      className={styles.submissionError}
-                      id="checkout-submission-status"
-                      role="alert"
-                      tabIndex={-1}
-                    >
-                      <AlertCircle size={20} aria-hidden="true" />
-                      <div>
-                        <strong>Checkout could not continue</strong>
-                        <p>{submission.error.message}</p>
-                        {!submission.error.retryable ? (
-                          <small>No order or payment was created.</small>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {errorEntries.length > 0 ? (
-                    <section className={styles.errorSummary} aria-labelledby="checkout-errors-title">
-                      <h2 id="checkout-errors-title">Check {errorEntries.length === 1 ? 'this field' : `these ${errorEntries.length} fields`}</h2>
-                      <ul>
-                        {errorEntries.map(([field, message]) => (
-                          <li key={field}>
-                            <a href={`#${fieldDomId(field)}`}>{message}</a>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
-
-                  <fieldset className={styles.formFields} disabled={isPending}>
-                    <legend className={styles.visuallyHidden}>Contact, delivery, payment, and terms</legend>
-
-                    <section className={styles.stepCard} aria-labelledby="checkout-contact-title">
-                      <header className={styles.stepCardHeader}>
-                        <span className={styles.cardStepNumber} aria-hidden="true">01</span>
+                <div className={styles.checkoutLayout}>
+                  <div className={styles.checkoutMain}>
+                    {cartError ? (
+                      <div className={styles.cartWarning} role="alert">
+                        <AlertCircle size={18} aria-hidden="true" />
                         <div>
-                          <p>Contact</p>
-                          <h2 id="checkout-contact-title">Where should we send your receipt?</h2>
+                          <strong>{t('checkout.cartWarning.title')}</strong>
+                          <p>{cartError}</p>
                         </div>
+                      </div>
+                    ) : null}
+
+                    <section className={styles.billingCard} aria-labelledby="checkout-billing-title">
+                      <header className={styles.billingCardHeader}>
+                        <h2 id="checkout-billing-title">{t('checkout.billing.cardTitle')}</h2>
                       </header>
-                      <div className={styles.stepCardBody}>
-                        <div className={styles.loginPrompt}>
-                          <span>
-                            <strong>Already have an account?</strong>
-                            <small>Sign in to keep your checkout details with you.</small>
-                          </span>
-                          <Link href={LOGIN_HREF}>
-                            Log in
-                            <ArrowRight size={14} aria-hidden="true" />
-                          </Link>
-                        </div>
+                      <div className={styles.billingCardBody}>
+                        <AddressFields
+                          disabled={isPending}
+                          errors={shippingErrors}
+                          onFieldChange={(key, value) => updateAddress('shippingAddress', key, value)}
+                          prefix="shippingAddress"
+                          value={form.shippingAddress}
+                        />
 
                         <div className={styles.fieldGrid}>
                           <div className={styles.field}>
+                            <label className={styles.label} htmlFor="checkout-contact-phone">
+                              {t('checkout.contact.phone')}
+                              <span className={styles.optional}>{t('checkout.contact.phoneHint')}</span>
+                            </label>
+                            <input
+                              aria-describedby={fieldErrors['contact.phone'] ? 'checkout-contact-phone-error' : undefined}
+                              aria-invalid={fieldErrors['contact.phone'] ? true : undefined}
+                              autoComplete="tel"
+                              className={controlClassName(Boolean(fieldErrors['contact.phone']))}
+                              id="checkout-contact-phone"
+                              inputMode="tel"
+                              name="contact.phone"
+                              onChange={(event) => updateContact('phone', event.target.value)}
+                              type="tel"
+                              value={form.contact.phone}
+                            />
+                            {fieldErrors['contact.phone'] ? (
+                              <p className={styles.fieldError} id="checkout-contact-phone-error">
+                                {fieldErrors['contact.phone']}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className={styles.field}>
                             <label className={styles.label} htmlFor="checkout-contact-email">
-                              Email address
+                              {t('checkout.contact.email')}
                               <span className={styles.requiredMark} aria-hidden="true">*</span>
                             </label>
                             <input
@@ -1103,30 +1044,6 @@ export default function CheckoutClient({
                               </p>
                             ) : null}
                           </div>
-
-                          <div className={styles.field}>
-                            <label className={styles.label} htmlFor="checkout-contact-phone">
-                              Phone number
-                              <span className={styles.optional}>For delivery questions</span>
-                            </label>
-                            <input
-                              aria-describedby={fieldErrors['contact.phone'] ? 'checkout-contact-phone-error' : undefined}
-                              aria-invalid={fieldErrors['contact.phone'] ? true : undefined}
-                              autoComplete="tel"
-                              className={controlClassName(Boolean(fieldErrors['contact.phone']))}
-                              id="checkout-contact-phone"
-                              inputMode="tel"
-                              name="contact.phone"
-                              onChange={(event) => updateContact('phone', event.target.value)}
-                              type="tel"
-                              value={form.contact.phone}
-                            />
-                            {fieldErrors['contact.phone'] ? (
-                              <p className={styles.fieldError} id="checkout-contact-phone-error">
-                                {fieldErrors['contact.phone']}
-                              </p>
-                            ) : null}
-                          </div>
                         </div>
 
                         <label className={styles.checkboxRow}>
@@ -1146,71 +1063,48 @@ export default function CheckoutClient({
                             }}
                             type="checkbox"
                           />
-                          <span>Email me about news and offers. Optional; you can unsubscribe anytime.</span>
+                          <span>{t('checkout.contact.marketing')}</span>
                         </label>
-                      </div>
-                    </section>
 
-                    <section className={styles.stepCard} aria-labelledby="checkout-delivery-title">
-                      <header className={styles.stepCardHeader}>
-                        <span className={styles.cardStepNumber} aria-hidden="true">02</span>
                         <div>
-                          <p>Delivery</p>
-                          <h2 id="checkout-delivery-title">Where is your order going?</h2>
-                        </div>
-                      </header>
-                      <div className={styles.stepCardBody}>
-                        <h3 className={styles.subsectionTitle}>Shipping address</h3>
-                        <AddressFields
-                          disabled={isPending}
-                          errors={shippingErrors}
-                          onFieldChange={(key, value) => updateAddress('shippingAddress', key, value)}
-                          prefix="shippingAddress"
-                          value={form.shippingAddress}
-                        />
+                          <label className={`${styles.checkboxRow} ${styles.billingToggle}`}>
+                            <input
+                              checked={!form.billingSameAsShipping}
+                              className={styles.checkbox}
+                              name="billing.sameAsShipping"
+                              onChange={(event) => setBillingSameAsShipping(!event.target.checked)}
+                              type="checkbox"
+                            />
+                            <span>{t('checkout.billing.different')}</span>
+                          </label>
 
-                        <label className={`${styles.checkboxRow} ${styles.billingToggle}`}>
-                          <input
-                            checked={form.billingSameAsShipping}
-                            className={styles.checkbox}
-                            name="billing.sameAsShipping"
-                            onChange={(event) => setBillingSameAsShipping(event.target.checked)}
-                            type="checkbox"
-                          />
-                          <span>Use this address for billing</span>
-                        </label>
-
-                        <div className={styles.billingSection}>
-                          <div className={styles.subsectionHeadingRow}>
-                            <div>
-                              <h3 className={styles.subsectionTitle}>Billing address</h3>
-                              <p>
-                                {form.billingSameAsShipping
-                                  ? 'Currently matching your shipping address.'
-                                  : 'Enter a separate address for billing.'}
-                              </p>
+                          {form.billingSameAsShipping ? null : (
+                            <div className={styles.billingSection}>
+                              <div className={styles.subsectionHeadingRow}>
+                                <div>
+                                  <h3 className={styles.subsectionTitle}>{t('checkout.billing.title')}</h3>
+                                  <p>{t('checkout.billing.diffCopy')}</p>
+                                </div>
+                              </div>
+                              <AddressFields
+                                disabled={isPending}
+                                errors={billingErrors}
+                                onFieldChange={(key, value) => updateAddress('billingAddress', key, value)}
+                                prefix="billingAddress"
+                                value={form.billingAddress}
+                              />
                             </div>
-                          </div>
-                          <AddressFields
-                            disabled={isPending || form.billingSameAsShipping}
-                            errors={billingErrors}
-                            onFieldChange={(key, value) => updateAddress('billingAddress', key, value)}
-                            prefix="billingAddress"
-                            value={form.billingSameAsShipping ? form.shippingAddress : form.billingAddress}
-                          />
+                          )}
                         </div>
 
                         <div className={styles.subsectionHeadingRow}>
                           <div>
-                            <h3 className={styles.subsectionTitle}>Delivery method</h3>
-                            <p>
-                              Shipping methods are loaded for your address from the store&apos;s
-                              shipping zones.
-                            </p>
+                            <h3 className={styles.subsectionTitle}>{t('checkout.delivery.methodTitle')}</h3>
+                            <p>{t('checkout.delivery.methodCopy')}</p>
                           </div>
                         </div>
                         <div className={styles.choiceList} role="radiogroup" aria-labelledby="delivery-method-label">
-                          <span className={styles.visuallyHidden} id="delivery-method-label">Choose a delivery method</span>
+                          <span className={styles.visuallyHidden} id="delivery-method-label">{t('checkout.delivery.choose')}</span>
                           {deliveryChoices.map((option) => (
                             <label className={styles.choiceCard} key={option.key}>
                               <input
@@ -1248,142 +1142,205 @@ export default function CheckoutClient({
                       </div>
                     </section>
 
-                    <section className={styles.stepCard} aria-labelledby="checkout-payment-title">
-                      <header className={styles.stepCardHeader}>
-                        <span className={styles.cardStepNumber} aria-hidden="true">03</span>
-                        <div>
-                          <p>Payment</p>
-                          <h2 id="checkout-payment-title">Choose how to pay</h2>
+                  </div>
+
+                  <aside className={styles.desktopSummary} aria-label={t('checkout.summary.aria')}>
+                    <section className={styles.orderCard}>
+                      <OrderSummary
+                        headingId="desktop-order-summary-title"
+                        cart={cart}
+                        itemCount={totalItems}
+                        pricing={pricing}
+                      />
+
+                      <div className={styles.couponRow}>
+                        {appliedCode ? (
+                          <div className={styles.couponApplied}>
+                            <span className={styles.couponAppliedCode}>{appliedLabel ?? appliedCode}</span>
+                            <button type="button" className={styles.couponRemove} onClick={removeCoupon}>
+                              {t('checkout.coupon.remove')}
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.couponPrompt}
+                              aria-expanded={couponOpen}
+                              onClick={() => setCouponOpen((current) => !current)}
+                            >
+                              {t('checkout.coupon.prompt')} <span>{t('checkout.coupon.enter')}</span>
+                            </button>
+                            {couponOpen ? (
+                              <div className={styles.promoControls}>
+                                <input
+                                  aria-label={t('checkout.coupon.codeLabel')}
+                                  autoComplete="off"
+                                  className={styles.control}
+                                  id="checkout-coupon-code"
+                                  placeholder={t('checkout.coupon.codeLabel')}
+                                  spellCheck={false}
+                                  value={couponInput}
+                                  onChange={(event) => {
+                                    setCouponInput(event.target.value);
+                                    setCouponError(null);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter') {
+                                      event.preventDefault();
+                                      void applyCoupon();
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className={styles.promoButton}
+                                  onClick={() => void applyCoupon()}
+                                >
+                                  {t('checkout.coupon.apply')}
+                                </button>
+                              </div>
+                            ) : null}
+                            {couponError ? (
+                              <p className={styles.fieldError} role="alert">{couponError}</p>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+
+                      <dl className={styles.orderTotals}>
+                        <div className={styles.orderTotalRow}>
+                          <dt>{t('checkout.order.subtotal')}</dt>
+                          <dd>{formatShippingMoney(subtotalCents / 100)}</dd>
                         </div>
-                      </header>
-                      <div className={styles.stepCardBody}>
-                        <div className={styles.choiceList} role="radiogroup" aria-labelledby="payment-method-label">
-                          <span className={styles.visuallyHidden} id="payment-method-label">Choose a payment method</span>
-                          {PAYMENT_OPTIONS.map((option) => (
-                            <label className={styles.choiceCard} key={option.id}>
-                              <input
-                                checked={form.paymentMethod === option.id}
-                                className={styles.radio}
-                                id={`checkout-payment-${option.id}`}
-                                name="payment.methodId"
-                                onChange={() => {
-                                  setForm((current) => ({ ...current, paymentMethod: option.id }));
-                                  clearFieldError('payment.methodId');
-                                  markFormChanged();
-                                }}
-                                type="radio"
-                                value={option.id}
-                              />
-                              <span className={styles.choiceIcon} aria-hidden="true"><Banknote size={20} /></span>
-                              <span className={styles.choiceCopy}>
-                                <strong>{option.label}</strong>
-                                <small>{option.detail}</small>
-                              </span>
-                              <span className={styles.serverBadge}>Server confirmed</span>
-                            </label>
-                          ))}
-                        </div>
-                        {fieldErrors['payment.methodId'] ? (
-                          <p className={styles.fieldError}>{fieldErrors['payment.methodId']}</p>
+                        {promotion ? (
+                          <div className={styles.orderTotalRow}>
+                            <dt>{t('checkout.summary.promotion')}</dt>
+                            <dd>{`${promotion.label} - ${formatShippingMoney(promotion.discountCents / 100)}`}</dd>
+                          </div>
                         ) : null}
-
-                        <div className={styles.paymentSafetyNote}>
-                          <Lock size={17} aria-hidden="true" />
-                          <p>
-                            Card payment is not enabled. This checkout never collects card
-                            numbers; a future payment method must use secure provider-hosted fields.
-                          </p>
+                        <div className={styles.orderTotalRow}>
+                          <dt>
+                            {t('checkout.totals.shipping')}
+                            {currentDeliveryLabel ? ` - ${currentDeliveryLabel}` : ''}
+                          </dt>
+                          <dd>{formatShippingMoney(shippingCents / 100)}</dd>
                         </div>
+                        {taxQuote ? (
+                          <div className={styles.orderTotalRow}>
+                            <dt>{taxQuote.label}</dt>
+                            <dd>{formatShippingMoney(taxCents / 100)}</dd>
+                          </div>
+                        ) : null}
+                        <div className={`${styles.orderTotalRow} ${styles.orderTotalGrand}`}>
+                          <dt>{t('checkout.order.total')}</dt>
+                          <dd>{formatShippingMoney(Math.max(0, subtotalCents - discountCents + shippingCents + taxCents) / 100)}</dd>
+                        </div>
+                      </dl>
+                    </section>
 
+                    <section className={styles.paymentBox} aria-labelledby="checkout-payment-title">
+                      <h2 className={styles.visuallyHidden} id="checkout-payment-title">
+                        {t('checkout.payment.heading')}
+                      </h2>
 
-                        <div className={styles.termsBox}>
-                          <label className={styles.checkboxRow}>
+                      <div className={styles.paymentOptions} role="radiogroup" aria-labelledby="payment-method-label">
+                        <span className={styles.visuallyHidden} id="payment-method-label">{t('checkout.payment.choose')}</span>
+                        {PAYMENT_OPTIONS.map((option) => (
+                          <label className={styles.paymentOption} key={option.id}>
                             <input
-                              aria-describedby={fieldErrors['terms.accepted'] ? 'checkout-terms-error' : undefined}
-                              aria-invalid={fieldErrors['terms.accepted'] ? true : undefined}
-                              checked={form.termsAccepted}
-                              className={styles.checkbox}
-                              id="checkout-terms"
-                              name="terms.accepted"
-                              onChange={(event) => {
-                                setForm((current) => ({
-                                  ...current,
-                                  termsAccepted: event.target.checked,
-                                }));
-                                clearFieldError('terms.accepted');
+                              checked={form.paymentMethod === option.id}
+                              className={styles.radio}
+                              id={`checkout-payment-${option.id}`}
+                              name="payment.methodId"
+                              onChange={() => {
+                                setForm((current) => ({ ...current, paymentMethod: option.id }));
+                                clearFieldError('payment.methodId');
                                 markFormChanged();
                               }}
-                              type="checkbox"
+                              type="radio"
+                              value={option.id}
                             />
-                            <span>
-                              I agree to the{' '}
-                              <Link href="/shop/terms-conditions" target="_blank" rel="noreferrer">Terms of Service</Link>
-                              {' '}and acknowledge the{' '}
-                              <Link href="/shop/privacy-policy" target="_blank" rel="noreferrer">Privacy Policy</Link>.
-                              <span className={styles.requiredMark} aria-hidden="true">*</span>
-                            </span>
+                            <span className={styles.paymentOptionLabel}>{t(option.label)}</span>
+                            <span className={styles.paymentOptionBox}>{t(option.detail)}</span>
                           </label>
-                          {fieldErrors['terms.accepted'] ? (
-                            <p className={styles.fieldError} id="checkout-terms-error">
-                              {fieldErrors['terms.accepted']}
-                            </p>
-                          ) : null}
-                        </div>
+                        ))}
+                      </div>
+                      {fieldErrors['payment.methodId'] ? (
+                        <p className={styles.fieldError}>{fieldErrors['payment.methodId']}</p>
+                      ) : null}
 
-                        <div className={styles.submitArea}>
-                          <button
-                            aria-describedby="checkout-submit-help"
-                            className={styles.placeOrderButton}
-                            disabled={!submitCheckout || isPending}
-                            type="submit"
-                          >
-                            {isPending ? (
-                              <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" />
-                            ) : submitCheckout ? (
-                              <PackageCheck size={18} aria-hidden="true" />
-                            ) : (
-                              <Lock size={18} aria-hidden="true" />
-                            )}
-                            <span>
-                              {isPending
-                                ? 'Placing order…'
-                                : submitCheckout && submission.status === 'failure' && submission.error.retryable
-                                  ? 'Try place order again'
-                                  : 'Place order'}
-                            </span>
-                          </button>
-                          <p id="checkout-submit-help">
-                            {submitCheckout
-                              ? 'The server must confirm the complete total before an order is created.'
-                              : 'Disabled until POST /api/storefront/checkout is securely implemented.'}
+                      <p className={styles.privacyNote}>
+                        {t('checkout.payment.privacy')}{' '}
+                        <Link href="/home/privacy-policy" target="_blank" rel="noreferrer">
+                          {t('checkout.payment.privacyLink')}
+                        </Link>
+                      </p>
+
+                      <div className={styles.termsBox}>
+                        <label className={styles.checkboxRow}>
+                          <input
+                            aria-describedby={fieldErrors['terms.accepted'] ? 'checkout-terms-error' : undefined}
+                            aria-invalid={fieldErrors['terms.accepted'] ? true : undefined}
+                            checked={form.termsAccepted}
+                            className={styles.checkbox}
+                            id="checkout-terms"
+                            name="terms.accepted"
+                            onChange={(event) => {
+                              setForm((current) => ({
+                                ...current,
+                                termsAccepted: event.target.checked,
+                              }));
+                              clearFieldError('terms.accepted');
+                              markFormChanged();
+                            }}
+                            type="checkbox"
+                          />
+                          <span>
+                            {t('checkout.terms.agree')}
+                            <span className={styles.requiredMark} aria-hidden="true">*</span>
+                          </span>
+                        </label>
+                        {fieldErrors['terms.accepted'] ? (
+                          <p className={styles.fieldError} id="checkout-terms-error">
+                            {fieldErrors['terms.accepted']}
                           </p>
-                        </div>
+                        ) : null}
+                      </div>
+
+                      <div className={styles.submitArea}>
+                        <button
+                          aria-describedby="checkout-submit-help"
+                          className={styles.placeOrderButton}
+                          disabled={!submitCheckout || isPending}
+                          type="submit"
+                        >
+                          {isPending ? (
+                            <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" />
+                          ) : submitCheckout ? (
+                            <PackageCheck size={18} aria-hidden="true" />
+                          ) : (
+                            <Lock size={18} aria-hidden="true" />
+                          )}
+                          <span>
+                            {isPending
+                              ? t('checkout.submit.pending')
+                              : submitCheckout && submission.status === 'failure' && submission.error.retryable
+                                ? t('checkout.submit.retry')
+                                : t('checkout.submit.place')}
+                          </span>
+                        </button>
+                        <p id="checkout-submit-help">
+                          {submitCheckout
+                            ? t('checkout.submit.help')
+                            : t('checkout.submit.helpDisabled')}
+                        </p>
                       </div>
                     </section>
-                  </fieldset>
-                </form>
-              </div>
-
-              <aside className={styles.desktopSummary} aria-label="Order summary">
-                <OrderSummary
-                  cart={cart}
-                  deliveryLabel={currentDeliveryLabel}
-                  headingId="desktop-order-summary-title"
-                  itemCount={totalItems}
-                  pricing={pricing}
-                  promotion={promotion}
-                  subtotalCents={subtotalCents}
-                  taxQuote={taxQuote}
-                />
-                <ShippingTotalsBlock
-                  label={currentDeliveryLabel}
-                  discountCents={discountCents}
-                  shippingCents={shippingCents}
-                  subtotalCents={subtotalCents}
-                  taxCents={taxCents}
-                />
-              </aside>
-            </div>
+                  </aside>
+                </div>
+              </fieldset>
+            </form>
           )}
         </div>
       </main>

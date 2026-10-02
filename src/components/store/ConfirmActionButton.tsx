@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, cn } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 type ActionResult = { ok: boolean; error?: string };
 
@@ -36,6 +37,7 @@ export default function ConfirmActionButton<Args extends unknown[]>({
   children: React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
+  const { t } = useLocale();
 
   async function run() {
     if (busy) return;
@@ -46,10 +48,10 @@ export default function ConfirmActionButton<Args extends unknown[]>({
       if (result.ok) {
         if (successMessage) toast.success(successMessage);
       } else {
-        toast.error(result.error || 'Something went wrong.');
+        toast.error(result.error || t('cmsshared.error.something_went_wrong'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.error.something_went_wrong'));
     } finally {
       setBusy(false);
     }
@@ -73,6 +75,7 @@ export default function ConfirmActionButton<Args extends unknown[]>({
 /** Runs an arbitrary async client handler with pending state + error toasts. */
 export function useAsyncAction() {
   const [busy, setBusy] = useState(false);
+  const { t } = useLocale();
 
   async function run(handler: () => Promise<ActionResult>, successMessage?: string) {
     if (busy) return;
@@ -82,10 +85,10 @@ export function useAsyncAction() {
       if (result.ok) {
         if (successMessage) toast.success(successMessage);
       } else {
-        toast.error(result.error || 'Something went wrong.');
+        toast.error(result.error || t('cmsshared.error.something_went_wrong'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.error.something_went_wrong'));
     } finally {
       setBusy(false);
     }

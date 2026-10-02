@@ -4,6 +4,8 @@ import { getContextDb } from '@/lib/tenant';
 import { cmsPages } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { normalizeBlocks } from '@/app/cms/builder/blocks';
+import { getBuilderPreviewTheme } from '@/lib/theme/builder-preview-theme';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import PageForm from '@/components/content/PageForm';
 
@@ -15,6 +17,7 @@ export default async function EditPagePage({
   params: Promise<{ id: string }>;
 }) {
   await requireCmsSession();
+  const t = await getT();
 
   const { id: rawId } = await params;
   const id = Number(rawId);
@@ -24,13 +27,18 @@ export default async function EditPagePage({
   const [row] = await db.select().from(cmsPages).where(eq(cmsPages.id, id)).limit(1);
   if (!row) notFound();
 
+  const previewTheme = await getBuilderPreviewTheme();
+
   return (
     <div>
       <PageHeader
-        title={`Edit “${row.title}”`}
-        description={`Last updated ${row.updatedAt.toLocaleString('en-GB')}.`}
+        title={t('cmscontent.pages.editTitle', { title: row.title })}
+        description={t('cmscontent.pages.editDescription', {
+          date: row.updatedAt.toLocaleString('en-GB'),
+        })}
       />
       <PageForm
+        previewTheme={previewTheme}
         initial={{
           id: row.id,
           title: row.title,

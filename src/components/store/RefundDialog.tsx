@@ -6,6 +6,7 @@ import { Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Label, Textarea } from '@/components/admin/ui';
 import { refundOrder, type RefundItemInput } from '@/app/cms/actions/orders';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type RefundLine = {
   saleItemId: number;
@@ -30,6 +31,7 @@ export default function RefundDialog({
   lines: RefundLine[];
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -50,7 +52,7 @@ export default function RefundDialog({
       .filter((line) => qty(line.saleItemId) > 0)
       .map((line) => ({ saleItemId: line.saleItemId, quantity: qty(line.saleItemId) }));
     if (items.length === 0) {
-      toast.error('Pick at least one item and quantity to refund.');
+      toast.error(t('cmsshared.refund.invalid'));
       return;
     }
 
@@ -58,18 +60,18 @@ export default function RefundDialog({
     try {
       const result = await refundOrder(orderId, { reason, items });
       if (result.ok) {
-        toast.success(`Refund recorded — ${result.refunded || 'done'}.`, {
-          description: `Order ${reference} was moved to Returned.`,
+        toast.success(t('cmsshared.refund.success', { done: String(result.refunded || 'done') }), {
+          description: t('cmsshared.refund.success_description', { reference }),
         });
         setOpen(false);
         setQuantities({});
         setReason('');
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not record the refund.');
+        toast.error(result.error || t('cmsshared.refund.error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not record the refund.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.refund.error'));
     } finally {
       setBusy(false);
     }
@@ -85,7 +87,7 @@ export default function RefundDialog({
         disabled={lines.length === 0}
         onClick={() => setOpen(true)}
       >
-        <Undo2 size={14} /> Record refund
+        <Undo2 size={14} /> {t('cmsshared.refund.open')}
       </Button>
 
       {open ? (
@@ -93,7 +95,7 @@ export default function RefundDialog({
           className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={`Refund order ${reference}`}
+          aria-label={t('cmsshared.refund.title_aria', { reference })}
           onClick={(event) => {
             if (event.target === event.currentTarget && !busy) setOpen(false);
           }}
@@ -101,12 +103,9 @@ export default function RefundDialog({
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-xl">
             <div className="border-b border-zinc-100 px-5 py-4">
               <h3 className="text-sm font-semibold text-zinc-900">
-                Refund order {reference}
+                {t('cmsshared.refund.title', { reference })}
               </h3>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                Select the quantities to refund. The order is marked as Returned and a refund
-                note is added to its history.
-              </p>
+              <p className="mt-0.5 text-xs text-zinc-500">{t('cmsshared.refund.subtitle')}</p>
             </div>
 
             <div className="space-y-4 px-5 py-4">
@@ -121,7 +120,7 @@ export default function RefundDialog({
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-zinc-900">
-                          {line.productName || 'Product'}
+                          {line.productName || t('cmsshared.discount.entity_product')}
                         </p>
                         <p className="truncate text-xs text-zinc-500">
                           {line.variantName ? `${line.variantName} · ` : ''}
@@ -133,7 +132,9 @@ export default function RefundDialog({
                         min={0}
                         max={max}
                         value={value}
-                        aria-label={`Refund quantity for ${line.productName || 'item'}`}
+                        aria-label={t('cmsshared.refund.qty_aria', {
+                          name: line.productName || t('cmsshared.refund.item'),
+                        })}
                         onChange={(event) => {
                           const next = Math.max(
                             0,
@@ -149,19 +150,19 @@ export default function RefundDialog({
               </ul>
 
               <div>
-                <Label htmlFor={`refund-reason-${orderId}`}>Reason (optional)</Label>
+                <Label htmlFor={`refund-reason-${orderId}`}>{t('cmsshared.refund.reason_label')}</Label>
                 <Textarea
                   id={`refund-reason-${orderId}`}
                   className="min-h-20"
                   maxLength={1000}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  placeholder="Damaged item, customer changed their mind…"
+                  placeholder={t('cmsshared.refund.reason_placeholder')}
                 />
               </div>
 
               <p className="text-sm text-zinc-700">
-                Refund total:{' '}
+                {t('cmsshared.refund.total')}{' '}
                 <span className="font-semibold text-zinc-900">
                   {total.toLocaleString('en-IE', {
                     minimumFractionDigits: 2,
@@ -179,11 +180,11 @@ export default function RefundDialog({
                 disabled={busy}
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t('cmsshared.action.cancel')}
               </Button>
               <Button type="button" variant="danger" size="md" disabled={busy} onClick={submit}>
                 {busy ? <Loader2 size={14} className="animate-spin" /> : null}
-                Confirm refund
+                {t('cmsshared.refund.confirm')}
               </Button>
             </div>
           </div>

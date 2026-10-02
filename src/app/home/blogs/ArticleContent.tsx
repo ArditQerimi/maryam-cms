@@ -1,5 +1,6 @@
 /* Article images may be tenant-hosted, so the safe parser intentionally renders responsive plain images. */
 /* eslint-disable @next/next/no-img-element */
+import { getT } from '@/lib/i18n/server';
 import styles from './blog.module.css';
 
 type TextBlock = {
@@ -200,20 +201,21 @@ function ensurePullQuote(blocks: ContentBlock[], fallbackQuote: string) {
   blocks.splice(insertAt, 0, { type: 'quote', text: quote });
 }
 
-export default function ArticleContent({
+export default async function ArticleContent({
   content,
   fallbackQuote,
 }: {
   content: string;
   fallbackQuote?: string;
 }) {
+  const t = await getT();
   const blocks = parseContent(content);
   ensurePullQuote(blocks, fallbackQuote ?? '');
 
   if (blocks.length === 0) {
     return (
       <div className={styles.articleBody}>
-        <p>This article does not have any readable content yet.</p>
+        <p>{t('blog.article.empty')}</p>
       </div>
     );
   }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getT } from '@/lib/i18n/server';
 import styles from './blog.module.css';
 
 type BlogPaginationProps = {
@@ -18,10 +19,10 @@ function buildPageHref(page: number, query: string, category: string, tag: strin
   if (page > 1) params.set('page', String(page));
 
   const search = params.toString();
-  return search ? `/shop/blogs?${search}` : '/shop/blogs';
+  return search ? `/home/blogs?${search}` : '/home/blogs';
 }
 
-export default function BlogPagination({
+export default async function BlogPagination({
   currentPage,
   totalPages,
   query,
@@ -30,16 +31,17 @@ export default function BlogPagination({
 }: BlogPaginationProps) {
   if (totalPages <= 1) return null;
 
+  const t = await getT();
   const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
 
   return (
-    <nav className={styles.pagination} aria-label="Journal pagination">
+    <nav className={styles.pagination} aria-label={t('blog.pagination.aria')}>
       <div className={styles.paginationList}>
         {currentPage > 1 ? (
           <Link
             className={styles.paginationArrow}
             href={buildPageHref(currentPage - 1, query, category, tag)}
-            aria-label="Previous page"
+            aria-label={t('blog.pagination.previous')}
           >
             <ChevronLeft size={16} strokeWidth={1.8} aria-hidden="true" />
           </Link>
@@ -59,7 +61,7 @@ export default function BlogPagination({
               key={page}
               className={styles.paginationItem}
               href={buildPageHref(page, query, category, tag)}
-              aria-label={`Page ${page}`}
+              aria-label={t('blog.pagination.page', { page })}
             >
               {page}
             </Link>
@@ -70,7 +72,7 @@ export default function BlogPagination({
           <Link
             className={styles.paginationArrow}
             href={buildPageHref(currentPage + 1, query, category, tag)}
-            aria-label="Next page"
+            aria-label={t('blog.pagination.next')}
           >
             <ChevronRight size={16} strokeWidth={1.8} aria-hidden="true" />
           </Link>

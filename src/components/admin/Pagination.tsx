@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Query-string pagination shared by every admin list page.
@@ -21,10 +22,12 @@ export default function Pagination({
   total?: number;
   searchParams?: Record<string, string | undefined>;
 }) {
+  const { t } = useLocale();
+
   if (totalPages <= 1) {
     return total === undefined ? null : (
       <p className="mt-3 text-xs text-zinc-400">
-        {total} {total === 1 ? 'result' : 'results'}
+        {total} {t(total === 1 ? 'cmscommon.pagination.result' : 'cmscommon.pagination.results')}
       </p>
     );
   }
@@ -46,10 +49,10 @@ export default function Pagination({
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
       {total === undefined ? null : (
         <p className="text-xs text-zinc-400">
-          {total} {total === 1 ? 'result' : 'results'}
+          {total} {t(total === 1 ? 'cmscommon.pagination.result' : 'cmscommon.pagination.results')}
         </p>
       )}
-      <nav className="flex items-center gap-1" aria-label="Pagination">
+      <nav className="flex items-center gap-1" aria-label={t('cmscommon.pagination.ariaLabel')}>
         <Link
           href={href(Math.max(1, page - 1))}
           aria-disabled={page <= 1}

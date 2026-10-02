@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import {
   cartFingerprint,
   isStorefrontAuthenticationError,
@@ -144,13 +145,6 @@ type StorageReadResult = StoredListResult & {
   available: boolean;
   readError: boolean;
 };
-
-const CART_STORAGE_READ_ERROR =
-  'Your saved cart could not be read in this browser. It is safe to try again, but changes will stay in memory for now.';
-const CART_STORAGE_WRITE_ERROR =
-  'Your cart changed, but this browser could not save it locally. It will remain available for this tab only.';
-const INVALID_CART_ITEM_ERROR = 'That cart item is not valid. Quantity must be a whole number between 1 and 99.';
-const MAX_CART_QUANTITY_MESSAGE = 'The maximum quantity for one cart line is 99.';
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -661,6 +655,12 @@ function writeMigrationMarker(marker: CartMigrationMarker): boolean {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
+  const cartReadError = t('cart.storage_read_error');
+  const cartWriteError = t('cart.storage_write_error');
+  const invalidCartError = t('cart.error_invalid_item');
+  const maxQuantityMessage = t('cart.error_max_quantity');
+  const cartInvalidDataError = t('cart.storage_invalid_data');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationStatus, setHydrationStatus] = useState<CommerceHydrationStatus>('loading');
@@ -712,7 +712,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!storage) {
       storageWriteFailedRef.current = true;
       setStorageScope('memory');
-      setError(CART_STORAGE_WRITE_ERROR);
+      setError(cartWriteError);
       return false;
     }
 
@@ -724,15 +724,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         storageWarningRef.current = null;
       }
       setStorageScope('local');
-      setError((current) => current === CART_STORAGE_WRITE_ERROR ? null : current);
+      setError((current) => current === cartWriteError ? null : current);
       return true;
     } catch {
       storageWriteFailedRef.current = true;
       setStorageScope('memory');
-      setError(CART_STORAGE_WRITE_ERROR);
+      setError(cartWriteError);
       return false;
     }
-  }, []);
+  }, [cartWriteError]);
 
   const commit = useCallback(
     (next: CartItem[]): boolean => {
@@ -767,7 +767,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let nextScope: CommerceStorageScope = result.available ? 'local' : 'memory';
 
     if (result.readError) {
-      nextError = CART_STORAGE_READ_ERROR;
+      nextError = cartReadError;
       nextScope = 'unavailable';
     } else if (result.hadInvalidEntries || result.hadCappedEntries) {
       nextError = 'Some saved cart data was malformed or above the quantity limit. The valid items are shown, and the saved data was left unchanged.';
@@ -801,7 +801,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (deferred) {
       persist(nextItems);
     }
-  }, [beginSync, endSync, persist]);
+  }, [beginSync, cartReadError, endSync, persist]);
 
   useEffect(() => {
     hydrateFromStorage();
@@ -1063,8 +1063,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (input: CartItemInput): CartMutationResult => {
       const normalized = normalizeInput(input, DEFAULT_CART_MAX_QUANTITY);
       if (!normalized) {
-        setError(INVALID_CART_ITEM_ERROR);
-        return { ok: false, changed: false, reason: 'invalid', message: INVALID_CART_ITEM_ERROR };
+        setError(invalidCartError);
+        return { ok: false, changed: false, reason: 'invalid', message: invalidCartError };
       }
 
       const current = itemsRef.current;
@@ -1110,17 +1110,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       const capped = normalized.quantityWasCapped || finalQuantity < normalized.requestedQuantity + (index === -1 ? 0 : current[index].quantity);
       if (capped) {
-        setError(MAX_CART_QUANTITY_MESSAGE);
+        setError(maxQuantityMessage);
       }
 
       return {
         ok: !capped,
         changed,
-        message: capped ? MAX_CART_QUANTITY_MESSAGE : undefined,
+        message: capped ? maxQuantityMessage : undefined,
         reason: capped ? 'limit' : undefined,
       };
     },
-    [commit, enqueueCartCommand, prepareLocalMutation],
+    [commit, enqueueCartCommand, invalidCartError, maxQuantityMessage, prepareLocalMutation],
   );
 
   const removeFromCart = useCallback(
@@ -1154,7 +1154,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
       return { ok: true, changed: true };
     },
-    [commit, enqueueCartCommand, prepareLocalMutation],
+    [commit, enqueueCartCommand, invalidCartError, maxQuantityMessage, prepareLocalMutation],
   );
 
   const updateQty = useCallback(
@@ -1165,8 +1165,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const parsed = parseQuantity(quantity, DEFAULT_CART_MAX_QUANTITY);
       if (!parsed) {
-        setError(INVALID_CART_ITEM_ERROR);
-        return { ok: false, changed: false, reason: 'invalid', message: INVALID_CART_ITEM_ERROR };
+        setError(invalidCartError);
+        return { ok: false, changed: false, reason: 'invalid', message: invalidCartError };
       }
 
       const index = findSelectedIndex(itemsRef.current, selector, explicitVariantId);
@@ -1185,7 +1185,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const current = itemsRef.current[index];
       if (current.quantity === parsed.value) {
-        if (parsed.wasCapped) setError(MAX_CART_QUANTITY_MESSAGE);
+        if (parsed.wasCapped) setError(maxQuantityMessage);
         return { ok: true, changed: false, reason: parsed.wasCapped ? 'limit' : 'not-found' };
       }
 
@@ -1213,16 +1213,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         key: lineKey(current.productId, current.variantId),
       });
       if (parsed.wasCapped) {
-        setError(MAX_CART_QUANTITY_MESSAGE);
+        setError(maxQuantityMessage);
       }
       return {
         ok: true,
         changed: true,
         reason: parsed.wasCapped ? 'limit' : undefined,
-        message: parsed.wasCapped ? MAX_CART_QUANTITY_MESSAGE : undefined,
+        message: parsed.wasCapped ? maxQuantityMessage : undefined,
       };
     },
-    [commit, enqueueCartCommand, prepareLocalMutation, removeFromCart],
+    [commit, enqueueCartCommand, invalidCartError, maxQuantityMessage, prepareLocalMutation, removeFromCart],
   );
 
   const clearCart = useCallback(() => {
@@ -1240,8 +1240,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       for (const item of items) {
         const normalized = normalizeInput(item, DEFAULT_CART_MAX_QUANTITY);
         if (!normalized) {
-          setError(INVALID_CART_ITEM_ERROR);
-          return { ok: false, changed: false, reason: 'invalid', message: INVALID_CART_ITEM_ERROR };
+          setError(invalidCartError);
+          return { ok: false, changed: false, reason: 'invalid', message: invalidCartError };
         }
         normalizedItems.push(normalized.item);
       }
@@ -1251,7 +1251,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       commit(normalizedList.items);
       return { ok: true, changed: true };
     },
-    [commit, prepareLocalMutation],
+    [commit, invalidCartError, prepareLocalMutation],
   );
 
   const runServerSync = useCallback(async () => {
@@ -1484,15 +1484,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setCart(incoming.items);
         } else {
           storageProtectedRef.current = true;
-          storageWarningRef.current = CART_STORAGE_READ_ERROR;
-          setError(CART_STORAGE_READ_ERROR);
+          storageWarningRef.current = cartReadError;
+          setError(cartReadError);
         }
         void runServerSync();
         return;
       }
       const result = readCartStorage(DEFAULT_CART_MAX_QUANTITY);
       if (result.readError) {
-        setError(CART_STORAGE_READ_ERROR);
+        setError(cartReadError);
         return;
       }
       storageProtectedRef.current = false;
@@ -1501,7 +1501,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       localRevisionRef.current += 1;
       setCart(result.items);
       if (result.hadInvalidEntries || result.hadCappedEntries) {
-        setError('The cart changed in another tab and contained invalid saved data. The valid local rows were loaded.');
+        setError(cartInvalidDataError);
       }
     };
     const onVisibility = () => {
@@ -1518,7 +1518,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('storage', onStorage);
     };
-  }, [isHydrated, runServerSync]);
+  }, [cartInvalidDataError, cartReadError, isHydrated, runServerSync]);
 
   const isInCart = useCallback((selector: CartItemSelector) => {
     if (typeof selector === 'string' || typeof selector === 'number') {

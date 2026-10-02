@@ -398,9 +398,9 @@ export async function updateProduct(
   revalidatePath('/products');
   revalidatePath(`/products/${id}`);
   revalidatePath('/pos');
-  revalidatePath('/shop');
-  revalidatePath('/shop/products');
-  revalidatePath(`/shop/products/${id}`);
+  revalidatePath('/home');
+  revalidatePath('/home/products');
+  revalidatePath(`/home/products/${id}`);
   return result;
 }
 

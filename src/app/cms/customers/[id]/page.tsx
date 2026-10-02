@@ -12,6 +12,7 @@ import {
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate, formatMoney } from '@/lib/cms/format';
+import { getT } from '@/lib/i18n/server';
 import {
   Card,
   CardContent,
@@ -46,6 +47,7 @@ export default async function CustomerProfilePage({
   params: Promise<{ id: string }>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isSafeInteger(id) || id <= 0) notFound();
@@ -132,10 +134,13 @@ export default async function CustomerProfilePage({
   };
 
   const statCards = [
-    { label: 'Total orders', value: String(stat.total) },
-    { label: 'Total spent', value: formatMoney(stat.spent) },
-    { label: 'Average order', value: formatMoney(stat.average) },
-    { label: 'Last order', value: stat.lastOrderAt ? formatDate(stat.lastOrderAt) : '—' },
+    { label: t('cmscustomers.detail.stat.total_orders'), value: String(stat.total) },
+    { label: t('cmscustomers.detail.stat.total_spent'), value: formatMoney(stat.spent) },
+    { label: t('cmscustomers.detail.stat.average'), value: formatMoney(stat.average) },
+    {
+      label: t('cmscustomers.detail.stat.last_order'),
+      value: stat.lastOrderAt ? formatDate(stat.lastOrderAt) : '—',
+    },
   ];
 
   const shipping = latestOrder[0]?.shippingAddress ?? null;
@@ -149,7 +154,7 @@ export default async function CustomerProfilePage({
             <Link
               href="/cms/customers"
               className="hidden rounded-lg border border-zinc-200 p-2 text-zinc-400 transition hover:border-[#6d6be8]/40 hover:text-[#5b59d6] sm:block"
-              aria-label="Back to customers"
+              aria-label={t('cmscustomers.detail.back_aria')}
             >
               <ArrowLeft size={16} />
             </Link>
@@ -163,9 +168,11 @@ export default async function CustomerProfilePage({
                 </h1>
                 <StatusBadge status={customer.status} />
               </div>
-              <p className="truncate text-sm text-zinc-500">{customer.email || 'No email'}</p>
+              <p className="truncate text-sm text-zinc-500">
+                {customer.email || t('cmscustomers.detail.no_email')}
+              </p>
               <p className="text-xs text-zinc-400">
-                Registered {formatDate(customer.createdAt)}
+                {t('cmscustomers.detail.registered', { date: formatDate(customer.createdAt) })}
               </p>
             </div>
           </div>
@@ -194,7 +201,7 @@ export default async function CustomerProfilePage({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Personal information</CardTitle>
+            <CardTitle>{t('cmscustomers.detail.personal_info')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CustomerProfileForm
@@ -211,7 +218,7 @@ export default async function CustomerProfilePage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Default billing address</CardTitle>
+              <CardTitle>{t('cmscustomers.detail.billing_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <CustomerAddressForm
@@ -229,7 +236,7 @@ export default async function CustomerProfilePage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Default shipping address</CardTitle>
+              <CardTitle>{t('cmscustomers.detail.shipping_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               {shipping ? (
@@ -243,20 +250,20 @@ export default async function CustomerProfilePage({
                   </p>
                   <p>{shipping.country || customer.country || '—'}</p>
                   <p className="pt-2 text-xs text-zinc-400">
-                    Taken from{' '}
+                    {t('cmscustomers.detail.shipping.taken_from')}{' '}
                     <Link
                       href={`/cms/orders/${latestOrder[0]?.saleId ?? ''}`}
                       className="text-[#5b59d6] hover:underline"
                     >
-                      {latestOrder[0]?.reference ?? 'their latest order'}
+                      {latestOrder[0]?.reference ??
+                        t('cmscustomers.detail.shipping.latest_fallback')}
                     </Link>{' '}
                     ({formatDate(latestOrder[0]?.createdAt)}).
                   </p>
                 </div>
               ) : (
                 <p className="text-sm text-zinc-500">
-                  No storefront order has a shipping address for this customer yet — the billing
-                  address above is used instead.
+                  {t('cmscustomers.detail.shipping.none')}
                 </p>
               )}
             </CardContent>
@@ -267,16 +274,16 @@ export default async function CustomerProfilePage({
       {/* Order history */}
       <Card className="mt-6">
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>Order history</CardTitle>
+          <CardTitle>{t('cmscustomers.detail.order_history')}</CardTitle>
           <Link href="/cms/orders" className="text-xs font-medium text-[#5b59d6] hover:underline">
-            View all orders
+            {t('cmscustomers.detail.view_all_orders')}
           </Link>
         </CardHeader>
         {orderHistory.length === 0 ? (
           <CardContent>
             <EmptyState
-              title="No orders yet"
-              description="Orders this customer places will show up here."
+              title={t('cmscustomers.detail.empty.title')}
+              description={t('cmscustomers.detail.empty.desc')}
               icon={<Receipt size={28} />}
             />
           </CardContent>
@@ -285,13 +292,13 @@ export default async function CustomerProfilePage({
             <Table bare>
               <thead>
                 <tr>
-                  <Th>Order</Th>
-                  <Th>Date</Th>
-                  <Th>Channel</Th>
-                  <Th>Payment</Th>
-                  <Th className="text-right">Items</Th>
-                  <Th className="text-right">Total</Th>
-                  <Th>Status</Th>
+                  <Th>{t('cmscustomers.detail.th.order')}</Th>
+                  <Th>{t('cmscustomers.detail.th.date')}</Th>
+                  <Th>{t('cmscustomers.detail.th.channel')}</Th>
+                  <Th>{t('cmscustomers.detail.th.payment')}</Th>
+                  <Th className="text-right">{t('cmscustomers.detail.th.items')}</Th>
+                  <Th className="text-right">{t('cmscustomers.detail.th.total')}</Th>
+                  <Th>{t('cmscustomers.status.label')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -310,7 +317,9 @@ export default async function CustomerProfilePage({
                       {formatDate(order.createdAt, true)}
                     </Td>
                     <Td className="text-zinc-500">
-                      {order.isOnline ? 'Storefront' : 'Point of sale'}
+                      {order.isOnline
+                        ? t('cmscustomers.detail.channel.storefront')
+                        : t('cmscustomers.detail.channel.pos')}
                     </Td>
                     <Td className="whitespace-nowrap text-zinc-500">
                       {order.paymentMethod || '—'}
@@ -333,13 +342,12 @@ export default async function CustomerProfilePage({
       {/* Account notes */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Account notes</CardTitle>
+          <CardTitle>{t('cmscustomers.detail.notes.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {notes.length === 0 ? (
             <p className="flex items-center gap-2 text-sm text-zinc-500">
-              <StickyNote size={15} className="text-zinc-400" /> No notes yet — add the first one
-              below.
+              <StickyNote size={15} className="text-zinc-400" /> {t('cmscustomers.detail.notes.empty')}
             </p>
           ) : (
             <ul className="space-y-3">
@@ -347,7 +355,8 @@ export default async function CustomerProfilePage({
                 <li key={note.id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
                   <p className="whitespace-pre-wrap text-sm text-zinc-700">{note.body}</p>
                   <p className="mt-1.5 text-xs text-zinc-400">
-                    {note.authorName || 'Unknown user'} · {formatDate(note.createdAt, true)}
+                    {note.authorName || t('cmscustomers.detail.notes.unknown_user')} ·{' '}
+                    {formatDate(note.createdAt, true)}
                   </p>
                 </li>
               ))}

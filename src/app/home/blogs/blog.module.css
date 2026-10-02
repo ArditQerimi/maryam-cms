@@ -33,6 +33,15 @@
   letter-spacing: -0.018em;
 }
 
+/* buildThemeCss injects `.shopWrapper h1..h6 { color: var(--cms-text) }` at
+   specificity (0,2,1); under a dark theme (e.g. Dark Pro, cream text) that
+   washes the blog's dark headings out on the white page (banner title,
+   results, sidebar, card titles), so re-assert the ink above it — the same
+   pattern bookstore.module.css uses for its sections. */
+:global(.shopWrapper.shopWrapper) .page :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--blog-ink);
+}
+
 .page a {
   color: inherit;
   text-decoration: none;

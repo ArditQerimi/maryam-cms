@@ -18,7 +18,7 @@ import { decrypt, encrypt, resolveSessionSecret } from './session-token';
 import {
   getSafeReturnTo,
   withSafeReturnTo,
-} from '@/app/shop/login/safe-return-to';
+} from '@/app/home/login/safe-return-to';
 
 const productionHostEnv = {
   NODE_ENV: 'production',
@@ -122,14 +122,14 @@ test('login audience requires an actual active Customer role', () => {
 
 test('customer returnTo stays on the same store and allowed account paths', () => {
   const allowed = [
-    '/shop',
-    '/shop/cart?coupon=summer',
-    '/shop/checkout',
-    '/shop/checkout/payment?step=2',
-    '/shop/wishlist',
-    '/shop/compare#products',
-    '/shop/account',
-    '/shop/account/security?tab=password',
+    '/home',
+    '/home/cart?coupon=summer',
+    '/home/checkout',
+    '/home/checkout/payment?step=2',
+    '/home/wishlist',
+    '/home/compare#products',
+    '/home/account',
+    '/home/account/security?tab=password',
     '/customer',
     '/customer/orders?page=2',
   ];
@@ -143,19 +143,19 @@ test('customer returnTo stays on the same store and allowed account paths', () =
     '/\\evil.example/phish',
     '/%2f%2fevil.example/phish',
     '/settings/profile',
-    '/shop/products/42',
+    '/home/products/42',
     '/super-admin/dashboard',
-    '/shop/login',
+    '/home/login',
   ]) {
     assert.equal(getSafeReturnTo(value), '/customer/orders');
   }
 
   const externalWrapper = new URL(
-    withSafeReturnTo('https://evil.example', '/shop/cart'),
+    withSafeReturnTo('https://evil.example', '/home/cart'),
     'https://store.invalid',
   );
-  assert.equal(externalWrapper.pathname, '/shop/login');
-  assert.equal(externalWrapper.searchParams.get('returnTo'), '/shop/cart');
+  assert.equal(externalWrapper.pathname, '/home/login');
+  assert.equal(externalWrapper.searchParams.get('returnTo'), '/home/cart');
 });
 
 test('new customer payloads contain audience/company binding but no PII', () => {

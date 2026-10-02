@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getContextDb } from '@/lib/tenant';
 import { blogCategories, blogPosts } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import PostForm from '@/components/content/PostForm';
 
@@ -23,6 +24,7 @@ export default async function EditPostPage({
   params: Promise<{ id: string }>;
 }) {
   await requireCmsSession();
+  const t = await getT();
 
   const { id: rawId } = await params;
   const id = Number(rawId);
@@ -44,12 +46,14 @@ export default async function EditPostPage({
   return (
     <div>
       <PageHeader
-        title={`Edit “${post.title}”`}
-        description={`Last updated ${post.updatedAt.toLocaleString('en-GB')}.`}
+        title={t('cmscontent.posts.editTitle', { title: post.title })}
+        description={t('cmscontent.posts.editDescription', {
+          date: post.updatedAt.toLocaleString('en-GB'),
+        })}
       />
       <PostForm
         categories={categories}
-        viewHref={post.status === 'Active' ? `/shop/blogs/${post.slug}` : ''}
+        viewHref={post.status === 'Active' ? `/home/blogs/${post.slug}` : ''}
         initial={{
           id: post.id,
           title: post.title,

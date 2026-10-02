@@ -16,6 +16,7 @@ import {
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate, formatMoney } from '@/lib/cms/format';
+import { getT } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -56,6 +57,7 @@ export default async function OrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isSafeInteger(id) || id <= 0) notFound();
@@ -150,7 +152,7 @@ export default async function OrderDetailPage({
   }));
 
   const customerName =
-    customer?.name || linkedUser?.name || details?.contactEmail || 'Walk-in customer';
+    customer?.name || linkedUser?.name || details?.contactEmail || t('cmsorders.detail.walk_in');
   const customerEmail = customer?.email || linkedUser?.email || details?.contactEmail || '';
 
   const storefrontShipping = (details?.shippingAddress ?? null) as Record<string, string> | null;
@@ -171,15 +173,20 @@ export default async function OrderDetailPage({
   return (
     <div>
       <PageHeader
-        title={`Order ${sale.reference}`}
-        description={`${sale.isOnline ? 'Storefront' : 'Point of sale'} order · placed ${formatDate(sale.createdAt, true)}`}
+        title={t('cmsorders.detail.title', { reference: sale.reference })}
+        description={t('cmsorders.detail.description', {
+          channel: sale.isOnline
+            ? t('cmsorders.orders.channel_storefront')
+            : t('cmsorders.orders.channel_pos'),
+          date: formatDate(sale.createdAt, true),
+        })}
         actions={
           <div className="flex items-center gap-2">
             <Link
               href="/cms/orders"
               className="inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
             >
-              <ArrowLeft size={15} /> All orders
+              <ArrowLeft size={15} /> {t('cmsorders.detail.action_all_orders')}
             </Link>
             <PrintButton />
           </div>
@@ -192,17 +199,17 @@ export default async function OrderDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package size={15} className="text-zinc-400" /> Items
+                <Package size={15} className="text-zinc-400" /> {t('cmsorders.orders.th_items')}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table bare>
                 <thead>
                   <tr>
-                    <Th>Product</Th>
-                    <Th className="text-right">Price</Th>
-                    <Th className="text-right">Qty</Th>
-                    <Th className="text-right">Subtotal</Th>
+                    <Th>{t('cmsorders.detail.product')}</Th>
+                    <Th className="text-right">{t('cmsorders.detail.price')}</Th>
+                    <Th className="text-right">{t('cmsorders.detail.qty')}</Th>
+                    <Th className="text-right">{t('cmsorders.detail.subtotal')}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,7 +220,7 @@ export default async function OrderDetailPage({
                           href={`/cms/products/${item.productId}/edit`}
                           className="font-medium text-zinc-900 hover:text-[#5b59d6]"
                         >
-                          {item.productName || 'Product'}
+                          {item.productName || t('cmsorders.detail.product')}
                         </Link>
                         <span className="block text-xs text-zinc-400">
                           {item.variantName ? `${item.variantName} · ` : ''}
@@ -233,7 +240,7 @@ export default async function OrderDetailPage({
                 <tfoot>
                   <tr>
                     <Td colSpan={3} className="border-b-0 text-right text-zinc-500">
-                      Subtotal
+                      {t('cmsorders.detail.subtotal')}
                     </Td>
                     <Td className="border-b-0 text-right font-medium text-zinc-900">
                       {formatMoney(sale.totalAmount, currency)}
@@ -241,7 +248,7 @@ export default async function OrderDetailPage({
                   </tr>
                   <tr>
                     <Td colSpan={3} className="border-b-0 text-right text-zinc-500">
-                      Discount
+                      {t('cmsorders.detail.discount')}
                     </Td>
                     <Td className="border-b-0 text-right font-medium text-zinc-900">
                       −{formatMoney(sale.discount, currency)}
@@ -249,7 +256,7 @@ export default async function OrderDetailPage({
                   </tr>
                   <tr>
                     <Td colSpan={3} className="border-b-0 text-right text-zinc-500">
-                      Tax
+                      {t('cmsorders.detail.tax')}
                     </Td>
                     <Td className="border-b-0 text-right font-medium text-zinc-900">
                       {formatMoney(sale.tax, currency)}
@@ -257,7 +264,7 @@ export default async function OrderDetailPage({
                   </tr>
                   <tr>
                     <Td colSpan={3} className="border-b-0 bg-zinc-50 text-right text-sm font-semibold text-zinc-900">
-                      Grand total
+                      {t('cmsorders.detail.grand_total')}
                     </Td>
                     <Td className="border-b-0 bg-zinc-50 text-right text-base font-semibold text-zinc-900">
                       {formatMoney(sale.grandTotal, currency)}
@@ -271,7 +278,7 @@ export default async function OrderDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare size={15} className="text-zinc-400" /> Order notes
+                <MessageSquare size={15} className="text-zinc-400" /> {t('cmsorders.detail.notes_title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -290,13 +297,13 @@ export default async function OrderDetailPage({
                       <p className="mt-1.5 text-xs text-zinc-400">
                         {note.authorName ? `${note.authorName} · ` : ''}
                         {formatDate(note.createdAt, true)}
-                        {note.isCustomerNote ? ' · visible to the customer' : ''}
+                        {note.isCustomerNote ? ` · ${t('cmsorders.detail.note_visible')}` : ''}
                       </p>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-400">No notes on this order yet.</p>
+                <p className="text-sm text-zinc-400">{t('cmsorders.detail.notes_empty')}</p>
               )}
               <NoteComposer orderId={sale.id} />
             </CardContent>
@@ -307,11 +314,11 @@ export default async function OrderDetailPage({
         <div className="space-y-6">
           <Card id="fulfilment">
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardTitle>{t('cmsorders.detail.status_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Order state</span>
+                <span className="text-sm text-zinc-500">{t('cmsorders.detail.order_state')}</span>
                 <StatusBadge status={sale.status} />
               </div>
               <OrderStatusCard orderId={sale.id} status={sale.status} />
@@ -321,7 +328,7 @@ export default async function OrderDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Truck size={15} className="text-zinc-400" /> Fulfilment & tracking
+                <Truck size={15} className="text-zinc-400" /> {t('cmsorders.detail.fulfilment_title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -332,7 +339,7 @@ export default async function OrderDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User size={15} className="text-zinc-400" /> Customer
+                <User size={15} className="text-zinc-400" /> {t('cmsorders.detail.customer_title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 text-sm">
@@ -352,11 +359,13 @@ export default async function OrderDetailPage({
               ) : null}
               {linkedUser ? (
                 <p className="pt-1 text-xs text-zinc-400">
-                  Storefront account: {linkedUser.email || linkedUser.name}
+                  {t('cmsorders.detail.storefront_account', {
+                    value: linkedUser.email || linkedUser.name,
+                  })}
                 </p>
               ) : (
                 <p className="pt-1 text-xs text-zinc-400">
-                  No storefront account linked to this order.
+                  {t('cmsorders.detail.no_storefront_account')}
                 </p>
               )}
             </CardContent>
@@ -365,36 +374,44 @@ export default async function OrderDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CreditCard size={15} className="text-zinc-400" /> Payment
+                <CreditCard size={15} className="text-zinc-400" /> {t('cmsorders.detail.payment_title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Method</span>
+                <span className="text-zinc-500">{t('cmsorders.detail.method')}</span>
                 <span className="font-medium text-zinc-900">
                   {sale.paymentMethod || details?.paymentMethodId || '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Delivery</span>
+                <span className="text-zinc-500">{t('cmsorders.detail.delivery')}</span>
                 <span className="font-medium text-zinc-900">
                   {details?.deliveryMethodId || '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Currency</span>
+                <span className="text-zinc-500">{t('cmsorders.detail.currency')}</span>
                 <span className="font-medium text-zinc-900">{currency}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Contact</span>
+                <span className="text-zinc-500">{t('cmsorders.detail.contact')}</span>
                 <span className="truncate font-medium text-zinc-900">
                   {details?.contactPhone || details?.contactEmail || '—'}
                 </span>
               </div>
               {details ? (
                 <p className="pt-1 text-xs text-zinc-400">
-                  Marketing opt-in: {details.marketingOptIn ? 'yes' : 'no'} · billing same as
-                  shipping: {details.billingSameAsShipping ? 'yes' : 'no'}
+                  {t('cmsorders.detail.marketing_optin', {
+                    value: details.marketingOptIn
+                      ? t('cmsorders.detail.yes')
+                      : t('cmsorders.detail.no'),
+                  })}{' · '}
+                  {t('cmsorders.detail.billing_same', {
+                    value: details.billingSameAsShipping
+                      ? t('cmsorders.detail.yes')
+                      : t('cmsorders.detail.no'),
+                  })}
                 </p>
               ) : null}
             </CardContent>
@@ -402,7 +419,7 @@ export default async function OrderDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Billing address</CardTitle>
+              <CardTitle>{t('cmsorders.detail.billing_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <AddressCard
@@ -416,7 +433,7 @@ export default async function OrderDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Shipping address</CardTitle>
+              <CardTitle>{t('cmsorders.detail.shipping_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <AddressCard
@@ -430,7 +447,7 @@ export default async function OrderDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle>{t('cmsorders.detail.actions_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -442,8 +459,10 @@ export default async function OrderDetailPage({
               </div>
               <RefundDialog orderId={sale.id} reference={sale.reference} lines={refundLines} />
               <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-                <span>Refunds & cancellations are logged in the order notes.</span>
-                <Badge tone="neutral">{refundLines.length} lines</Badge>
+                <span>{t('cmsorders.detail.refund_note')}</span>
+                <Badge tone="neutral">
+                  {t('cmsorders.detail.lines', { count: refundLines.length })}
+                </Badge>
               </div>
             </CardContent>
           </Card>

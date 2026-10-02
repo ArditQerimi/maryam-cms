@@ -20,6 +20,7 @@
   outline-offset: 2px;
 }
 
-.shopWrapper img {
-  background-color: var(--cms-surface);
-}
+/* The theme's old `img` rule set background-color: var(--cms-surface) on
+   every image; with object-fit: contain + padding it painted a black frame
+   around photos on the light paper sections (client request), so it was
+   removed here. */

@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { login } from '@/lib/auth';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { getSafeReturnTo } from './safe-return-to';
 import styles from './login.module.css';
 
@@ -30,6 +31,7 @@ function CustomerReturnToField() {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const { t } = useLocale();
 
   return (
     <button
@@ -41,9 +43,9 @@ function SubmitButton() {
       {pending ? (
         <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" />
       ) : null}
-      <span>{pending ? 'Signing in…' : 'Sign in'}</span>
+      <span>{pending ? t('auth.login.form.submitPending') : t('auth.login.form.submit')}</span>
       <span className={styles.statusText} aria-live="polite">
-        {pending ? 'Signing in' : ''}
+        {pending ? t('auth.login.form.submitStatus') : ''}
       </span>
     </button>
   );
@@ -53,6 +55,9 @@ type PasswordFieldProps = {
   id: string;
   name: string;
   label: string;
+  /** Localized accessibility labels for the visibility toggle. */
+  showLabel: string;
+  hideLabel: string;
   autoComplete: 'current-password' | 'new-password';
   visible: boolean;
   onVisibilityChange: () => void;
@@ -67,6 +72,8 @@ function PasswordField({
   id,
   name,
   label,
+  showLabel,
+  hideLabel,
   autoComplete,
   visible,
   onVisibilityChange,
@@ -98,10 +105,10 @@ function PasswordField({
           type="button"
           className={styles.passwordToggle}
           onClick={onVisibilityChange}
-          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-label={visible ? hideLabel : showLabel}
           aria-pressed={visible}
           aria-controls={id}
-          title={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          title={visible ? hideLabel : showLabel}
         >
           {visible ? (
             <EyeOff size={19} aria-hidden="true" />
@@ -119,6 +126,7 @@ export default function LoginForm({
   registerHref,
   forgotPasswordHref,
 }: LoginFormProps) {
+  const { t } = useLocale();
   const [showPassword, setShowPassword] = useState(false);
   const emailInvalid = error?.field === 'email';
   const passwordInvalid = error?.field === 'password';
@@ -126,7 +134,7 @@ export default function LoginForm({
 
   return (
     <>
-      <Form action={login} className={styles.form} aria-label="Customer sign in">
+      <Form action={login} className={styles.form} aria-label={t('auth.login.form.aria')}>
         <input type="hidden" name="audience" value="customer" />
         <Suspense fallback={<input type="hidden" name="returnTo" value="/customer/orders" />}>
           <CustomerReturnToField />
@@ -141,7 +149,8 @@ export default function LoginForm({
 
         <div className={styles.field}>
           <label className={styles.label} htmlFor="login-email">
-            Email address <span className={styles.required} aria-hidden="true">*</span>
+            {t('auth.login.form.emailLabel')}{' '}
+            <span className={styles.required} aria-hidden="true">*</span>
           </label>
           <input
             className={styles.input}
@@ -162,22 +171,24 @@ export default function LoginForm({
         <PasswordField
           id="login-password"
           name="password"
-          label="Password"
+          label={t('auth.login.form.passwordLabel')}
+          showLabel={t('auth.login.form.showPassword')}
+          hideLabel={t('auth.login.form.hidePassword')}
           autoComplete="current-password"
           visible={showPassword}
           onVisibilityChange={() => setShowPassword((current) => !current)}
           describedBy={`login-password-hint${errorDescription}`}
           invalid={passwordInvalid}
-          placeholder="Enter your password"
+          placeholder={t('auth.login.form.passwordPlaceholder')}
           minLength={8}
         />
         <p className={styles.fieldHint} id="login-password-hint">
-          Passwords must contain at least 8 characters.
+          {t('auth.login.form.passwordHint')}
         </p>
 
         <div className={styles.formUtilities}>
           <Link className={styles.forgotLink} href={forgotPasswordHref}>
-            Forgot your password?
+            {t('auth.login.form.forgot')}
           </Link>
         </div>
 
@@ -186,19 +197,20 @@ export default function LoginForm({
 
       <div className={styles.separator} aria-hidden="true">
         <span />
-        <em>New to Noor POS?</em>
+        <em>{t('auth.login.form.separator', { brand: 'Noor POS' })}</em>
         <span />
       </div>
 
       <Link className={styles.accountLink} href={registerHref}>
-        Create an account
+        {t('auth.login.form.createAccount')}
         <ArrowRight size={17} aria-hidden="true" />
       </Link>
 
       <p className={styles.legalCopy}>
-        By signing in, you agree to our{' '}
-        <Link href="/shop/terms-conditions">Terms of Service</Link> and{' '}
-        <Link href="/shop/privacy-policy">Privacy Policy</Link>.
+        {t('auth.login.form.legal.prefix')}{' '}
+        <Link href="/home/terms-conditions">{t('auth.login.form.legal.terms')}</Link>{' '}
+        {t('auth.login.form.legal.and')}{' '}
+        <Link href="/home/privacy-policy">{t('auth.login.form.legal.privacy')}</Link>.
       </p>
     </>
   );

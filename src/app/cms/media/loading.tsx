@@ -1,9 +1,11 @@
 import { PageHeader, Skeleton } from '@/components/admin/ui';
+import { getT } from '@/lib/i18n/server';
 
-export default function MediaLoading() {
+export default async function MediaLoading() {
+  const t = await getT();
   return (
     <div>
-      <PageHeader title="Media library" description="Loading files…" />
+      <PageHeader title={t('cmscontent.media.loadingTitle')} description={t('cmscontent.media.loadingDescription')} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 w-28" />

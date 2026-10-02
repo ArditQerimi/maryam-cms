@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from '../bookstore.module.css';
 import ProductCarousel, { type CarouselProduct } from './ProductCarousel';
 
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export default function BookstoreCategoryShop({ categories, products }: Props) {
+  const { t } = useLocale();
   const tabs = useMemo(() => categories.slice(0, 4), [categories]);
   const [activeId, setActiveId] = useState<number | 'all'>(tabs[0]?.id ?? 'all');
 
@@ -36,7 +38,8 @@ export default function BookstoreCategoryShop({ categories, products }: Props) {
     () =>
       filtered.map((p) => {
         const price = Number(p.price);
-        const catName = categories.find((c) => c.id === p.categoryId)?.name ?? 'Libra';
+        const catName =
+          categories.find((c) => c.id === p.categoryId)?.name ?? t('home.category.fallback');
         return {
           id: p.id,
           name: p.name,
@@ -49,14 +52,14 @@ export default function BookstoreCategoryShop({ categories, products }: Props) {
           categoryId: p.categoryId ?? null,
         };
       }),
-    [filtered, categories],
+    [filtered, categories, t],
   );
 
   return (
     <section className={styles.categoryShop}>
       <div className={styles.container}>
-        <p className={styles.sectionEyebrow}>Your Shopping Expo</p>
-        <h2 className={styles.sectionTitle}>SHFLETO SIPAS KATEGORISË</h2>
+        <p className={styles.sectionEyebrow}>{t('home.eyebrow')}</p>
+        <h2 className={styles.sectionTitle}>{t('home.category.title')}</h2>
 
         <div className={styles.categoryPills}>
           {tabs.map((c) => (

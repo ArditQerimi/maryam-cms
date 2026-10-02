@@ -7,6 +7,7 @@ import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCar
 import SettingsForm from '@/components/settings/SettingsForm';
 import TaxRatesTable, { type TaxRateRow } from '@/components/settings/TaxRatesTable';
 import { saveTaxPreferences, loadTaxRates } from '@/app/cms/actions/settings';
+import { getT, type Translator } from '@/lib/i18n/server';
 import type { SettingField, SettingsValues } from '@/components/settings/types';
 
 export const dynamic = 'force-dynamic';
@@ -18,23 +19,25 @@ const DEFAULT_PREFERENCES: TaxPreferences = {
   showTotals: 'itemised',
 };
 
-const FIELDS: SettingField[] = [
+function buildFields(t: Translator): SettingField[] {
+  return [
   {
     kind: 'toggle',
     key: 'tax_prices_include_tax',
-    label: 'Prices entered tax inclusive',
-    hint: 'Product prices already contain tax. Turn off to add tax at checkout.',
+    label: t('cmssettings.tax.pricesIncludeLabel'),
+    hint: t('cmssettings.tax.pricesIncludeHint'),
   },
   {
     kind: 'radio',
     key: 'tax_show_totals',
-    label: 'Display tax totals',
+    label: t('cmssettings.tax.showTotalsLabel'),
     options: [
-      { value: 'itemised', label: 'Itemised — show each tax rate as its own line' },
-      { value: 'single', label: 'Single total — one combined tax line' },
+      { value: 'itemised', label: t('cmssettings.tax.showTotalsItemised') },
+      { value: 'single', label: t('cmssettings.tax.showTotalsSingle') },
     ],
   },
-];
+  ];
+}
 
 async function loadTaxPreferences(): Promise<TaxPreferences> {
   try {
@@ -57,6 +60,7 @@ async function loadTaxPreferences(): Promise<TaxPreferences> {
 
 export default async function TaxSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [preferences, rows] = await Promise.all([loadTaxPreferences(), loadTaxRates()]);
 
@@ -79,30 +83,33 @@ export default async function TaxSettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Tax"
-        description="Define how prices include tax and manage the rates applied at checkout."
+        title={t('cmssettings.tax.title')}
+        description={t('cmssettings.tax.description')}
       />
 
       <div className="space-y-6">
         <div className="max-w-3xl">
           <SettingsCard
-            title="Tax options"
-            description="Global behaviour shared by the cart, checkout and invoices."
+            title={t('cmssettings.tax.optionsCardTitle')}
+            description={t('cmssettings.tax.optionsCardDescription')}
           >
             <SettingsForm
-              fields={FIELDS}
+              fields={buildFields(t)}
               initialValues={initialValues}
               onSubmit={saveTaxPreferences}
               columns={1}
+              saveLabel={t('cmssettings.common.saveChanges')}
             >
-              <SettingsSection title="Currently applied">
+              <SettingsSection title={t('cmssettings.tax.sectionTitle')}>
                 <p className="text-xs text-zinc-500">
                   {preferences.pricesIncludeTax
-                    ? 'Product prices include tax.'
-                    : 'Tax is added on top of product prices.'}{' '}
-                  Totals are shown{' '}
+                    ? t('cmssettings.tax.pricesIncludeTax')
+                    : t('cmssettings.tax.pricesExcludeTax')}{' '}
+                  {t('cmssettings.tax.totalsShown')}{' '}
                   <span className="font-medium text-zinc-700">
-                    {preferences.showTotals === 'single' ? 'as a single total' : 'itemised'}
+                    {preferences.showTotals === 'single'
+                      ? t('cmssettings.tax.totalSingle')
+                      : t('cmssettings.tax.totalItemised')}
                   </span>
                   .
                 </p>
@@ -112,8 +119,8 @@ export default async function TaxSettingsPage() {
         </div>
 
         <SettingsCard
-          title="Tax rates"
-          description="Country / state / postcode specific rates. Leave country blank to apply everywhere."
+          title={t('cmssettings.tax.ratesCardTitle')}
+          description={t('cmssettings.tax.ratesCardDescription')}
         >
           <TaxRatesTable initialRows={rateRows} />
         </SettingsCard>

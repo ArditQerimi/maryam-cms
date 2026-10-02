@@ -11,6 +11,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { registerCustomer, type RegisterActionState, type RegisterField } from './actions';
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import styles from './register.module.css';
 
 type Feedback = {
@@ -18,59 +19,62 @@ type Feedback = {
   field?: RegisterField;
 };
 
-const ERROR_MESSAGES: Record<string, Feedback> = {
+/** Dictionary keys (not literal copy) so sq and en stay in sync. */
+type FeedbackEntry = { key: Parameters<Translator>[0]; field?: RegisterField };
+
+const ERROR_MESSAGES: Record<string, FeedbackEntry> = {
   'missing-first-name': {
-    message: 'Enter your first name.',
+    key: 'auth.register.error.missing-first-name',
     field: 'firstName',
   },
   'missing-email': {
-    message: 'Enter your email address.',
+    key: 'auth.register.error.missing-email',
     field: 'email',
   },
   'missing-password': {
-    message: 'Choose a password.',
+    key: 'auth.register.error.missing-password',
     field: 'password',
   },
   'missing-confirm-password': {
-    message: 'Enter your password again.',
+    key: 'auth.register.error.missing-confirm-password',
     field: 'confirmPassword',
   },
   'name-too-short': {
-    message: 'Names must contain at least 2 characters.',
+    key: 'auth.register.error.name-too-short',
   },
   'invalid-email': {
-    message: 'Enter a valid email address.',
+    key: 'auth.register.error.invalid-email',
     field: 'email',
   },
   'password-too-short': {
-    message: 'Use a password with at least 8 characters.',
+    key: 'auth.register.error.password-too-short',
     field: 'password',
   },
   'password-mismatch': {
-    message: 'The passwords do not match.',
+    key: 'auth.register.error.password-mismatch',
     field: 'confirmPassword',
   },
   'terms-required': {
-    message: 'Agree to the Terms of Service and Privacy Policy to continue.',
+    key: 'auth.register.error.terms-required',
     field: 'terms',
   },
   'email-taken': {
-    message: 'An account already exists for this email. Try signing in instead.',
+    key: 'auth.register.error.email-taken',
     field: 'email',
   },
   'account-suspended': {
-    message: 'This store is suspended, so new accounts cannot be created.',
+    key: 'auth.register.error.account-suspended',
   },
   'registration-unavailable': {
-    message: 'We could not create your account right now. Please try again shortly.',
+    key: 'auth.register.error.registration-unavailable',
   },
   'session-unavailable': {
-    message: 'Your account was created, but we could not sign you in automatically. Use the sign-in link below.',
+    key: 'auth.register.error.session-unavailable',
   },
 };
 
-const FALLBACK_ERROR: Feedback = {
-  message: 'We could not create your account. Check your details and try again.',
+const FALLBACK_ERROR: FeedbackEntry = {
+  key: 'auth.register.error.fallback',
 };
 
 type RegisterFormProps = {
@@ -83,6 +87,9 @@ type PasswordFieldProps = {
   id: 'register-password' | 'register-confirm-password';
   name: 'password' | 'confirmPassword';
   label: string;
+  /** Localized accessibility labels for the visibility toggle. */
+  showLabel: string;
+  hideLabel: string;
   placeholder: string;
   visible: boolean;
   onVisibilityChange: () => void;
@@ -99,6 +106,8 @@ function PasswordField({
   id,
   name,
   label,
+  showLabel,
+  hideLabel,
   placeholder,
   visible,
   onVisibilityChange,
@@ -110,6 +119,7 @@ function PasswordField({
   onChange,
   onBlur,
 }: PasswordFieldProps) {
+  const { t } = useLocale();
   const describedBy = errorId ? `${hintId} ${errorId}` : hintId;
 
   return (
@@ -137,10 +147,10 @@ function PasswordField({
           type="button"
           className={styles.passwordToggle}
           onClick={onVisibilityChange}
-          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-label={visible ? hideLabel : showLabel}
           aria-pressed={visible}
           aria-controls={id}
-          title={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          title={visible ? hideLabel : showLabel}
         >
           {visible ? (
             <EyeOff size={19} aria-hidden="true" />
@@ -150,7 +160,7 @@ function PasswordField({
         </button>
       </div>
       <p className={styles.hint} id={hintId}>
-        Use at least 8 characters.
+        {t('auth.register.form.passwordHint')}
       </p>
       {error ? (
         <p className={styles.fieldError} id={errorId}>
@@ -161,7 +171,7 @@ function PasswordField({
   );
 }
 
-function getFeedback(errorCode?: string): Feedback | null {
+function getFeedback(errorCode?: string): FeedbackEntry | null {
   if (!errorCode) return null;
   return ERROR_MESSAGES[errorCode] || FALLBACK_ERROR;
 }
@@ -173,6 +183,7 @@ export default function RegisterForm({
 }: RegisterFormProps) {
   const initialState: RegisterActionState = { error: initialErrorCode };
   const [state, formAction, pending] = useActionState(registerCustomer, initialState);
+  const { t } = useLocale();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [password, setPassword] = useState('');
@@ -180,20 +191,24 @@ export default function RegisterForm({
   const [confirmTouched, setConfirmTouched] = useState(false);
 
   const feedbackState = getFeedback(state.error);
-  const feedback = feedbackState && state.field
-    ? { ...feedbackState, field: state.field }
-    : feedbackState;
+  const feedback: Feedback | null = feedbackState
+    ? state.field
+      ? { message: t(feedbackState.key), field: state.field }
+      : feedbackState.field
+        ? { message: t(feedbackState.key), field: feedbackState.field }
+        : { message: t(feedbackState.key) }
+    : null;
   const fieldError = (field: RegisterField) =>
     feedback?.field === field ? feedback.message : undefined;
   const liveMismatch =
     confirmTouched && confirmPassword.length > 0 && password !== confirmPassword;
   const confirmError = liveMismatch
-    ? 'The passwords do not match.'
+    ? t('auth.register.error.password-mismatch')
     : fieldError('confirmPassword');
 
   return (
     <>
-      <Form action={formAction} className={styles.form} aria-busy={pending} aria-label="Create customer account">
+      <Form action={formAction} className={styles.form} aria-busy={pending} aria-label={t('auth.register.form.aria')}>
         <input type="hidden" name="returnTo" value={returnTo} />
 
         {feedback ? (
@@ -206,7 +221,8 @@ export default function RegisterForm({
         <div className={styles.nameRow}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="register-first-name">
-              First name <span className={styles.required} aria-hidden="true">*</span>
+              {t('auth.register.form.firstName')}{' '}
+              <span className={styles.required} aria-hidden="true">*</span>
             </label>
             <input
               className={styles.input}
@@ -214,7 +230,7 @@ export default function RegisterForm({
               name="firstName"
               type="text"
               autoComplete="given-name"
-              placeholder="First name"
+              placeholder={t('auth.register.form.firstName')}
               minLength={2}
               required
               aria-invalid={feedback?.field === 'firstName' || undefined}
@@ -229,7 +245,8 @@ export default function RegisterForm({
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="register-last-name">
-              Last name <span className={styles.optional}>(optional)</span>
+              {t('auth.register.form.lastName')}{' '}
+              <span className={styles.optional}>{t('auth.register.form.optional')}</span>
             </label>
             <input
               className={styles.input}
@@ -237,7 +254,7 @@ export default function RegisterForm({
               name="lastName"
               type="text"
               autoComplete="family-name"
-              placeholder="Last name"
+              placeholder={t('auth.register.form.lastName')}
               minLength={2}
               aria-invalid={feedback?.field === 'lastName' || undefined}
               aria-describedby={feedback?.field === 'lastName' ? 'last-name-error' : undefined}
@@ -252,7 +269,8 @@ export default function RegisterForm({
 
         <div className={styles.field}>
           <label className={styles.label} htmlFor="register-email">
-            Email address <span className={styles.required} aria-hidden="true">*</span>
+            {t('auth.register.form.email')}{' '}
+            <span className={styles.required} aria-hidden="true">*</span>
           </label>
           <input
             className={styles.input}
@@ -278,8 +296,10 @@ export default function RegisterForm({
         <PasswordField
           id="register-password"
           name="password"
-          label="Password"
-          placeholder="Create a password"
+          label={t('auth.register.form.password')}
+          showLabel={t('auth.register.form.showPassword')}
+          hideLabel={t('auth.register.form.hidePassword')}
+          placeholder={t('auth.register.form.passwordPlaceholder')}
           visible={showPassword}
           onVisibilityChange={() => setShowPassword((current) => !current)}
           hintId="password-hint"
@@ -293,8 +313,10 @@ export default function RegisterForm({
         <PasswordField
           id="register-confirm-password"
           name="confirmPassword"
-          label="Confirm password"
-          placeholder="Enter it again"
+          label={t('auth.register.form.confirmPassword')}
+          showLabel={t('auth.register.form.showConfirm')}
+          hideLabel={t('auth.register.form.hideConfirm')}
+          placeholder={t('auth.register.form.confirmPlaceholder')}
           visible={showConfirmation}
           onVisibilityChange={() => setShowConfirmation((current) => !current)}
           hintId="confirm-password-hint"
@@ -316,12 +338,13 @@ export default function RegisterForm({
               aria-invalid={feedback?.field === 'terms' || undefined}
               aria-describedby={feedback?.field === 'terms' ? 'terms-error' : undefined}
             />
-            <label htmlFor="register-terms">I agree to the account terms and privacy notice.</label>
+            <label htmlFor="register-terms">{t('auth.register.form.terms')}</label>
           </div>
           <p className={styles.policyLinks}>
-            Read our{' '}
-            <Link href="/shop/terms-conditions">Terms of Service</Link> and{' '}
-            <Link href="/shop/privacy-policy">Privacy Policy</Link>.
+            {t('auth.register.form.policy.prefix')}{' '}
+            <Link href="/home/terms-conditions">{t('auth.register.form.policy.terms')}</Link>{' '}
+            {t('auth.register.form.policy.and')}{' '}
+            <Link href="/home/privacy-policy">{t('auth.register.form.policy.privacy')}</Link>.
           </p>
           {feedback?.field === 'terms' ? (
             <p className={styles.fieldError} id="terms-error">
@@ -339,21 +362,23 @@ export default function RegisterForm({
           {pending ? (
             <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" />
           ) : null}
-          <span>{pending ? 'Creating account…' : 'Create account'}</span>
+          <span>
+            {pending ? t('auth.register.form.submitPending') : t('auth.register.form.submit')}
+          </span>
           <span className={styles.statusText} aria-live="polite">
-            {pending ? 'Creating your account' : ''}
+            {pending ? t('auth.register.form.submitStatus') : ''}
           </span>
         </button>
       </Form>
 
       <div className={styles.separator} aria-hidden="true">
         <span />
-        <em>Already have an account?</em>
+        <em>{t('auth.register.form.separator')}</em>
         <span />
       </div>
 
       <Link className={styles.loginLink} href={loginHref}>
-        Sign in instead
+        {t('auth.register.form.signInInstead')}
         <ArrowRight size={17} aria-hidden="true" />
       </Link>
     </>

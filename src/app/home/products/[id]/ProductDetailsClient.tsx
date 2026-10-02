@@ -3,21 +3,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  ImageOff,
-  Layers3,
-  Minus,
-  Plus,
-  X,
-  ZoomIn,
-} from 'lucide-react';
+import { Heart, ImageOff, Layers3, Minus, Plus, Search, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useCompare } from '@/context/CompareContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import ProductStars from '../../components/ProductStars';
+import ShopPageHeader from '../../components/ShopPageHeader';
 import ProductReviews, { type ProductReviewsData } from './ProductReviews';
 import styles from './product-details.module.css';
 
@@ -59,6 +51,8 @@ export type DetailProduct = {
   brandName: string;
   variants: DetailVariant[];
   defaultVariantId: number | null;
+  /** Admin store rating (1–5), the same source the catalogue cards use; 0 = unrated. */
+  rating: number;
 };
 
 export type RelatedProduct = {
@@ -90,6 +84,19 @@ type OptionGroup = {
 
 export type ProductDetailTab = 'description' | 'details' | 'reviews';
 
+/**
+ * Optional merchandising banner shown between the tabs and the related grid.
+ * Sourced from tenant settings (`pdp_banner_*`); hidden until configured so
+ * the page never shows placeholder marketing copy.
+ */
+export type DetailPromo = {
+  image: string;
+  title: string;
+  text?: string | null;
+  ctaLabel?: string | null;
+  ctaHref?: string | null;
+};
+
 const priceFormatter = new Intl.NumberFormat('en-IE', {
   style: 'currency',
   currency: 'EUR',
@@ -97,8 +104,8 @@ const priceFormatter = new Intl.NumberFormat('en-IE', {
   maximumFractionDigits: 2,
 });
 
-function formatPrice(value: number | null): string {
-  return value === null ? 'Price unavailable' : priceFormatter.format(value);
+function formatPrice(value: number | null, unavailableLabel: string): string {
+  return value === null ? unavailableLabel : priceFormatter.format(value);
 }
 
 /**
@@ -114,18 +121,78 @@ function PriceWithCompareAt({
   compareAtPrice: number | null;
   className?: string;
 }) {
+  const { t } = useLocale();
   const showCompareAt =
     price !== null && compareAtPrice !== null && compareAtPrice > price;
 
   return (
     <span className={className}>
-      <span>{formatPrice(price)}</span>
+      <span>{formatPrice(price, t('catalog.price_unavailable'))}</span>
       {showCompareAt ? (
-        <s className={styles.oldPrice} aria-label="Original price">
-          {formatPrice(compareAtPrice)}
+        <s className={styles.oldPrice} aria-label={t('catalog.original_price')}>
+          {formatPrice(compareAtPrice, t('catalog.price_unavailable'))}
         </s>
       ) : null}
     </span>
+  );
+}
+
+/** Solid shield with a knocked-out check, as in the reference trust list. */
+function ShieldCheckIcon() {
+  return (
+    <svg className={styles.trustIcon} viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M12 2 4 5.2v6.1c0 4.9 3.4 9.1 8 10.7 4.6-1.6 8-5.8 8-10.7V5.2L12 2Z" fill="currentColor" />
+      <path
+        d="m8.4 12.1 2.4 2.4 4.8-4.9"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Generic card-network marks for the checkout reassurance box. */
+function PaymentMarks() {
+  const { t } = useLocale();
+  return (
+    <div
+      className={styles.paymentCards}
+      role="img"
+      aria-label={t('catalog.payments_aria')}
+    >
+      <svg viewBox="0 0 48 30" aria-hidden="true">
+        <rect width="48" height="30" rx="3" fill="#fff" />
+        <text x="24" y="20.5" textAnchor="middle" fill="#1a1f71" fontSize="13" fontWeight="800" fontStyle="italic" fontFamily="Arial, sans-serif">VISA</text>
+      </svg>
+      <svg viewBox="0 0 48 30" aria-hidden="true">
+        <rect width="48" height="30" rx="3" fill="#fff" />
+        <circle cx="19.5" cy="13.5" r="8" fill="#eb001b" />
+        <circle cx="28.5" cy="13.5" r="8" fill="#f79e1b" />
+        <path d="M24 6.9a8 8 0 0 1 0 13.2 8 8 0 0 1 0-13.2Z" fill="#ff5f00" />
+        <text x="24" y="27" textAnchor="middle" fill="#231f20" fontSize="3.6" fontFamily="Arial, sans-serif">mastercard</text>
+      </svg>
+      <svg viewBox="0 0 48 30" aria-hidden="true">
+        <rect width="48" height="30" rx="3" fill="#2e77bc" />
+        <text x="24" y="13.5" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="800" fontFamily="Arial, sans-serif">AMERICAN</text>
+        <text x="24" y="22" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="800" fontFamily="Arial, sans-serif">EXPRESS</text>
+      </svg>
+      <svg viewBox="0 0 48 30" aria-hidden="true">
+        <rect width="48" height="30" rx="3" fill="#fff" />
+        <text x="5" y="18" fill="#231f20" fontSize="7" fontWeight="700" fontFamily="Arial, sans-serif">DISC</text>
+        <circle cx="27.6" cy="15.6" r="3.7" fill="#f58220" />
+        <text x="31.6" y="18" fill="#231f20" fontSize="7" fontWeight="700" fontFamily="Arial, sans-serif">VER</text>
+      </svg>
+      <svg viewBox="0 0 48 30" aria-hidden="true">
+        <rect width="48" height="30" rx="3" fill="#fff" />
+        <text x="24" y="19" textAnchor="middle" fontSize="10" fontWeight="800" fontStyle="italic" fontFamily="Arial, sans-serif">
+          <tspan fill="#003087">Pay</tspan>
+          <tspan fill="#009cde">Pal</tspan>
+        </text>
+      </svg>
+    </div>
   );
 }
 
@@ -206,6 +273,7 @@ function variantMatchesSelections(
 }
 
 function RelatedActions({ product }: { product: RelatedProduct }) {
+  const { t } = useLocale();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToCompare, removeFromCompare, isInCompare } = useCompare();
   const variantId = product.variantId;
@@ -227,7 +295,9 @@ function RelatedActions({ product }: { product: RelatedProduct }) {
     <div className={styles.relatedActions}>
       <button
         type="button"
-        aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+        aria-label={
+          inWishlist ? t('catalog.remove_from_wishlist') : t('catalog.add_to_wishlist')
+        }
         aria-pressed={inWishlist}
         data-active={inWishlist}
         disabled={commerceDisabled}
@@ -242,7 +312,9 @@ function RelatedActions({ product }: { product: RelatedProduct }) {
       </button>
       <button
         type="button"
-        aria-label={inCompare ? 'Remove from comparison' : 'Add to comparison'}
+        aria-label={
+          inCompare ? t('catalog.remove_from_comparison') : t('catalog.add_to_comparison')
+        }
         aria-pressed={inCompare}
         data-active={inCompare}
         disabled={commerceDisabled}
@@ -274,16 +346,20 @@ export default function ProductDetailsClient({
   product,
   related,
   reviews,
+  promo,
   initialTab = 'description',
 }: {
   product: DetailProduct;
   related: RelatedProduct[];
   reviews?: ProductReviewsData;
+  promo?: DetailPromo | null;
   initialTab?: ProductDetailTab;
 }) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToCompare, removeFromCompare, isInCompare } = useCompare();
+  const { t } = useLocale();
+  const unavailablePriceLabel = t('catalog.price_unavailable');
   const optionGroups = useMemo(() => buildOptionGroups(product.variants), [product.variants]);
   const initialVariant = useMemo(
     () => preferredVariant(product, optionGroups.length > 0),
@@ -399,14 +475,18 @@ export default function ProductDetailsClient({
       price: selectedPrice,
       imageUrl: product.imageUrl,
     });
-    setActionMessage(result.ok ? `${product.name} was added to your cart.` : result.message || 'The item could not be added.');
+    setActionMessage(
+      result.ok
+        ? t('catalog.added_to_cart', { name: product.name })
+        : result.message || t('catalog.add_error'),
+    );
   };
 
   const toggleWishlist = () => {
     if (selectedPrice === null) return;
     if (inWishlist) {
       const result = removeFromWishlist(commerceSelector);
-      setActionMessage(result.message || 'Removed from your wishlist.');
+      setActionMessage(result.message || t('catalog.wishlist_removed'));
       return;
     }
     const result = addToWishlist({
@@ -417,14 +497,14 @@ export default function ProductDetailsClient({
       imageUrl: product.imageUrl,
       stockQuantity: selectedAvailability,
     });
-    setActionMessage(result.message || 'Saved to your wishlist.');
+    setActionMessage(result.message || t('catalog.wishlist_saved'));
   };
 
   const toggleCompare = () => {
     if (selectedPrice === null) return;
     if (inCompare) {
       const result = removeFromCompare(commerceSelector);
-      setActionMessage(result.message || 'Removed from your comparison.');
+      setActionMessage(result.message || t('catalog.compare_removed'));
       return;
     }
     const result = addToCompare({
@@ -438,32 +518,33 @@ export default function ProductDetailsClient({
       sku: selectedVariant?.sku || product.sku || null,
       categoryName: product.categoryName || null,
     });
-    setActionMessage(result.message || 'Added to your comparison.');
+    setActionMessage(result.message || t('catalog.compare_added'));
   };
 
   const reviewCount = reviews?.summary?.approvedCount
     ?? reviews?.pagination?.totalItems
     ?? reviews?.reviews?.length
     ?? 0;
-  const reviewTabLabel = reviewCount > 0 ? `Reviews (${reviewCount})` : 'Reviews';
+  const reviewTabLabel = reviewCount > 0
+    ? t('catalog.reviews_tab_count', { count: reviewCount })
+    : t('catalog.reviews_tab');
   const selectedOptions = selectedVariant?.options ?? [];
   const canUseCommerce = selectedPrice !== null;
 
   return (
     <div className={styles.page}>
-      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-        <Link href="/shop">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link href="/shop/products">Shop</Link>
-        {product.categoryId && product.categoryName ? (
-          <>
-            <span aria-hidden="true">/</span>
-            <Link href={`/shop/products?category=${product.categoryId}`}>{product.categoryName}</Link>
-          </>
-        ) : null}
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{product.name}</span>
-      </nav>
+      <ShopPageHeader
+        crumbs={[
+          { label: t('catalog.shop'), href: '/home/products' },
+          ...(product.categoryId && product.categoryName
+            ? [{
+                label: product.categoryName,
+                href: `/home/products?category=${product.categoryId}`,
+              }]
+            : []),
+          { label: product.name },
+        ]}
+      />
 
       <section className={styles.productHero} aria-labelledby="product-title">
         <div className={styles.productGallery}>
@@ -472,7 +553,7 @@ export default function ProductDetailsClient({
               <Image
                 key={availableImage}
                 src={availableImage}
-                alt={`${product.name}${resolvedImageIndex >= 0 && product.galleryImages.length > 1 ? `, image ${resolvedImageIndex + 1}` : ''}`}
+                alt={`${product.name}${resolvedImageIndex >= 0 && product.galleryImages.length > 1 ? t('catalog.image_alt_suffix', { n: resolvedImageIndex + 1 }) : ''}`}
                 fill
                 unoptimized
                 priority
@@ -481,34 +562,25 @@ export default function ProductDetailsClient({
                 onError={() => markImageFailed(availableImage)}
               />
             ) : (
-              <div className={styles.imageFallback} role="img" aria-label="Product image unavailable">
+              <div className={styles.imageFallback} role="img" aria-label={t('catalog.image_unavailable_aria')}>
                 <ImageOff size={42} strokeWidth={1.25} aria-hidden="true" />
-                <span>Image unavailable</span>
+                <span>{t('catalog.image_unavailable')}</span>
               </div>
             )}
             {availableImage ? (
               <button
                 type="button"
                 className={styles.zoomButton}
-                aria-label="Enlarge product image"
+                aria-label={t('catalog.enlarge_image_aria')}
                 onClick={() => setZoomOpen(true)}
               >
-                <ZoomIn size={18} aria-hidden="true" />
+                <Search size={20} strokeWidth={2.25} aria-hidden="true" />
               </button>
             ) : null}
           </div>
 
           {product.galleryImages.length > 1 ? (
-            <div className={styles.thumbnailList} aria-label="Product gallery">
-              <button
-                type="button"
-                className={styles.galleryArrow}
-                aria-label="Previous image"
-                disabled={resolvedImageIndex <= 0}
-                onClick={() => setActiveImageIndex((index) => Math.max(0, index - 1))}
-              >
-                <ChevronLeft size={18} aria-hidden="true" />
-              </button>
+            <div className={styles.thumbnailList} aria-label={t('catalog.gallery_aria')}>
               <div className={styles.thumbnailTrack}>
                 {product.galleryImages.map((image, index) => (
                   <button
@@ -517,7 +589,7 @@ export default function ProductDetailsClient({
                     data-active={index === resolvedImageIndex}
                     data-broken={failedImages.has(image)}
                     key={image}
-                    aria-label={`Show product image ${index + 1}`}
+                    aria-label={t('catalog.show_product_image_aria', { n: index + 1 })}
                     aria-pressed={index === resolvedImageIndex}
                     onClick={() => setActiveImageIndex(index)}
                   >
@@ -532,28 +604,21 @@ export default function ProductDetailsClient({
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className={styles.galleryArrow}
-                aria-label="Next image"
-                disabled={resolvedImageIndex >= product.galleryImages.length - 1}
-                onClick={() => setActiveImageIndex((index) =>
-                  Math.min(product.galleryImages.length - 1, index + 1),
-                )}
-              >
-                <ChevronRight size={18} aria-hidden="true" />
-              </button>
             </div>
           ) : null}
         </div>
 
         <div className={styles.productInfo}>
-          <div className={styles.productEyebrows}>
-            {product.categoryName ? <span>{product.categoryName}</span> : null}
-            {product.brandName ? <span>{product.brandName}</span> : null}
-          </div>
+          {product.categoryName ? (
+            <p className={styles.productEyebrow}>{product.categoryName}</p>
+          ) : null}
           <h1 id="product-title">{product.name}</h1>
-          {product.sku ? <p className={styles.sku}>SKU {product.sku}</p> : null}
+          <div className={styles.heroStars}>
+            {/* Same store rating as the catalogue card, so both agree. */}
+            <ProductStars
+              rating={product.rating || Math.round(reviews?.summary?.averageRating ?? 0)}
+            />
+          </div>
           <p className={styles.price}>
             <PriceWithCompareAt
               price={selectedPrice}
@@ -561,40 +626,75 @@ export default function ProductDetailsClient({
             />
           </p>
           <p className={styles.description}>
-            {product.description || 'No product description has been provided.'}
+            {product.description || t('catalog.no_description')}
           </p>
 
           {optionGroups.length > 0 ? (
-            <div className={styles.optionGroups}>
-              {optionGroups.map((group) => (
-                <fieldset className={styles.optionGroup} key={group.attributeId}>
-                  <legend>{group.name}</legend>
-                  <div className={styles.optionValues}>
-                    {group.values.map((option) => {
-                      const available = isOptionAvailable(group.attributeId, option.valueId);
-                      const selected = optionSelections[group.attributeId] === option.valueId;
-                      return (
-                        <button
-                          type="button"
-                          key={option.valueId}
-                          data-active={selected}
-                          data-unavailable={!available}
-                          aria-pressed={selected}
-                          disabled={!available}
-                          onClick={() => chooseOption(group.attributeId, option.valueId)}
-                        >
-                          <span>{option.value}</span>
-                          {!available ? <small>Unavailable</small> : null}
-                        </button>
-                      );
-                    })}
+            <div className={styles.optionSelects}>
+              {optionGroups.map((group) => {
+                const selectedValueId = optionSelections[group.attributeId];
+                const clearSelection = () => {
+                  setOptionSelections((current) => {
+                    const next = { ...current };
+                    delete next[group.attributeId];
+                    return next;
+                  });
+                  setQuantity(1);
+                  setActionMessage('');
+                };
+                return (
+                  <div className={styles.optionSelectRow} key={group.attributeId}>
+                    <label
+                      className={styles.optionSelect}
+                      htmlFor={`option-select-${group.attributeId}`}
+                    >
+                      <span>{group.name}</span>
+                      <select
+                        id={`option-select-${group.attributeId}`}
+                        value={selectedValueId ?? ''}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (value > 0) chooseOption(group.attributeId, value);
+                          else clearSelection();
+                        }}
+                      >
+                        <option value="">
+                          {t('catalog.choose_attribute', { name: group.name.toLowerCase() })}
+                        </option>
+                        {group.values.map((option) => {
+                          const available = isOptionAvailable(
+                            group.attributeId,
+                            option.valueId,
+                          );
+                          return (
+                            <option
+                              key={option.valueId}
+                              value={option.valueId}
+                              disabled={!available}
+                            >
+                              {option.value}
+                              {!available ? t('catalog.option_unavailable') : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                    {selectedValueId !== undefined ? (
+                      <button
+                        type="button"
+                        className={styles.optionClear}
+                        onClick={clearSelection}
+                      >
+                        {t('catalog.clear')}
+                      </button>
+                    ) : null}
                   </div>
-                </fieldset>
-              ))}
+                );
+              })}
             </div>
           ) : product.variants.length > 1 ? (
             <label className={styles.variantSelect}>
-              <span>Variant</span>
+              <span>{t('catalog.variant')}</span>
               <select
                 value={explicitVariantId ?? ''}
                 onChange={(event) => {
@@ -604,65 +704,53 @@ export default function ProductDetailsClient({
                   setActionMessage('');
                 }}
               >
-                <option value="">Choose a variant</option>
+                <option value="">{t('catalog.choose_variant')}</option>
                 {product.variants.map((variant) => (
                   <option value={variant.id} key={variant.id} disabled={variant.stockQuantity === 0}>
-                    {variant.name} — {formatPrice(variant.price)}{variant.compareAtPrice !== null && variant.compareAtPrice > variant.price ? ` (was ${formatPrice(variant.compareAtPrice)})` : ''} — {variant.stockQuantity > 0 ? `${variant.stockQuantity} available` : 'Out of stock'}
+                    {variant.name} — {formatPrice(variant.price, unavailablePriceLabel)}
+                    {variant.compareAtPrice !== null && variant.compareAtPrice > variant.price
+                      ? t('catalog.was_price', {
+                          price: formatPrice(variant.compareAtPrice, unavailablePriceLabel),
+                        })
+                      : ''}{' '}
+                    —{' '}
+                    {variant.stockQuantity > 0
+                      ? t('catalog.available_count', { count: variant.stockQuantity })
+                      : t('catalog.out_of_stock')}
                   </option>
                 ))}
               </select>
             </label>
           ) : null}
 
-          {selectedVariant ? (
-            <div className={styles.selectedVariant}>
-              <div>
-                <span>Selected variant</span>
-                <strong>{selectedVariant.name}</strong>
-              </div>
-              {product.defaultVariantId === selectedVariant.id ? (
-                <span className={styles.defaultVariantBadge}>Default variant</span>
-              ) : null}
-              {selectedVariant.sku && selectedVariant.sku !== product.sku ? (
-                <div>
-                  <span>Variant SKU</span>
-                  <strong>{selectedVariant.sku}</strong>
-                </div>
-              ) : null}
-            </div>
-          ) : (
+          {!selectedVariant ? (
             <div className={styles.variantUnavailable} role="status">
-              <strong>No purchasable variant is currently available.</strong>
-              <span>A concrete active variant is required before this product can be added to a cart.</span>
+              <strong>{t('catalog.no_variant_title')}</strong>
+              <span>{t('catalog.no_variant_text')}</span>
             </div>
-          )}
+          ) : null}
 
           <div
-            className={styles.stockSummary}
+            className={styles.stockLine}
             data-in-stock={product.variants.length > 0 && product.stockQuantity > 0}
           >
-            <CheckCircle2 size={17} aria-hidden="true" />
-            <div>
-              <strong>
-                {product.variants.length === 0
-                  ? 'Unavailable: no active variant'
-                  : product.stockQuantity > 0
-                    ? `${product.stockQuantity} available across active variants`
-                    : 'Out of stock'}
-              </strong>
-              <span>
-                {selectedVariant
-                  ? `${selectedAvailability} available for the selected variant`
-                  : 'No active variant is available for purchase'}
-              </span>
-            </div>
+            <strong>
+              {product.variants.length === 0
+                ? t('catalog.no_active_variant')
+                : product.stockQuantity > 0
+                  ? t('catalog.in_stock_count', { count: product.stockQuantity })
+                  : t('catalog.out_of_stock')}
+            </strong>
+            {selectedVariant && selectedAvailability > 0 && selectedAvailability !== product.stockQuantity ? (
+              <span>{t('catalog.selected_variant_stock', { count: selectedAvailability })}</span>
+            ) : null}
           </div>
 
           <div className={styles.purchaseRow}>
             <div className={styles.quantityStepper}>
               <button
                 type="button"
-                aria-label="Decrease quantity"
+                aria-label={t('catalog.decrease_quantity_aria')}
                 disabled={!canAddToCart || boundedQuantity <= 1}
                 onClick={() => updateQuantity(quantity - 1)}
               >
@@ -674,12 +762,12 @@ export default function ProductDetailsClient({
                 max={Math.max(1, selectedAvailability)}
                 value={boundedQuantity}
                 disabled={!canAddToCart}
-                aria-label="Quantity"
+                aria-label={t('catalog.quantity_aria')}
                 onChange={(event) => updateQuantity(Number(event.target.value))}
               />
               <button
                 type="button"
-                aria-label="Increase quantity"
+                aria-label={t('catalog.increase_quantity_aria')}
                 disabled={!canAddToCart || boundedQuantity >= selectedAvailability}
                 onClick={() => updateQuantity(quantity + 1)}
               >
@@ -693,15 +781,17 @@ export default function ProductDetailsClient({
               onClick={addSelectedVariant}
             >
               {selectedVariant?.stockQuantity === 0
-                ? 'Out of stock'
+                ? t('catalog.out_of_stock')
                 : hasSelectedVariant
-                  ? 'Add to cart'
-                  : 'Unavailable'}
+                  ? t('catalog.add_to_cart')
+                  : t('catalog.unavailable')}
             </button>
             <button
               type="button"
               className={styles.iconButton}
-              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+              aria-label={
+                inWishlist ? t('catalog.remove_from_wishlist') : t('catalog.add_to_wishlist')
+              }
               aria-pressed={inWishlist}
               data-active={inWishlist}
               disabled={!canUseCommerce}
@@ -712,7 +802,9 @@ export default function ProductDetailsClient({
             <button
               type="button"
               className={styles.iconButton}
-              aria-label={inCompare ? 'Remove from comparison' : 'Add to comparison'}
+              aria-label={
+                inCompare ? t('catalog.remove_from_comparison') : t('catalog.add_to_comparison')
+              }
               aria-pressed={inCompare}
               data-active={inCompare}
               disabled={!canUseCommerce}
@@ -724,11 +816,33 @@ export default function ProductDetailsClient({
           <p className={styles.actionMessage} role="status" aria-live="polite">
             {actionMessage}
           </p>
+
+          <div className={styles.trustBlock}>
+            <p className={styles.trustShipping}>{t('catalog.free_shipping')}</p>
+            <ul className={styles.trustList}>
+              <li>
+                <ShieldCheckIcon />
+                {t('catalog.trust_satisfaction')}
+              </li>
+              <li>
+                <ShieldCheckIcon />
+                {t('catalog.trust_refunds')}
+              </li>
+              <li>
+                <ShieldCheckIcon />
+                {t('catalog.trust_payments')}
+              </li>
+            </ul>
+            <div className={styles.paymentBox}>
+              <PaymentMarks />
+              <strong>{t('catalog.safe_checkout')}</strong>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className={styles.productTabs}>
-        <div className={styles.tabList} role="tablist" aria-label="Product information">
+        <div className={styles.tabList} role="tablist" aria-label={t('catalog.product_info_aria')}>
           <button
             type="button"
             role="tab"
@@ -738,7 +852,7 @@ export default function ProductDetailsClient({
             data-active={tab === 'description'}
             onClick={() => setTab('description')}
           >
-            Description
+            {t('catalog.tab_description')}
           </button>
           <button
             type="button"
@@ -749,7 +863,7 @@ export default function ProductDetailsClient({
             data-active={tab === 'details'}
             onClick={() => setTab('details')}
           >
-            Product details
+            {t('catalog.tab_details')}
           </button>
           <button
             type="button"
@@ -771,10 +885,10 @@ export default function ProductDetailsClient({
             role="tabpanel"
             aria-labelledby="description-tab"
           >
-            <span className={styles.sectionEyebrow}>About this product</span>
-            <h2>Description</h2>
+            <span className={styles.sectionEyebrow}>{t('catalog.about_item')}</span>
+            <h2>{t('catalog.tab_description')}</h2>
             <p className={styles.longDescription}>
-              {product.description || 'No product description has been provided.'}
+              {product.description || t('catalog.no_description')}
             </p>
           </div>
         ) : null}
@@ -786,14 +900,14 @@ export default function ProductDetailsClient({
             role="tabpanel"
             aria-labelledby="details-tab"
           >
-            <span className={styles.sectionEyebrow}>Catalog information</span>
-            <h2>Product details</h2>
+            <span className={styles.sectionEyebrow}>{t('catalog.catalog_info')}</span>
+            <h2>{t('catalog.tab_details')}</h2>
             <dl className={styles.detailsList}>
-              <div><dt>Product SKU</dt><dd>{product.sku || 'Not provided'}</dd></div>
-              <div><dt>Category</dt><dd>{product.categoryName || 'Not assigned'}</dd></div>
-              <div><dt>Brand</dt><dd>{product.brandName || 'Not assigned'}</dd></div>
+              <div><dt>{t('catalog.sku_label')}</dt><dd>{product.sku || t('catalog.not_provided')}</dd></div>
+              <div><dt>{t('catalog.category')}</dt><dd>{product.categoryName || t('catalog.not_assigned')}</dd></div>
+              <div><dt>{t('catalog.brand')}</dt><dd>{product.brandName || t('catalog.not_assigned')}</dd></div>
               <div>
-                <dt>Base price</dt>
+                <dt>{t('catalog.base_price')}</dt>
                 <dd>
                   <PriceWithCompareAt
                     price={product.price}
@@ -801,21 +915,25 @@ export default function ProductDetailsClient({
                   />
                 </dd>
               </div>
-              <div><dt>Active variants</dt><dd>{product.variants.length}</dd></div>
+              <div><dt>{t('catalog.active_variants')}</dt><dd>{product.variants.length}</dd></div>
               <div>
-                <dt>Stock source</dt>
-                <dd>{product.stockSource === 'variant' ? 'Variant stock rows' : 'Parent product stock'}</dd>
+                <dt>{t('catalog.stock_source')}</dt>
+                <dd>
+                  {product.stockSource === 'variant'
+                    ? t('catalog.stock_source_variant')
+                    : t('catalog.stock_source_parent')}
+                </dd>
               </div>
-              <div><dt>Total availability</dt><dd>{product.stockQuantity}</dd></div>
+              <div><dt>{t('catalog.total_availability')}</dt><dd>{product.stockQuantity}</dd></div>
               {selectedOptions.length > 0 ? (
                 <div>
-                  <dt>Selected options</dt>
+                  <dt>{t('catalog.selected_options')}</dt>
                   <dd>{selectedOptions.map((option) => `${option.attributeName}: ${option.value}`).join(', ')}</dd>
                 </div>
               ) : null}
               {selectedVariant ? (
                 <div>
-                  <dt>Selected variant</dt>
+                  <dt>{t('catalog.selected_variant')}</dt>
                   <dd>
                     {selectedVariant.name}
                     {selectedVariant.sku ? ` (${selectedVariant.sku})` : ''}
@@ -838,20 +956,39 @@ export default function ProductDetailsClient({
         ) : null}
       </section>
 
+      {promo && promo.image && promo.title ? (
+        <section className={styles.promoSection} aria-label={promo.title}>
+          <div className={styles.promoBanner}>
+            <Image
+              src={promo.image}
+              alt=""
+              fill
+              unoptimized
+              objectFit="cover"
+              sizes="(max-width: 900px) 100vw, 1100px"
+            />
+            <div className={styles.promoCard}>
+              <h2>{promo.title}</h2>
+              {promo.text ? <p>{promo.text}</p> : null}
+              {promo.ctaHref && promo.ctaLabel ? (
+                <Link href={promo.ctaHref}>{promo.ctaLabel}</Link>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {related.length > 0 ? (
         <section className={styles.relatedSection} aria-labelledby="related-products-title">
           <div className={styles.relatedHeading}>
-            <div>
-              <span className={styles.sectionEyebrow}>More from the catalog</span>
-              <h2 id="related-products-title">Related products</h2>
-            </div>
-            <Link href="/shop/products">View all products</Link>
+            <h2 id="related-products-title">{t('catalog.related_products')}</h2>
+            <Link href="/home/products">{t('catalog.view_all_products')}</Link>
           </div>
           <div className={styles.relatedGrid}>
             {related.map((item) => (
               <article className={styles.relatedCard} key={item.id}>
                 <div className={styles.relatedMedia}>
-                  <Link href={`/shop/products/${item.id}`} aria-label={`View ${item.name}`}>
+                  <Link href={`/home/products/${item.id}`} aria-label={t('catalog.view_product', { name: item.name })}>
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}
@@ -864,14 +1001,14 @@ export default function ProductDetailsClient({
                       <span className={styles.relatedImageFallback}><ImageOff size={28} aria-hidden="true" /></span>
                     )}
                   </Link>
-                  {item.stockQuantity === 0 ? <span className={styles.relatedStockBadge}>Out of stock</span> : null}
+                  {item.stockQuantity === 0 ? <span className={styles.relatedStockBadge}>{t('catalog.out_of_stock')}</span> : null}
                   <RelatedActions product={item} />
                 </div>
                 <div className={styles.relatedBody}>
                   {item.categoryName || item.brandName ? (
                     <span>{item.categoryName || item.brandName}</span>
                   ) : null}
-                  <h3><Link href={`/shop/products/${item.id}`}>{item.name}</Link></h3>
+                  <h3><Link href={`/home/products/${item.id}`}>{item.name}</Link></h3>
                   <div>
                     <strong>
                       <PriceWithCompareAt
@@ -879,7 +1016,7 @@ export default function ProductDetailsClient({
                         compareAtPrice={item.compareAtPrice}
                       />
                     </strong>
-                    {item.sku ? <small>SKU {item.sku}</small> : null}
+                    {item.sku ? <small>{t('catalog.sku', { sku: item.sku })}</small> : null}
                   </div>
                 </div>
               </article>
@@ -893,7 +1030,7 @@ export default function ProductDetailsClient({
           className={styles.zoomOverlay}
           role="dialog"
           aria-modal="true"
-          aria-label={`${product.name} enlarged image`}
+          aria-label={t('catalog.zoom_aria', { name: product.name })}
           onClick={() => setZoomOpen(false)}
         >
           <div className={styles.zoomImageFrame} onClick={(event) => event.stopPropagation()}>
@@ -908,7 +1045,7 @@ export default function ProductDetailsClient({
           <button
             type="button"
             className={styles.zoomClose}
-            aria-label="Close enlarged image"
+            aria-label={t('catalog.close_zoom_aria')}
             onClick={() => setZoomOpen(false)}
           >
             <X size={22} aria-hidden="true" />

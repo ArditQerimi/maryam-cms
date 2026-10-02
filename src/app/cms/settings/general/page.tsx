@@ -3,6 +3,7 @@ import { requireCmsSession } from '@/lib/cms/session';
 import { getContextDb } from '@/lib/tenant';
 import { settingsStore } from '@/db/schema-tenant';
 import { formatDate, formatMoney } from '@/lib/cms/format';
+import { getT, type Translator } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard';
 import SettingsForm from '@/components/settings/SettingsForm';
@@ -26,30 +27,39 @@ const DEFAULTS: SettingsValues = {
   general_currency: 'EUR',
   general_currency_position: 'before',
   general_decimal_separator: '.',
+  general_map_coordinates: '',
 };
 
-const FIELDS: SettingField[] = [
-  { kind: 'text', key: 'general_site_title', label: 'Site title', placeholder: 'My store' },
-  { kind: 'text', key: 'general_tagline', label: 'Tagline', placeholder: 'Just another store' },
+function buildFields(t: Translator): SettingField[] {
+  return [
+  { kind: 'text', key: 'general_site_title', label: t('cmssettings.general.siteTitleLabel'), placeholder: t('cmssettings.general.siteTitlePlaceholder') },
+  { kind: 'text', key: 'general_tagline', label: t('cmssettings.general.taglineLabel'), placeholder: t('cmssettings.general.taglinePlaceholder') },
   {
     kind: 'text',
     key: 'general_site_url',
-    label: 'Site URL (WordPress address)',
+    label: t('cmssettings.general.siteUrlLabel'),
     disabled: true,
     inputType: 'url',
-    hint: 'Read-only — comes from the environment configuration.',
+    hint: t('cmssettings.general.siteUrlHint'),
   },
   {
     kind: 'text',
     key: 'general_admin_email',
-    label: 'Administration email address',
+    label: t('cmssettings.general.adminEmailLabel'),
     inputType: 'email',
     placeholder: 'admin@example.com',
   },
   {
+    kind: 'text',
+    key: 'general_map_coordinates',
+    label: t('cmssettings.general.mapCoordinatesLabel'),
+    placeholder: '42.6673, 21.1667',
+    hint: t('cmssettings.general.mapCoordinatesHint'),
+  },
+  {
     kind: 'select',
     key: 'general_timezone',
-    label: 'Timezone',
+    label: t('cmssettings.general.timezoneLabel'),
     options: [
       'UTC',
       'Europe/Tirane',
@@ -92,7 +102,7 @@ const FIELDS: SettingField[] = [
   {
     kind: 'select',
     key: 'general_date_format',
-    label: 'Date format',
+    label: t('cmssettings.general.dateFormatLabel'),
     options: [
       { value: 'd/m/Y', label: '25/09/2026' },
       { value: 'm/d/Y', label: '09/25/2026' },
@@ -104,7 +114,7 @@ const FIELDS: SettingField[] = [
   {
     kind: 'select',
     key: 'general_time_format',
-    label: 'Time format',
+    label: t('cmssettings.general.timeFormatLabel'),
     options: [
       { value: 'H:i', label: '14:32' },
       { value: 'g:i A', label: '2:32 PM' },
@@ -114,38 +124,40 @@ const FIELDS: SettingField[] = [
   {
     kind: 'select',
     key: 'general_currency',
-    label: 'Currency',
+    label: t('cmssettings.general.currencyLabel'),
     options: [
-      { value: 'EUR', label: 'EUR — Euro (€)' },
-      { value: 'USD', label: 'USD — US Dollar ($)' },
-      { value: 'GBP', label: 'GBP — Pound Sterling (£)' },
-      { value: 'ALL', label: 'ALL — Albanian Lek (L)' },
-      { value: 'MKD', label: 'MKD — Macedonian Denar (ден)' },
-      { value: 'RSD', label: 'RSD — Serbian Dinar (дин.)' },
+      { value: 'EUR', label: t('cmssettings.general.currencyEur') },
+      { value: 'USD', label: t('cmssettings.general.currencyUsd') },
+      { value: 'GBP', label: t('cmssettings.general.currencyGbp') },
+      { value: 'ALL', label: t('cmssettings.general.currencyAll') },
+      { value: 'MKD', label: t('cmssettings.general.currencyMkd') },
+      { value: 'RSD', label: t('cmssettings.general.currencyRsd') },
     ],
   },
   {
     kind: 'select',
     key: 'general_currency_position',
-    label: 'Currency symbol position',
+    label: t('cmssettings.general.currencyPositionLabel'),
     options: [
-      { value: 'before', label: 'Before amount — €1,234.56' },
-      { value: 'after', label: 'After amount — 1,234.56 €' },
+      { value: 'before', label: t('cmssettings.general.currencyPositionBefore') },
+      { value: 'after', label: t('cmssettings.general.currencyPositionAfter') },
     ],
   },
   {
     kind: 'select',
     key: 'general_decimal_separator',
-    label: 'Decimal separator',
+    label: t('cmssettings.general.decimalSeparatorLabel'),
     options: [
-      { value: '.', label: 'Point (.) — 1234.56' },
-      { value: ',', label: 'Comma (,) — 1234,56' },
+      { value: '.', label: t('cmssettings.general.decimalSeparatorPoint') },
+      { value: ',', label: t('cmssettings.general.decimalSeparatorComma') },
     ],
   },
-];
+  ];
+}
 
 export default async function GeneralSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [loaded, lastUpdated] = await Promise.all([
     loadSettingsByPrefix('general_'),
@@ -158,31 +170,47 @@ export default async function GeneralSettingsPage() {
   return (
     <div>
       <PageHeader
-        title="General settings"
-        description="Site identity, admin contact, localisation and formatting defaults."
+        title={t('cmssettings.general.title')}
+        description={t('cmssettings.general.description')}
       />
 
       <div className="max-w-4xl space-y-6">
         <SettingsCard
-          title="Site settings"
-          description="Shown across the storefront, admin and outgoing emails."
+          title={t('cmssettings.general.cardTitle')}
+          description={t('cmssettings.general.cardDescription')}
           footer={
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
               <span>
-                Example:{' '}
+                {t('cmssettings.general.exampleLabel')}{' '}
                 <span className="font-medium text-zinc-700">{formatMoney(1234.5, currency)}</span>
                 {' · '}
                 {formatDate(new Date())}
               </span>
-              <span>{lastUpdated ? `Last updated ${formatDate(lastUpdated, true)}` : 'Not saved yet'}</span>
+              <span>
+                {lastUpdated
+                  ? t('cmssettings.general.lastUpdated', {
+                      date: formatDate(lastUpdated, true),
+                    })
+                  : t('cmssettings.general.notSavedYet')}
+              </span>
             </div>
           }
         >
-          <SettingsForm fields={FIELDS} initialValues={values} onSubmit={saveGeneralSettings}>
-            <SettingsSection title="Localisation" hint="Applies to prices, receipts and scheduled content.">
+          <SettingsForm
+            fields={buildFields(t)}
+            initialValues={values}
+            onSubmit={saveGeneralSettings}
+            saveLabel={t('cmssettings.common.saveChanges')}
+          >
+            <SettingsSection
+              title={t('cmssettings.general.sectionTitle')}
+              hint={t('cmssettings.general.sectionHint')}
+            >
               <p className="text-xs text-zinc-500">
-                Timezone <span className="font-medium text-zinc-700">{String(values.general_timezone)}</span>,
-                dates as <span className="font-medium text-zinc-700">{String(values.general_date_format)}</span>.
+                {t('cmssettings.general.summaryTimezone')}{' '}
+                <span className="font-medium text-zinc-700">{String(values.general_timezone)}</span>
+                {t('cmssettings.general.summaryDates')}{' '}
+                <span className="font-medium text-zinc-700">{String(values.general_date_format)}</span>.
               </p>
             </SettingsSection>
           </SettingsForm>

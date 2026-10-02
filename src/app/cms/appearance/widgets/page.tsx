@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { settingsStore, themeSettings } from '@/db/schema-tenant';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import WidgetsManager from '@/components/appearance/WidgetsManager';
 import {
@@ -59,6 +60,7 @@ function normalizeLayout(raw: unknown): WidgetLayout {
 
 export default async function WidgetsPage() {
   await requireCmsSession();
+  const t = await getT();
 
   let layout: WidgetLayout = { sidebar: [], homepage: [], footer: [] };
 
@@ -91,8 +93,8 @@ export default async function WidgetsPage() {
   return (
     <div>
       <PageHeader
-        title="Widgets"
-        description="Drag widgets into the sidebar, homepage and footer areas, then save the layout."
+        title={t('cmsappearance.widgets.title')}
+        description={t('cmsappearance.widgets.description')}
       />
       <WidgetsManager initialLayout={layout} />
     </div>

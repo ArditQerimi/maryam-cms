@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -9,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Grid2X2,
-  ImageOff,
   List,
   LoaderCircle,
   PackageOpen,
@@ -26,7 +24,18 @@ import {
 } from 'react';
 import legacyStyles from '../bookstore.module.css';
 import ProductActionBar, { ProductAddToCartButton } from '../components/ProductActionBar';
-import styles from './shop-products.module.css';
+import ProductCard, {
+  ProductCardImage,
+  ProductPricePair,
+  formatProductPrice as formatPrice,
+  toCardQuickView,
+} from '../components/ProductCard';
+import ProductStars from '../components/ProductStars';
+import ShopPageHeader from '../components/ShopPageHeader';
+import type { QvProduct } from '../components/QuickViewModal';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import styles from './home-products.module.css';
 
 export type CatalogProduct = {
   id: number;
@@ -45,6 +54,8 @@ export type CatalogProduct = {
   size: string | null;
   color: string | null;
   createdAt: number;
+  /** Admin store rating 1–5; 0 = no stars. */
+  rating: number;
 };
 
 export type CatalogCategory = {
@@ -99,39 +110,15 @@ type PriceBounds = {
 
 const PAGE_SIZE = 12;
 const FILTER_PARAM_KEYS = ['q', 'category', 'size', 'color', 'stock', 'min', 'max', 'page'] as const;
-const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
-  { value: 'default', label: 'Default sorting' },
-  { value: 'newest', label: 'Newest first' },
-  { value: 'price-asc', label: 'Price: low to high' },
-  { value: 'price-desc', label: 'Price: high to low' },
-  { value: 'name-asc', label: 'Name: A–Z' },
-  { value: 'name-desc', label: 'Name: Z–A' },
+const SORT_OPTIONS: Array<{ value: SortKey; labelKey: keyof Dictionary }> = [
+  { value: 'default', labelKey: 'catalog.sort_default' },
+  { value: 'newest', labelKey: 'catalog.sort_newest' },
+  { value: 'price-asc', labelKey: 'catalog.sort_price_asc' },
+  { value: 'price-desc', labelKey: 'catalog.sort_price_desc' },
+  { value: 'name-asc', labelKey: 'catalog.sort_name_asc' },
+  { value: 'name-desc', labelKey: 'catalog.sort_name_desc' },
 ];
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-const priceFormatter = new Intl.NumberFormat('en-IE', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function formatPrice(value: number): string {
-  return priceFormatter.format(value);
-}
-
-/** Sale price with the struck-through original next to it when discounted. */
-function PricePair({ product }: { product: CatalogProduct }) {
-  return (
-    <span className={styles.pricePair}>
-      <span className={styles.productPrice}>{formatPrice(product.price)}</span>
-      {product.originalPrice !== null ? (
-        <s className={styles.oldPrice} aria-label="Original price">
-          {formatPrice(product.originalPrice)}
-        </s>
-      ) : null}
-    </span>
-  );
-}
 
 function formatPriceInput(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
@@ -167,20 +154,6 @@ function isHexColor(value: string): boolean {
   return HEX_COLOR_PATTERN.test(value.trim());
 }
 
-function toQuickViewProduct(product: CatalogProduct) {
-  return {
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    imageUrl: product.imageUrl,
-    stockQuantity: product.stockQuantity,
-    variantId: product.variantId,
-    description: product.description,
-    categoryName: product.categoryName,
-    categoryId: product.categoryId,
-  };
-}
-
 function createPageItems(currentPage: number, totalPages: number): PageItem[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -194,113 +167,6 @@ function createPageItems(currentPage: number, totalPages: number): PageItem[] {
   return [1, 'start-ellipsis', currentPage - 1, currentPage, currentPage + 1, 'end-ellipsis', totalPages];
 }
 
-function ProductImage({
-  src,
-  alt,
-  sizes,
-  preload = false,
-}: {
-  src: string;
-  alt: string;
-  sizes: string;
-  preload?: boolean;
-}) {
-  const [state, setState] = useState<'loading' | 'loaded' | 'error'>(src ? 'loading' : 'error');
-
-  return (
-    <div className={styles.productImage} data-loaded={state === 'loaded'}>
-      {state === 'loading' ? <span className={styles.imageSkeleton} aria-hidden="true" /> : null}
-      {state === 'error' ? (
-        <span className={styles.imageFallback} role="img" aria-label={`No image available for ${alt}`}>
-          <ImageOff size={34} strokeWidth={1.35} aria-hidden="true" />
-          <span>Image unavailable</span>
-        </span>
-      ) : (
-        <Image
-          src={src}
-          alt={alt}
-          fill
-          unoptimized
-          sizes={sizes}
-          preload={preload}
-          loading={preload ? 'eager' : 'lazy'}
-          fetchPriority={preload ? 'high' : 'auto'}
-          className={styles.productImageImg}
-          onLoad={() => setState('loaded')}
-          onError={() => setState('error')}
-        />
-      )}
-    </div>
-  );
-}
-
-function ProductCard({
-  product,
-  quickViewIndex,
-  quickViewProducts,
-  preloadImage = false,
-}: {
-  product: CatalogProduct;
-  quickViewIndex: number;
-  quickViewProducts: ReturnType<typeof toQuickViewProduct>[];
-  preloadImage?: boolean;
-}) {
-  const quickViewProduct = quickViewProducts[quickViewIndex] ?? toQuickViewProduct(product);
-  const inStock = product.stockQuantity > 0;
-
-  return (
-    <article className={`${styles.productCard} ${legacyStyles.productCard}`}>
-      <div className={styles.mediaWrap}>
-        <Link
-          href={`/shop/products/${product.id}`}
-          className={styles.mediaLink}
-          aria-label={`View ${product.name}`}
-        >
-          <ProductImage
-            src={product.imageUrl}
-            alt={product.name}
-            sizes="(max-width: 380px) 92vw, (max-width: 720px) 46vw, (max-width: 1280px) 30vw, 360px"
-            preload={preloadImage}
-          />
-        </Link>
-        {inStock ? null : <span className={styles.stockBadge}>Out of stock</span>}
-        <ProductActionBar
-          product={quickViewProduct}
-          products={quickViewProducts}
-          initialIndex={quickViewIndex}
-        />
-      </div>
-
-      <div className={styles.cardBody}>
-        <span className={styles.productCategory}>{product.categoryName}</span>
-        <Link href={`/shop/products/${product.id}`} className={styles.productTitleLink}>
-          <h2 className={styles.productTitle}>{product.name}</h2>
-        </Link>
-        {product.sku ? <span className={styles.productSku}>SKU {product.sku}</span> : null}
-
-        <div className={styles.priceRow}>
-          <PricePair product={product} />
-        </div>
-
-        {product.size || product.color ? (
-          <div className={styles.attributeList} aria-label="Product attributes">
-            {product.size ? <span className={styles.productAttribute}>Size: {product.size}</span> : null}
-            {product.color ? <span className={styles.productAttribute}>Color: {product.color}</span> : null}
-          </div>
-        ) : null}
-
-        {inStock ? (
-          <div className={styles.addToCartSlot}>
-            <ProductAddToCartButton product={quickViewProduct} />
-          </div>
-        ) : (
-          <span className={styles.outOfStock}>Currently unavailable</span>
-        )}
-      </div>
-    </article>
-  );
-}
-
 function ProductListItem({
   product,
   quickViewIndex,
@@ -308,27 +174,28 @@ function ProductListItem({
 }: {
   product: CatalogProduct;
   quickViewIndex: number;
-  quickViewProducts: ReturnType<typeof toQuickViewProduct>[];
+  quickViewProducts: QvProduct[];
 }) {
-  const quickViewProduct = quickViewProducts[quickViewIndex] ?? toQuickViewProduct(product);
+  const { t } = useLocale();
+  const quickViewProduct = quickViewProducts[quickViewIndex] ?? toCardQuickView(product);
   const inStock = product.stockQuantity > 0;
 
   return (
     <article className={`${styles.listItem} ${legacyStyles.productCard}`}>
       <div className={styles.listMedia}>
         <Link
-          href={`/shop/products/${product.id}`}
+          href={`/home/products/${product.id}`}
           className={styles.mediaLink}
-          aria-label={`View ${product.name}`}
+          aria-label={t('catalog.view_product', { name: product.name })}
         >
-          <ProductImage
+          <ProductCardImage
             src={product.imageUrl}
             alt={product.name}
             sizes="(max-width: 700px) 92vw, 270px"
             preload={quickViewIndex < 3}
           />
         </Link>
-        {inStock ? null : <span className={styles.stockBadge}>Out of stock</span>}
+        {inStock ? null : <span className={styles.stockBadge}>{t('catalog.out_of_stock')}</span>}
         <ProductActionBar
           product={quickViewProduct}
           products={quickViewProducts}
@@ -338,21 +205,32 @@ function ProductListItem({
 
       <div className={styles.listBody}>
         <span className={styles.listCategory}>{product.categoryName}</span>
-        <Link href={`/shop/products/${product.id}`} className={styles.productTitleLink}>
+        <Link href={`/home/products/${product.id}`} className={styles.productTitleLink}>
           <h2 className={styles.listTitle}>{product.name}</h2>
         </Link>
+        <ProductStars rating={product.rating} />
         {product.description ? <p className={styles.listDescription}>{product.description}</p> : null}
         <div className={styles.listMeta}>
-          <PricePair product={product} />
-          {product.sku ? <span>SKU {product.sku}</span> : null}
+          <ProductPricePair price={product.price} originalPrice={product.originalPrice} />
+          {product.sku ? <span>{t('catalog.sku', { sku: product.sku })}</span> : null}
           <span className={inStock ? styles.inStock : styles.outOfStockInline}>
-            {inStock ? `${product.stockQuantity} in stock` : 'Out of stock'}
+            {inStock
+              ? t('catalog.in_stock_count', { count: product.stockQuantity })
+              : t('catalog.out_of_stock')}
           </span>
         </div>
         {product.size || product.color ? (
-          <div className={styles.attributeList} aria-label="Product attributes">
-            {product.size ? <span className={styles.productAttribute}>Size: {product.size}</span> : null}
-            {product.color ? <span className={styles.productAttribute}>Color: {product.color}</span> : null}
+          <div className={styles.attributeList} aria-label={t('catalog.attributes_aria')}>
+            {product.size ? (
+              <span className={styles.productAttribute}>
+                {t('catalog.size_value', { value: product.size })}
+              </span>
+            ) : null}
+            {product.color ? (
+              <span className={styles.productAttribute}>
+                {t('catalog.color_value', { value: product.color })}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {inStock ? (
@@ -435,7 +313,9 @@ function FilterPanel({
   onApplyPrice,
   onClearAll,
 }: FilterPanelProps) {
+  const { t } = useLocale();
   const hasPriceRange = priceBounds.max > priceBounds.min;
+  const unavailablePriceLabel = t('catalog.price_unavailable');
   const hasAvailabilityData = inStockCount + outOfStockCount > 0;
   const hasAnyFilter = categories.length > 0 || hasPriceRange || hasAvailabilityData;
   const applyPriceForm = (form: HTMLFormElement | null) => {
@@ -448,8 +328,8 @@ function FilterPanel({
     <div className={styles.filterPanel}>
       <div className={styles.filterHeader}>
         <div>
-          <span className={styles.filterEyebrow}>Refine</span>
-          <h2 className={styles.filterTitle}>Filters</h2>
+          <span className={styles.filterEyebrow}>{t('catalog.filter_refine')}</span>
+          <h2 className={styles.filterTitle}>{t('catalog.filter_title')}</h2>
         </div>
         <button
           type="button"
@@ -457,17 +337,17 @@ function FilterPanel({
           onClick={onClearAll}
           disabled={!hasActiveFilters}
         >
-          Clear all
+          {t('catalog.filter_clear_all')}
         </button>
       </div>
 
       {!hasAnyFilter ? (
-        <p className={styles.filterEmpty}>Filters will appear when matching product data is available.</p>
+        <p className={styles.filterEmpty}>{t('catalog.filter_empty')}</p>
       ) : null}
 
       {categories.length > 0 ? (
         <fieldset className={styles.filterGroup}>
-          <legend className={styles.filterLegend}>Category</legend>
+          <legend className={styles.filterLegend}>{t('catalog.category')}</legend>
           <ul className={styles.filterList}>
             {categories.map((category) => (
               <FilterOption
@@ -485,7 +365,7 @@ function FilterPanel({
 
       {hasAvailabilityData ? (
         <fieldset className={styles.filterGroup}>
-          <legend className={styles.filterLegend}>Availability</legend>
+          <legend className={styles.filterLegend}>{t('catalog.filter_availability')}</legend>
           <ul className={styles.filterList}>
             <FilterOption
               id={`${idPrefix}-availability-in`}
@@ -494,7 +374,7 @@ function FilterPanel({
               checked={stockFilter === 'in'}
               disabled={inStockCount === 0}
               count={inStockCount}
-              label="In stock"
+              label={t('catalog.in_stock')}
               onChange={() => onStockChange('in')}
             />
             <FilterOption
@@ -504,7 +384,7 @@ function FilterPanel({
               checked={stockFilter === 'out'}
               disabled={outOfStockCount === 0}
               count={outOfStockCount}
-              label="Out of stock"
+              label={t('catalog.out_of_stock')}
               onChange={() => onStockChange('out')}
             />
           </ul>
@@ -513,7 +393,7 @@ function FilterPanel({
 
       {hasPriceRange ? (
         <fieldset className={styles.filterGroup}>
-          <legend className={styles.filterLegend}>Price</legend>
+          <legend className={styles.filterLegend}>{t('catalog.filter_price')}</legend>
           <form
             className={styles.priceForm}
             onSubmit={(event) => {
@@ -523,7 +403,7 @@ function FilterPanel({
           >
             <div className={styles.priceFields}>
               <label className={styles.priceField} htmlFor={`${idPrefix}-min-price`}>
-                <span>Min</span>
+                <span>{t('catalog.price_min')}</span>
                 <span className={styles.priceInputWrap}>
                   <span aria-hidden="true">€</span>
                   <input
@@ -540,7 +420,7 @@ function FilterPanel({
                 </span>
               </label>
               <label className={styles.priceField} htmlFor={`${idPrefix}-max-price`}>
-                <span>Max</span>
+                <span>{t('catalog.price_max')}</span>
                 <span className={styles.priceInputWrap}>
                   <span aria-hidden="true">€</span>
                   <input
@@ -558,10 +438,13 @@ function FilterPanel({
               </label>
             </div>
             <p className={styles.priceHint}>
-              Price range: {formatPrice(activePrice[0])}–{formatPrice(activePrice[1])}
+              {t('catalog.price_range', {
+                min: formatPrice(activePrice[0], unavailablePriceLabel),
+                max: formatPrice(activePrice[1], unavailablePriceLabel),
+              })}
             </p>
             <button type="submit" className={styles.priceApply}>
-              Apply price
+              {t('catalog.price_apply')}
             </button>
           </form>
         </fieldset>
@@ -569,7 +452,7 @@ function FilterPanel({
 
       {sizeFacets.length > 0 ? (
         <fieldset className={styles.filterGroup}>
-          <legend className={styles.filterLegend}>Size</legend>
+          <legend className={styles.filterLegend}>{t('catalog.size')}</legend>
           <ul className={styles.filterList}>
             {sizeFacets.map((size, index) => (
               <FilterOption
@@ -587,7 +470,7 @@ function FilterPanel({
 
       {colorFacets.length > 0 ? (
         <fieldset className={styles.filterGroup}>
-          <legend className={styles.filterLegend}>Color</legend>
+          <legend className={styles.filterLegend}>{t('catalog.color')}</legend>
           <ul className={styles.filterList}>
             {colorFacets.map((color, index) => (
               <FilterOption
@@ -616,8 +499,10 @@ export default function ShopProductsClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = useLocale();
   const [isPending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const unavailablePriceLabel = t('catalog.price_unavailable');
   const drawerRef = useRef<HTMLDialogElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -892,7 +777,7 @@ export default function ShopProductsClient({
   }, [currentPage, pathname, requestedPage, router, searchParams]);
 
   const quickViewProducts = useMemo(
-    () => filteredProducts.map(toQuickViewProduct),
+    () => filteredProducts.map(toCardQuickView),
     [filteredProducts],
   );
 
@@ -950,33 +835,16 @@ export default function ShopProductsClient({
 
   return (
     <div className={styles.catalogPage}>
-      <section className={styles.hero} aria-labelledby="catalog-title">
-        <div className={`${styles.container} ${styles.heroInner}`}>
-          <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-            <Link href="/shop" className={styles.breadcrumbLink}>
-              Home
-            </Link>
-            <span aria-hidden="true">/</span>
-            <span className={styles.breadcrumbCurrent} aria-current="page">
-              Shop
-            </span>
-          </nav>
-          <div className={styles.heroCopy}>
-            <span className={styles.heroEyebrow}>Curated collection</span>
-            <h1 id="catalog-title" className={styles.heroTitle}>
-              Find your next read
-            </h1>
-            <p className={styles.heroLead}>
-              Explore the collection, compare titles, and choose the book that belongs in your library.
-            </p>
-          </div>
-        </div>
-      </section>
+      <ShopPageHeader
+        titleId="catalog-title"
+        title={t('catalog.shop')}
+        crumbs={[{ label: t('catalog.shop') }]}
+      />
 
       <section className={styles.catalogBody}>
         <div className={styles.container}>
           <div className={styles.catalogLayout}>
-            <aside className={styles.filterSidebar} aria-label="Product filters">
+            <aside className={styles.filterSidebar} aria-label={t('catalog.product_filters_aria')}>
               <FilterPanel idPrefix="desktop" {...filterPanelProps} />
             </aside>
 
@@ -985,16 +853,18 @@ export default function ShopProductsClient({
                 <div className={styles.toolbarTop}>
                   <div className={styles.resultSummary} role="status" aria-live="polite">
                     <strong>{filteredProducts.length}</strong>{' '}
-                    {filteredProducts.length === 1 ? 'product' : 'products'}
+                    {filteredProducts.length === 1
+                      ? t('catalog.result_product_one')
+                      : t('catalog.result_product_other')}
                     {filteredProducts.length > 0 ? (
                       <span className={styles.resultRange}>
                         {' '}
-                        · Showing {showingFrom}–{showingTo}
+                        {t('catalog.showing_range', { from: showingFrom, to: showingTo })}
                       </span>
                     ) : null}
                     {isPending ? (
                       <span className={styles.pendingIndicator}>
-                        <LoaderCircle size={14} aria-hidden="true" /> Updating
+                        <LoaderCircle size={14} aria-hidden="true" /> {t('catalog.updating')}
                       </span>
                     ) : null}
                   </div>
@@ -1010,14 +880,14 @@ export default function ShopProductsClient({
                       aria-expanded={drawerOpen}
                     >
                       <SlidersHorizontal size={17} aria-hidden="true" />
-                      Filters
+                      {t('catalog.filter_title')}
                       {activeFilterCount > 0 ? (
                         <span className={styles.filterButtonCount}>{activeFilterCount}</span>
                       ) : null}
                     </button>
 
                     <label className={styles.sortControl} htmlFor="catalog-sort">
-                      <span>Sort by</span>
+                      <span>{t('catalog.sort_by')}</span>
                       <select
                         id="catalog-sort"
                         value={sort}
@@ -1025,18 +895,18 @@ export default function ShopProductsClient({
                       >
                         {SORT_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
-                            {option.label}
+                            {t(option.labelKey)}
                           </option>
                         ))}
                       </select>
                     </label>
 
-                    <div className={styles.viewToggle} aria-label="Catalog view" role="group">
+                    <div className={styles.viewToggle} aria-label={t('catalog.view_aria')} role="group">
                       <button
                         type="button"
                         className={styles.viewButton}
                         data-active={view === 'grid'}
-                        aria-label="Grid view"
+                        aria-label={t('catalog.grid_view')}
                         aria-pressed={view === 'grid'}
                         onClick={() => changeView('grid')}
                         disabled={products.length === 0}
@@ -1047,7 +917,7 @@ export default function ShopProductsClient({
                         type="button"
                         className={styles.viewButton}
                         data-active={view === 'list'}
-                        aria-label="List view"
+                        aria-label={t('catalog.list_view')}
                         aria-pressed={view === 'list'}
                         onClick={() => changeView('list')}
                         disabled={products.length === 0}
@@ -1061,7 +931,7 @@ export default function ShopProductsClient({
                 <form
                   className={styles.searchForm}
                   role="search"
-                  aria-label="Search products"
+                  aria-label={t('catalog.search_aria')}
                   onSubmit={(event) => {
                     event.preventDefault();
                     const value = String(new FormData(event.currentTarget).get('q') ?? '');
@@ -1069,7 +939,7 @@ export default function ShopProductsClient({
                   }}
                 >
                   <label className={styles.searchLabel} htmlFor="catalog-search">
-                    Search
+                    {t('catalog.search_label')}
                   </label>
                   <div className={styles.searchControl}>
                     <Search className={styles.searchLeadingIcon} size={17} aria-hidden="true" />
@@ -1080,14 +950,14 @@ export default function ShopProductsClient({
                       type="search"
                       maxLength={200}
                       defaultValue={searchQuery}
-                      placeholder="Name, SKU, description, or category"
+                      placeholder={t('catalog.search_placeholder')}
                       autoComplete="off"
                     />
                     <button
                       type="submit"
                       className={styles.searchSubmit}
-                      aria-label="Apply product search"
-                      title="Search"
+                      aria-label={t('catalog.search_submit_aria')}
+                      title={t('catalog.search_label')}
                     >
                       <ArrowRight size={17} aria-hidden="true" />
                     </button>
@@ -1095,16 +965,18 @@ export default function ShopProductsClient({
                 </form>
 
                 {hasActiveFilters ? (
-                  <div className={styles.activeFilters} aria-label="Active filters">
+                  <div className={styles.activeFilters} aria-label={t('catalog.active_filters_aria')}>
                     <div className={styles.filterChips}>
                       {searchQuery ? (
                         <button
                           type="button"
                           className={`${styles.filterChip} ${styles.searchFilterChip}`}
                           onClick={removeSearchQuery}
-                          aria-label={`Remove search ${searchQuery}`}
+                          aria-label={t('catalog.search_chip_remove_aria', { query: searchQuery })}
                         >
-                          <span className={styles.searchChipLabel}>Search: “{searchQuery}”</span>
+                          <span className={styles.searchChipLabel}>
+                            {t('catalog.search_chip', { query: searchQuery })}
+                          </span>
                           <X size={13} aria-hidden="true" />
                         </button>
                       ) : null}
@@ -1114,7 +986,9 @@ export default function ShopProductsClient({
                           type="button"
                           className={styles.filterChip}
                           onClick={() => toggleMultiFilter('category', String(categoryId))}
-                          aria-label={`Remove ${categoryById.get(categoryId)?.name ?? 'category'} filter`}
+                          aria-label={t('catalog.remove_filter_aria', {
+                            name: categoryById.get(categoryId)?.name ?? t('catalog.category'),
+                          })}
                         >
                           {categoryById.get(categoryId)?.name}
                           <X size={13} aria-hidden="true" />
@@ -1126,9 +1000,9 @@ export default function ShopProductsClient({
                           type="button"
                           className={styles.filterChip}
                           onClick={() => toggleMultiFilter('size', size)}
-                          aria-label={`Remove size ${size} filter`}
+                          aria-label={t('catalog.remove_size_aria', { value: size })}
                         >
-                          Size: {size}
+                          {t('catalog.size_value', { value: size })}
                           <X size={13} aria-hidden="true" />
                         </button>
                       ))}
@@ -1138,9 +1012,9 @@ export default function ShopProductsClient({
                           type="button"
                           className={styles.filterChip}
                           onClick={() => toggleMultiFilter('color', color)}
-                          aria-label={`Remove color ${color} filter`}
+                          aria-label={t('catalog.remove_color_aria', { value: color })}
                         >
-                          Color: {color}
+                          {t('catalog.color_value', { value: color })}
                           <X size={13} aria-hidden="true" />
                         </button>
                       ))}
@@ -1149,9 +1023,13 @@ export default function ShopProductsClient({
                           type="button"
                           className={styles.filterChip}
                           onClick={() => changeStockFilter(stockFilter)}
-                          aria-label={`Remove ${stockFilter === 'in' ? 'in stock' : 'out of stock'} filter`}
+                          aria-label={
+                            stockFilter === 'in'
+                              ? t('catalog.remove_in_stock_aria')
+                              : t('catalog.remove_out_of_stock_aria')
+                          }
                         >
-                          {stockFilter === 'in' ? 'In stock' : 'Out of stock'}
+                          {stockFilter === 'in' ? t('catalog.in_stock') : t('catalog.out_of_stock')}
                           <X size={13} aria-hidden="true" />
                         </button>
                       ) : null}
@@ -1160,22 +1038,23 @@ export default function ShopProductsClient({
                           type="button"
                           className={styles.filterChip}
                           onClick={removePriceFilter}
-                          aria-label="Remove price filter"
+                          aria-label={t('catalog.remove_price_aria')}
                         >
-                          {formatPrice(activePrice[0])}–{formatPrice(activePrice[1])}
+                          {formatPrice(activePrice[0], unavailablePriceLabel)}–
+                          {formatPrice(activePrice[1], unavailablePriceLabel)}
                           <X size={13} aria-hidden="true" />
                         </button>
                       ) : null}
                     </div>
                     <button type="button" className={styles.clearAllButton} onClick={clearAllFilters}>
-                      Clear all
+                      {t('catalog.filter_clear_all')}
                     </button>
                   </div>
                 ) : null}
               </div>
 
               <h2 ref={resultsHeadingRef} className={styles.resultsHeading} tabIndex={-1}>
-                {view === 'grid' ? 'Product grid' : 'Product list'}
+                {view === 'grid' ? t('catalog.results_grid') : t('catalog.results_list')}
               </h2>
 
               <div
@@ -1213,15 +1092,19 @@ export default function ShopProductsClient({
                     <span className={styles.emptyIcon}>
                       <PackageOpen size={32} strokeWidth={1.35} aria-hidden="true" />
                     </span>
-                    <h3>{products.length === 0 ? 'No products available' : 'No matching products'}</h3>
+                    <h3>
+                      {products.length === 0
+                        ? t('catalog.empty_no_products')
+                        : t('catalog.empty_no_matches')}
+                    </h3>
                     <p>
                       {products.length === 0
-                        ? 'The catalog is currently empty. Please check back soon.'
-                        : 'Try removing or changing one of your active filters.'}
+                        ? t('catalog.empty_catalog_text')
+                        : t('catalog.empty_filters_text')}
                     </p>
                     {hasActiveFilters ? (
                       <button type="button" className={styles.emptyAction} onClick={clearAllFilters}>
-                        Clear all filters
+                        {t('catalog.empty_clear')}
                       </button>
                     ) : null}
                   </div>
@@ -1229,16 +1112,16 @@ export default function ShopProductsClient({
               </div>
 
               {totalPages > 1 ? (
-                <nav className={styles.pagination} aria-label="Catalog pagination">
+                <nav className={styles.pagination} aria-label={t('catalog.pagination_aria')}>
                   <button
                     type="button"
                     className={styles.paginationButton}
                     onClick={() => changePage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    aria-label="Previous page"
+                    aria-label={t('catalog.previous_page_aria')}
                   >
                     <ChevronLeft size={17} aria-hidden="true" />
-                    <span>Previous</span>
+                    <span>{t('catalog.previous')}</span>
                   </button>
 
                   <div className={styles.pageNumbers}>
@@ -1254,7 +1137,7 @@ export default function ShopProductsClient({
                           className={styles.paginationButton}
                           data-active={item === currentPage}
                           onClick={() => changePage(item)}
-                          aria-label={`Page ${item}`}
+                          aria-label={t('catalog.page_aria', { n: item })}
                           aria-current={item === currentPage ? 'page' : undefined}
                         >
                           {item}
@@ -1268,9 +1151,9 @@ export default function ShopProductsClient({
                     className={styles.paginationButton}
                     onClick={() => changePage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    aria-label="Next page"
+                    aria-label={t('catalog.next_page_aria')}
                   >
-                    <span>Next</span>
+                    <span>{t('catalog.next')}</span>
                     <ChevronRight size={17} aria-hidden="true" />
                   </button>
                 </nav>
@@ -1294,10 +1177,10 @@ export default function ShopProductsClient({
       >
         <div className={styles.drawerHeader}>
           <div>
-            <span className={styles.filterEyebrow}>Refine</span>
-            <h2 id="filter-drawer-title">Filter products</h2>
+            <span className={styles.filterEyebrow}>{t('catalog.filter_refine')}</span>
+            <h2 id="filter-drawer-title">{t('catalog.filter_products')}</h2>
           </div>
-          <button type="button" className={styles.drawerClose} onClick={() => setDrawerOpen(false)} aria-label="Close filters">
+          <button type="button" className={styles.drawerClose} onClick={() => setDrawerOpen(false)} aria-label={t('catalog.close_filters_aria')}>
             <X size={21} aria-hidden="true" />
           </button>
         </div>
@@ -1306,10 +1189,13 @@ export default function ShopProductsClient({
         </div>
         <div className={styles.drawerFooter}>
           <span>
-            <strong>{filteredProducts.length}</strong> {filteredProducts.length === 1 ? 'product' : 'products'}
+            <strong>{filteredProducts.length}</strong>{' '}
+            {filteredProducts.length === 1
+              ? t('catalog.result_product_one')
+              : t('catalog.result_product_other')}
           </span>
           <button type="button" className={styles.drawerApply} onClick={closeDrawer}>
-            Show results
+            {t('catalog.show_results')}
           </button>
         </div>
       </dialog>

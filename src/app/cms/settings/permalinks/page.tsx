@@ -1,4 +1,5 @@
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT, type Translator } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard';
 import SettingsForm from '@/components/settings/SettingsForm';
@@ -12,61 +13,68 @@ const DEFAULTS: SettingsValues = {
   permalink_custom_mask: '/%year%/%monthnum%/%postname%/',
 };
 
-const FIELDS: SettingField[] = [
+function buildFields(t: Translator): SettingField[] {
+  return [
   {
     kind: 'permalink',
     key: 'permalink_structure',
     customKey: 'permalink_custom_mask',
-    label: 'Common settings',
+    label: t('cmssettings.permalinks.fieldLabel'),
     options: [
-      { value: 'plain', label: 'Plain — https://example.com/?p=123', example: '/?p=123' },
+      { value: 'plain', label: t('cmssettings.permalinks.optionPlain'), example: '/?p=123' },
       {
         value: 'day_name',
-        label: 'Day and name — https://example.com/2026/09/25/sample-post/',
+        label: t('cmssettings.permalinks.optionDayName'),
         example: '/2026/09/25/sample-post/',
       },
       {
         value: 'month_name',
-        label: 'Month and name — https://example.com/2026/09/sample-post/',
+        label: t('cmssettings.permalinks.optionMonthName'),
         example: '/2026/09/sample-post/',
       },
       {
         value: 'post_name',
-        label: 'Post name — https://example.com/sample-post/',
+        label: t('cmssettings.permalinks.optionPostName'),
         example: '/sample-post/',
       },
-      { value: 'custom', label: 'Custom structure', example: '/%year%/%monthnum%/%postname%/' },
+      {
+        value: 'custom',
+        label: t('cmssettings.permalinks.optionCustom'),
+        example: '/%year%/%monthnum%/%postname%/',
+      },
     ],
   },
-];
+  ];
+}
 
 export default async function PermalinkSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
   const loaded = await loadSettingsByPrefix('permalink_');
   const values = withDefaults(DEFAULTS, loaded);
 
   return (
     <div>
       <PageHeader
-        title="Permalinks"
-        description="Choose the URL structure used for posts and pages."
+        title={t('cmssettings.permalinks.title')}
+        description={t('cmssettings.permalinks.description')}
       />
 
       <div className="max-w-3xl space-y-6">
         <SettingsCard
-          title="Permanent link structure"
-          description="Available tags for the custom structure: %year%, %monthnum%, %day%, %postname%, %post_id%, %category%, %author%."
+          title={t('cmssettings.permalinks.cardTitle')}
+          description={t('cmssettings.permalinks.cardDescription')}
         >
           <SettingsForm
-            fields={FIELDS}
+            fields={buildFields(t)}
             initialValues={values}
             onSubmit={savePermalinkSettings}
             columns={1}
+            saveLabel={t('cmssettings.common.saveChanges')}
           >
-            <SettingsSection title="Good to know">
+            <SettingsSection title={t('cmssettings.permalinks.sectionTitle')}>
               <p className="text-xs text-zinc-500">
-                The preview shows a sample URL for the selected structure. Existing links keep
-                working — permalinks are resolved from the stored slugs either way.
+                {t('cmssettings.permalinks.sectionBody')}
               </p>
             </SettingsSection>
           </SettingsForm>

@@ -6,7 +6,7 @@ import type {
   CheckoutDeliveryCapability,
   CheckoutPaymentCapability,
   CheckoutQuote,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import * as schema from '@/db/schema-tenant';
 import type { StorefrontContext } from './context';
 import { isSameOrigin } from './host';

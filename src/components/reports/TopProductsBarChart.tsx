@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type ProductBarPoint = {
   name: string;
@@ -18,10 +19,11 @@ export type ProductBarPoint = {
 
 /** Horizontal bars keep long product names readable. */
 export default function TopProductsBarChart({ data }: { data: ProductBarPoint[] }) {
+  const { t } = useLocale();
   if (!data.length) {
     return (
       <p className="py-10 text-center text-sm text-zinc-500">
-        No product sales in this period.
+        {t('cmsshared.reports.no_product_sales')}
       </p>
     );
   }
@@ -60,9 +62,12 @@ export default function TopProductsBarChart({ data }: { data: ProductBarPoint[] 
             }}
             formatter={(value, name) => {
               if (name === 'revenue') {
-                return [`€${Number(value ?? 0).toFixed(2)}`, 'Revenue'] as [string, string];
+                return [
+                  `€${Number(value ?? 0).toFixed(2)}`,
+                  t('cmsshared.reports.revenue'),
+                ] as [string, string];
               }
-              return [String(value ?? 0), 'Units sold'] as [string, string];
+              return [String(value ?? 0), t('cmsshared.reports.units_sold')] as [string, string];
             }}
           />
           <Bar

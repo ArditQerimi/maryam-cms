@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Button, Select, cn, inputClass } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Shared search + status-filter bar for the admin list pages.
@@ -22,6 +23,7 @@ export default function ListFilters({
   statuses: Array<{ value: string; label: string }>;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [query, setQuery] = useState(initialQuery);
   const [status, setStatus] = useState(initialStatus);
 
@@ -57,13 +59,13 @@ export default function ListFilters({
           name="q"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search…"
-          aria-label="Search"
+          placeholder={t('cmsshared.list_filters.search_placeholder')}
+          aria-label={t('cmsshared.list_filters.search_aria')}
           className={cn(inputClass, 'w-56 pl-9')}
         />
       </div>
       <Select
-        aria-label="Filter by status"
+        aria-label={t('cmsshared.list_filters.status_aria')}
         value={status}
         onChange={(event) => {
           setStatus(event.target.value);
@@ -78,7 +80,7 @@ export default function ListFilters({
         ))}
       </Select>
       <Button type="submit" variant="outline" size="sm">
-        Search
+        {t('cmsshared.list_filters.search')}
       </Button>
     </form>
   );

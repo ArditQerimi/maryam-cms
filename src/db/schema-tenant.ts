@@ -41,11 +41,16 @@ export const users = pgTable('users', {
   photoUrl: text('photo_url'),
   tenantRoleId: integer('tenant_role_id').references(() => tenantRoles.id),
   status: userStatusEnum('status').default('Active').notNull(),
+  // 'storefront' = e-commerce account (store customer), 'erp' = staff account
+  // that manages the CMS. Mirrors migration 008 (backfilled from the role).
+  userType: varchar('user_type', { length: 16 }).default('erp').notNull(),
   lastLogin: timestamp('last_login'),
+  emailVerifiedAt: timestamp('email_verified_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdateFn(() => new Date()).notNull(),
 }, (table) => ({
   storeIdx: index('user_store_idx').on(table.storeId),
+  userTypeCheck: check('users_user_type_check', sql`${table.userType} IN ('storefront', 'erp')`),
 }));
 
 export const userInvitations = pgTable('user_invitations', {
@@ -58,6 +63,32 @@ export const userInvitations = pgTable('user_invitations', {
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
+}));
+
+/**
+ * Single-use auth tokens (password reset + email confirmation). Only the
+ * SHA-256 digest of a token is persisted — mirrors migration 007.
+ */
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  purpose: varchar('purpose', { length: 32 }).notNull(),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tokenHashIdx: uniqueIndex('password_reset_tokens_hash_idx').on(table.tokenHash),
+  userPurposeIdx: index('password_reset_tokens_user_purpose_idx')
+    .on(table.userId, table.purpose, table.createdAt),
+  purposeCheck: check(
+    'password_reset_tokens_purpose_check',
+    sql`${table.purpose} IN ('password_reset', 'email_verification')`,
+  ),
+  hashFormatCheck: check(
+    'password_reset_tokens_hash_format_check',
+    sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`,
+  ),
 }));
 
 export const deleteAccountRequests = pgTable('delete_account_requests', {
@@ -785,6 +816,57 @@ export const blogComments = pgTable('blog_comments', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Public contact-form submissions (migration 004). No raw IP is stored —
+// ip_hash keeps a SHA-256 digest purely for abuse throttling.
+export const contactMessages = pgTable('contact_messages', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 160 }).notNull(),
+  email: varchar('email', { length: 254 }).notNull(),
+  subject: varchar('subject', { length: 200 }).notNull(),
+  message: text('message').notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  ipHash: varchar('ip_hash', { length: 64 }),
+  readAt: timestamp('read_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  createdAtIdx: index('contact_messages_created_at_idx').on(table.createdAt),
+  unreadIdx: index('contact_messages_unread_idx').on(table.readAt, table.createdAt),
+}));
+
+// Signed-in shoppers' comparison lists (migration 005). Mirrors wishlist_items:
+// guests stay browser-local, accounts persist here.
+export const compareItems = pgTable('compare_items', {
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.productId] }),
+  userCreatedIdx: index('compare_items_user_created_idx').on(table.userId, table.createdAt),
+}));
+
+// Public product reviews written by signed-in shoppers (migration 006). One
+// row per (product, customer): re-submitting replaces that customer's own
+// review instead of stacking duplicates. status defaults to 'approved'
+// because submissions publish immediately; the column preserves the option
+// of introducing moderation later without another additive migration.
+export const productReviews = pgTable('product_reviews', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  authorName: varchar('author_name', { length: 120 }).notNull(),
+  rating: integer('rating').notNull(),
+  body: text('body').notNull(),
+  status: varchar('status', { length: 16 }).$type<'pending' | 'approved' | 'rejected'>().default('approved').notNull(),
+  verifiedPurchase: boolean('verified_purchase').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  ratingCheck: check('product_reviews_rating_check', sql`${table.rating} >= 1 AND ${table.rating} <= 5`),
+  statusCheck: check('product_reviews_status_check', sql`${table.status} IN ('pending', 'approved', 'rejected')`),
+  bodyLengthCheck: check('product_reviews_body_length_check', sql`char_length(btrim(${table.body})) >= 10`),
+  productUserUnique: uniqueIndex('product_reviews_product_user_idx').on(table.productId, table.userId),
+  productStatusIdx: index('product_reviews_product_status_idx').on(table.productId, table.status, table.createdAt),
+}));
+
 // --- SETTINGS ---
 
 export const settingsStore = pgTable('settings_store', {
@@ -809,6 +891,41 @@ export const featureConfigurations = pgTable('feature_configurations', {
 }));
 
 // --- RELATIONS ---
+
+export const blogPostsRelations = relations(blogPosts, ({ one, many }) => ({
+  category: one(blogCategories, {
+    fields: [blogPosts.categoryId],
+    references: [blogCategories.id],
+  }),
+  tagLinks: many(blogPostTags),
+  comments: many(blogComments),
+}));
+
+export const blogCategoriesRelations = relations(blogCategories, ({ many }) => ({
+  posts: many(blogPosts),
+}));
+
+export const blogPostTagsRelations = relations(blogPostTags, ({ one }) => ({
+  post: one(blogPosts, {
+    fields: [blogPostTags.postId],
+    references: [blogPosts.id],
+  }),
+  tag: one(blogTags, {
+    fields: [blogPostTags.tagId],
+    references: [blogTags.id],
+  }),
+}));
+
+export const blogTagsRelations = relations(blogTags, ({ many }) => ({
+  tagLinks: many(blogPostTags),
+}));
+
+export const blogCommentsRelations = relations(blogComments, ({ one }) => ({
+  post: one(blogPosts, {
+    fields: [blogComments.postId],
+    references: [blogPosts.id],
+  }),
+}));
 
 export const tenantRoleRelations = relations(tenantRoles, ({ many }) => ({
   users: many(users),
@@ -1017,12 +1134,15 @@ export const warrantyRelations = relations(warranties, ({ many }) => ({
 // Maryam CMS additions (drizzle/add_cms_tables.sql)
 // ---------------------------------------------------------------------------
 
-/** Page-builder block payload: `{ id, type, props, children? }`. */
+/** Page-builder payload: `{ id, type, props, children?, responsive? }`.
+ *  `type` is a module (`heading`, …) or a layout node (`row`, `column`). */
 export type CmsBlock = {
   id: string;
   type: string;
   props: Record<string, unknown>;
   children?: CmsBlock[];
+  /** Per-breakpoint prop overrides keyed by desktop/tablet/mobile. */
+  responsive?: Record<string, Record<string, unknown>>;
 };
 
 export const shippingZones = pgTable('shipping_zones', {

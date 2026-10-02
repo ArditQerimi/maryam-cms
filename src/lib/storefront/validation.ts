@@ -5,6 +5,8 @@ export const MAX_CART_ITEMS = 100;
 export const MAX_CART_TOTAL_QUANTITY = 9_999;
 export const MAX_IMPORT_ITEMS = 100;
 export const MAX_WISHLIST_ITEMS = 100;
+/** Signed-in comparison lists mirror the UI's side-by-side slots (4). */
+export const MAX_COMPARE_ITEMS = 4;
 export const MAX_STOREFRONT_BODY_BYTES = 128 * 1024;
 
 export type CartLineInput = {

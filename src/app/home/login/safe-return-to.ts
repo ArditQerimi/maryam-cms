@@ -17,7 +17,7 @@ export function getSafeReturnTo(
 export function withSafeReturnTo(path: string, value: unknown) {
   const loginUrl = new URL(path, INTERNAL_ORIGIN);
   if (loginUrl.origin !== INTERNAL_ORIGIN) {
-    return withSafeReturnTo('/shop/login', value);
+    return withSafeReturnTo('/home/login', value);
   }
 
   loginUrl.searchParams.set('returnTo', getSafeReturnTo(value));

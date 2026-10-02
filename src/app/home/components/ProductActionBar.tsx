@@ -7,6 +7,7 @@ import styles from '../bookstore.module.css';
 import { useCart } from '@/context/CartContext';
 import { useCompare } from '@/context/CompareContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import QuickViewModal, {
   canAddQvProduct,
   resolveQvVariant,
@@ -30,7 +31,7 @@ export function ProductAddToCartButton({ product }: { product: QvProduct }) {
       className={styles.productAddBtn}
       onClick={() => {
         if (needsVariantSelection) {
-          router.push(`/shop/products/${product.id}`);
+          router.push(`/home/products/${product.id}`);
           return;
         }
         if (!canAdd || !hasConcreteVariant) return;
@@ -59,6 +60,7 @@ export default function ProductActionBar({
   products?: QvProduct[];
   initialIndex?: number;
 }) {
+  const { t } = useLocale();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToCompare, removeFromCompare, isInCompare } = useCompare();
   const [quickView, setQuickView] = useState(false);
@@ -140,7 +142,7 @@ export default function ProductActionBar({
         </button>
         <button
           type="button"
-          aria-label="Open quick view"
+          aria-label={t('catalog.quick_view_aria')}
           onClick={(event) => stop(event, () => setQuickView(true))}
         >
           <Eye size={21} strokeWidth={1.7} aria-hidden="true" />

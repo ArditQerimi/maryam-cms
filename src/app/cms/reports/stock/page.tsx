@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getContextDb } from '@/lib/tenant';
 import { products } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT, type Translator } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -60,10 +61,12 @@ function StockTable({
   rows,
   tone,
   empty,
+  t,
 }: {
   rows: Awaited<ReturnType<typeof getLowStockProducts>>;
   tone: 'warning' | 'danger';
   empty: { title: string; description: string };
+  t: Translator;
 }) {
   if (rows.length === 0) {
     return (
@@ -78,12 +81,12 @@ function StockTable({
       <Table bare>
         <thead>
           <tr>
-            <Th>Product</Th>
-            <Th>SKU</Th>
-            <Th className="text-right">Current stock</Th>
-            <Th className="text-right">Minimum level</Th>
-            <Th>Status</Th>
-            <Th className="text-right">Action</Th>
+            <Th>{t('cmsdash.th.product')}</Th>
+            <Th>{t('cmsdash.th.sku')}</Th>
+            <Th className="text-right">{t('cmsdash.stock.currentStock')}</Th>
+            <Th className="text-right">{t('cmsdash.stock.minLevel')}</Th>
+            <Th>{t('cmsdash.th.status')}</Th>
+            <Th className="text-right">{t('cmsdash.stock.action')}</Th>
           </tr>
         </thead>
         <tbody>
@@ -101,7 +104,7 @@ function StockTable({
               </Td>
               <Td>
                 <Badge tone={tone === 'warning' ? 'warning' : 'danger'}>
-                  {tone === 'warning' ? 'Low stock' : 'Out of stock'}
+                  {tone === 'warning' ? t('cmsdash.stock.low') : t('cmsdash.stock.out')}
                 </Badge>
               </Td>
               <Td className="text-right">
@@ -110,7 +113,7 @@ function StockTable({
                   href={`/cms/products/${product.id}/edit`}
                 >
                   <Wrench size={14} />
-                  Restock
+                  {t('cmsdash.stock.restock')}
                 </Link>
               </Td>
             </tr>
@@ -123,6 +126,7 @@ function StockTable({
 
 export default async function StockReportPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [lowStock, outOfStock] = await Promise.all([
     getLowStockProducts(),
@@ -132,8 +136,8 @@ export default async function StockReportPage() {
   return (
     <div>
       <PageHeader
-        title="Stock report"
-        description="Products that need attention: running low and completely out of stock."
+        title={t('cmsdash.stock.title')}
+        description={t('cmsdash.stock.description')}
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -141,16 +145,17 @@ export default async function StockReportPage() {
           <CardHeader className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="text-amber-500" size={16} />
-              Low stock
+              {t('cmsdash.stock.low')}
             </CardTitle>
             <Badge tone="warning">{lowStock.length}</Badge>
           </CardHeader>
           <StockTable
             empty={{
-              title: 'No low-stock products',
-              description: 'Every active product is above its minimum stock level.',
+              title: t('cmsdash.stock.emptyLowTitle'),
+              description: t('cmsdash.stock.emptyLowDescription'),
             }}
             rows={lowStock}
+            t={t}
             tone="warning"
           />
         </Card>
@@ -159,16 +164,17 @@ export default async function StockReportPage() {
           <CardHeader className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <PackageX className="text-red-500" size={16} />
-              Out of stock
+              {t('cmsdash.stock.out')}
             </CardTitle>
             <Badge tone="danger">{outOfStock.length}</Badge>
           </CardHeader>
           <StockTable
             empty={{
-              title: 'Nothing is out of stock',
-              description: 'All products currently have stock available.',
+              title: t('cmsdash.stock.emptyOutTitle'),
+              description: t('cmsdash.stock.emptyOutDescription'),
             }}
             rows={outOfStock}
+            t={t}
             tone="danger"
           />
         </Card>
@@ -176,7 +182,7 @@ export default async function StockReportPage() {
 
       {(lowStock.length >= LIMIT || outOfStock.length >= LIMIT) ? (
         <p className="mt-4 text-xs text-zinc-400">
-          Showing the first {LIMIT} products per list.
+          {t('cmsdash.stock.limitNote', { limit: LIMIT })}
         </p>
       ) : null}
     </div>

@@ -154,6 +154,14 @@ function toDateString(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
 }
 
+/** Ratings persist as '1'…'5'; anything else reads as "no rating". */
+function toRatingString(value: unknown): string {
+  const n =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isInteger(n) || n < 1 || n > 5) return '';
+  return String(n);
+}
+
 export function parseProductConfig(raw: string | null | undefined): ProductConfig {
   if (!raw) return { ...EMPTY_PRODUCT_CONFIG };
   try {
@@ -164,6 +172,7 @@ export function parseProductConfig(raw: string | null | undefined): ProductConfi
       saleFrom: toDateString(parsed.saleFrom),
       saleTo: toDateString(parsed.saleTo),
       backorder: toBackorder(parsed.backorder),
+      rating: toRatingString(parsed.rating),
     };
   } catch {
     return { ...EMPTY_PRODUCT_CONFIG };
@@ -175,11 +184,13 @@ export function serializeProductConfig(config: ProductConfig): string | null {
   const hasSale = config.salePrice.trim() !== '';
   const hasWindow = config.saleFrom || config.saleTo;
   const hasBackorder = config.backorder !== 'deny';
-  if (!hasSale && !hasWindow && !hasBackorder) return null;
+  const rating = toRatingString(config.rating);
+  if (!hasSale && !hasWindow && !hasBackorder && !rating) return null;
   return JSON.stringify({
     salePrice: hasSale ? config.salePrice.trim() : '',
     saleFrom: config.saleFrom,
     saleTo: config.saleTo,
     backorder: config.backorder,
+    rating,
   });
 }

@@ -25,7 +25,7 @@ export const ECOMMERCE_ALLOWED_PATHS = new Set([
   '/cms/faq',
   '/settings/ecommerce-storefront',
   '/settings/website',
-  '/shop',
+  '/home',
 ]);
 
 const MODULE_COPY: Record<EcommerceModuleId, { title: string; description: string }> = {
@@ -106,7 +106,7 @@ export function getModuleLinks(
           ])
         : [];
     case 'storefront':
-      return [{ label: 'View storefront', href: '/shop' }];
+      return [{ label: 'View storefront', href: '/home' }];
   }
 }
 
@@ -141,6 +141,6 @@ export function buildQuickActions(capabilities: EcommerceCapabilities): Ecommerc
     ...(capabilities.peopleView ? [{ label: 'Review customers', href: '/customers' }] : []),
     ...(capabilities.cmsManage ? [{ label: 'Write a post', href: '/cms/blog/new' }] : []),
     ...(capabilities.settingsView ? [{ label: 'Store settings', href: '/settings/ecommerce-storefront' }] : []),
-    { label: 'Open storefront', href: '/shop' },
+    { label: 'Open storefront', href: '/home' },
   ]);
 }

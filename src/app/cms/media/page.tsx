@@ -2,6 +2,7 @@ import { desc } from 'drizzle-orm';
 import { getContextDb } from '@/lib/tenant';
 import { cmsMedia } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import MediaLibrary from '@/components/content/MediaLibrary';
 
@@ -11,6 +12,7 @@ const INITIAL_LIMIT = 300;
 
 export default async function MediaPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const db = await getContextDb();
   const items = await db
@@ -34,8 +36,8 @@ export default async function MediaPage() {
   return (
     <div>
       <PageHeader
-        title="Media"
-        description="Images, videos and documents used across pages, posts and products."
+        title={t('cmscontent.media.title')}
+        description={t('cmscontent.media.description')}
       />
       <MediaLibrary initialItems={items} />
     </div>

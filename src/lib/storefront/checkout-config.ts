@@ -2,7 +2,7 @@ import type {
   CheckoutCurrency,
   CheckoutDeliveryMethodId,
   CheckoutPaymentMethodId,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 
 const SUPPORTED_DELIVERY_IDS = new Set<CheckoutDeliveryMethodId>(['standard', 'express']);
 const SUPPORTED_PAYMENT_IDS = new Set<CheckoutPaymentMethodId>(['cash_on_delivery']);

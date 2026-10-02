@@ -3,7 +3,7 @@ import test from 'node:test';
 import type {
   CheckoutConfirmation,
   CheckoutRequest,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import {
   checkoutScope,
   classifyIdempotencyRecord,
@@ -44,7 +44,7 @@ const confirmation: CheckoutConfirmation = {
   orderNumber: 'SF-20260923-abcdefghijklmnop',
   contactEmail: 'ada@example.com',
   currency: 'EUR',
-  confirmationPath: '/shop/order-confirmation',
+  confirmationPath: '/home/order-confirmation',
 };
 const key = 'checkout-1234567890abcdef';
 const keyHash = hashIdempotencyKey(key);

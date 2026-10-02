@@ -1,4 +1,5 @@
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT, type Translator } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard';
 import SettingsForm from '@/components/settings/SettingsForm';
@@ -15,70 +16,74 @@ const DEFAULTS: SettingsValues = {
   discussion_notify_on_comment: true,
 };
 
-const FIELDS: SettingField[] = [
+function buildFields(t: Translator): SettingField[] {
+  return [
   {
     kind: 'toggle',
     key: 'discussion_allow_comments',
-    label: 'Allow people to submit new comments',
-    hint: 'Turn off to close commenting site-wide.',
+    label: t('cmssettings.discussion.allowCommentsLabel'),
+    hint: t('cmssettings.discussion.allowCommentsHint'),
   },
   {
     kind: 'toggle',
     key: 'discussion_moderate_comments',
-    label: 'Hold comments for moderation',
-    hint: 'New comments must be approved before they appear.',
+    label: t('cmssettings.discussion.moderateLabel'),
+    hint: t('cmssettings.discussion.moderateHint'),
   },
   {
     kind: 'toggle',
     key: 'discussion_require_name_email',
-    label: 'Comment author must fill out name and email',
-    hint: 'Anonymous comments are rejected when enabled.',
+    label: t('cmssettings.discussion.requireNameEmailLabel'),
+    hint: t('cmssettings.discussion.requireNameEmailHint'),
   },
   {
     kind: 'toggle',
     key: 'discussion_notify_on_comment',
-    label: 'Email me when anyone comments',
-    hint: 'Sends a notification to the administration email address.',
+    label: t('cmssettings.discussion.notifyLabel'),
+    hint: t('cmssettings.discussion.notifyHint'),
   },
   {
     kind: 'number',
     key: 'discussion_close_after_days',
-    label: 'Automatically close comments after N days',
+    label: t('cmssettings.discussion.closeAfterLabel'),
     min: 0,
     max: 3650,
-    suffix: 'days',
-    hint: '0 disables automatic closing.',
+    suffix: t('cmssettings.discussion.closeAfterSuffix'),
+    hint: t('cmssettings.discussion.closeAfterHint'),
   },
-];
+  ];
+}
 
 export default async function DiscussionSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
   const loaded = await loadSettingsByPrefix('discussion_');
   const values = withDefaults(DEFAULTS, loaded);
 
   return (
     <div>
       <PageHeader
-        title="Discussion settings"
-        description="Decide who can comment and how much review comments need."
+        title={t('cmssettings.discussion.title')}
+        description={t('cmssettings.discussion.description')}
       />
 
       <div className="max-w-3xl space-y-6">
         <SettingsCard
-          title="Comment settings"
-          description="Applies to blog posts and any page that accepts comments."
+          title={t('cmssettings.discussion.cardTitle')}
+          description={t('cmssettings.discussion.cardDescription')}
         >
           <SettingsForm
-            fields={FIELDS}
+            fields={buildFields(t)}
             initialValues={values}
             onSubmit={saveDiscussionSettings}
             columns={1}
+            saveLabel={t('cmssettings.common.saveChanges')}
           >
-            <SettingsSection title="Moderation">
+            <SettingsSection title={t('cmssettings.discussion.sectionTitle')}>
               <p className="text-xs text-zinc-500">
                 {values.discussion_moderate_comments
-                  ? 'Comments are queued in the admin until you approve them.'
-                  : 'Comments publish immediately.'}
+                  ? t('cmssettings.discussion.moderationQueued')
+                  : t('cmssettings.discussion.moderationImmediate')}
               </p>
             </SettingsSection>
           </SettingsForm>

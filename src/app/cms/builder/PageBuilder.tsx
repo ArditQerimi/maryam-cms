@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -20,30 +20,127 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Copy,
+  Eye,
+  EyeOff,
   GripVertical,
   ImagePlus,
   Layers,
+  Maximize2,
+  Minimize2,
+  Monitor,
   Plus,
+  Redo2,
+  Smartphone,
+  Tablet,
   Trash2,
+  Undo2,
+  Wrench,
 } from 'lucide-react';
 import {
   BLOCK_DEFS,
   BLOCK_GROUPS,
   BLOCK_LIST,
   cloneBlock,
+  countBlocks,
   createBlock,
+  createColumn,
+  createRow,
+  isBlockType,
   normalizeBlocks,
   type Block,
-  type BlockType,
+  type Breakpoint,
   type FieldDef,
+  type FieldTab,
+  type NodeType,
 } from './blocks';
-import BlockRenderer from './BlockRenderer';
+import BlockRenderer, { type RendererProduct } from './BlockRenderer';
+import { PRODUCT_SOURCE_OPTIONS } from './product-sources';
+import { tr } from './labels';
 import MediaPickerModal, { type PickedMedia } from '@/components/admin/MediaPickerModal';
 import { Button, cn, inputClass } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { parseImageUrl } from '@/lib/image-url';
+
+/** Active-locale copy helpers: `t` for keyed strings, `L` for registry labels. */
+function useCopy() {
+  const { t } = useLocale();
+  return { t, L: (text: string) => tr(t, text) };
+}
 
 type MediaTarget = { path: string; multi: boolean } | null;
+
+type PanelTab = 'modules' | 'rows' | 'templates' | 'saved';
+
+/** Live drop indicator produced while dragging onto the canvas. */
+type DropHint = {
+  /**
+   * - `page` — the page-level row list (index splices rows)
+   * - `row`  — a row's column list (column moves) or a bare row to fill
+   * - `column` — a column's children list (modules and nested rows)
+   */
+  target: 'page' | 'row' | 'column' | 'module';
+  id: string;
+  /** Insert position inside the target container. */
+  index: number;
+  /** Direction the drop line is drawn: `vertical` = stacking top to bottom. */
+  orientation: 'horizontal' | 'vertical';
+};
+
+type DragPayload =
+  | { kind: 'move'; id: string }
+  | { kind: 'new-module'; blockType: NodeType }
+  | { kind: 'new-row'; widths: number[] };
+
+type DragState = {
+  payload: DragPayload;
+  hint: DropHint | null;
+  /** Viewport box of the drop target, used for the highlight ring. */
+  box: { top: number; left: number; width: number; height: number } | null;
+  point: { x: number; y: number } | null;
+};
+
+type NodeKind = 'row' | 'column' | 'module';
+
+/** Hover/selection colours per node kind, so nesting stays legible. */
+const KIND_ACCENT: Record<NodeKind, { chip: string; ring: string }> = {
+  row: { chip: 'bg-sky-600', ring: 'ring-sky-500' },
+  column: { chip: 'bg-violet-600', ring: 'ring-violet-500' },
+  module: { chip: 'bg-[#6d6be8]', ring: 'ring-[#6d6be8]' },
+};
+
+const PANEL_TABS: Array<{ id: PanelTab; label: string }> = [
+  { id: 'modules', label: 'Modules' },
+  { id: 'rows', label: 'Rows' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'saved', label: 'Saved' },
+];
+
+/** Rows tab: visual column-layout presets (thumbnail = real proportions). */
+const ROW_PRESETS: Array<{ id: string; label: string; widths: number[] }> = [
+  { id: '1', label: '1 Column', widths: [100] },
+  { id: '2', label: '2 Columns', widths: [50, 50] },
+  { id: '3', label: '3 Columns', widths: [33.34, 33.33, 33.33] },
+  { id: '4', label: '4 Columns', widths: [25, 25, 25, 25] },
+  { id: '5', label: '5 Columns', widths: [20, 20, 20, 20, 20] },
+  { id: '6', label: '6 Columns', widths: [16.67, 16.67, 16.66, 16.67, 16.67, 16.66] },
+  { id: 'left-sidebar', label: 'Left Sidebar', widths: [30, 70] },
+  { id: 'right-sidebar', label: 'Right Sidebar', widths: [70, 30] },
+  { id: 'both-sidebars', label: 'Left & Right Sidebar', widths: [25, 50, 25] },
+];
+
+/** Does `root` contain `id`? Used to reject dropping a node inside itself. */
+function containsBlock(root: Block, id: string): boolean {
+  if (root.id === id) return true;
+  return (root.children || []).some((child) => containsBlock(child, id));
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 /* -------------------------------------------------------------- tree utils */
 
@@ -104,6 +201,16 @@ function findBlock(blocks: Block[], id: string | null): Block | null {
   return null;
 }
 
+/** The direct parent of `id`, or `null` when it sits at the top level. */
+function findParent(blocks: Block[], id: string): Block | null {
+  for (const block of blocks) {
+    if (block.children?.some((child) => child.id === id)) return block;
+    const nested = findParent(block.children || [], id);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 /* ---------------------------------------------------------------- sortable */
 
 function SortableCard({
@@ -123,6 +230,7 @@ function SortableCard({
   children: React.ReactNode;
   compact?: boolean;
 }) {
+  const { t, L } = useCopy();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.id,
     data: { type: block.type },
@@ -158,20 +266,22 @@ function SortableCard({
               type="button"
               {...attributes}
               {...listeners}
-              aria-label="Drag to reorder"
+              aria-label={L('Drag to reorder')}
               onClick={(event) => event.stopPropagation()}
               className="cursor-grab touch-none text-zinc-400 transition hover:text-zinc-600 active:cursor-grabbing"
             >
               <GripVertical size={15} />
             </button>
             <Icon size={14} className={cn('shrink-0', def?.accent || 'text-zinc-400')} />
-            <span className="truncate text-xs font-semibold text-zinc-700">{def?.label || block.type}</span>
+            <span className="truncate text-xs font-semibold text-zinc-700">
+              {def ? L(def.label) : block.type}
+            </span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {onDuplicate ? (
               <button
                 type="button"
-                aria-label="Duplicate block"
+                aria-label={L('Duplicate block')}
                 onClick={(event) => {
                   event.stopPropagation();
                   onDuplicate();
@@ -183,7 +293,7 @@ function SortableCard({
             ) : null}
             <button
               type="button"
-              aria-label="Delete block"
+              aria-label={L('Delete block')}
               onClick={(event) => {
                 event.stopPropagation();
                 onDelete();
@@ -218,7 +328,10 @@ function FieldControl({
   categories: Array<{ id: number; name: string }>;
   products: Array<{ id: number; name: string }>;
 }) {
-  const label = <span className="mb-1.5 block text-xs font-medium text-zinc-600">{field.label}</span>;
+  const { t, L } = useCopy();
+  const label = (
+    <span className="mb-1.5 block text-xs font-medium text-zinc-600">{L(field.label)}</span>
+  );
   const [term, setTerm] = useState('');
 
   switch (field.kind) {
@@ -259,7 +372,7 @@ function FieldControl({
             onChange={(event) => onChange(event.target.value)}
           />
           <p className="mt-1 text-[11px] text-zinc-400">
-            Basic HTML allowed: &lt;p&gt; &lt;strong&gt; &lt;em&gt; &lt;a&gt; &lt;br&gt;
+            {L('Basic HTML allowed: <p> <strong> <em> <a> <br>')}
           </p>
         </div>
       );
@@ -294,7 +407,7 @@ function FieldControl({
           >
             {field.options.map((option) => (
               <option key={String(option.value)} value={String(option.value)}>
-                {option.label}
+                {L(option.label)}
               </option>
             ))}
           </select>
@@ -324,7 +437,7 @@ function FieldControl({
                 className="text-[11px] text-zinc-400 hover:text-zinc-600"
                 onClick={() => onChange('')}
               >
-                reset
+                {L('reset')}
               </button>
             ) : null}
           </div>
@@ -334,7 +447,7 @@ function FieldControl({
     case 'toggle':
       return (
         <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5">
-          <span className="text-xs font-medium text-zinc-600">{field.label}</span>
+          <span className="text-xs font-medium text-zinc-600">{L(field.label)}</span>
           <span
             className={cn(
               'relative h-5 w-9 rounded-full transition',
@@ -397,7 +510,7 @@ function FieldControl({
               </span>
             )}
             <span className="text-xs text-zinc-500">
-              {value ? 'Change image' : 'Choose from media library'}
+              {value ? L('Change image') : L('Choose from media library')}
             </span>
           </button>
           {value ? (
@@ -406,7 +519,7 @@ function FieldControl({
               className="mt-1 text-[11px] text-zinc-400 hover:text-red-500"
               onClick={() => onChange('')}
             >
-              Remove
+              {L('Remove')}
             </button>
           ) : null}
         </div>
@@ -424,7 +537,7 @@ function FieldControl({
                 <img src={item.url} alt="" className="aspect-square w-full rounded object-cover" />
                 <button
                   type="button"
-                  aria-label="Remove image"
+                  aria-label={L('Remove image')}
                   onClick={() => onChange(list.filter((_, i) => i !== index))}
                   className="absolute right-1 top-1 rounded bg-zinc-900/70 p-1 text-white opacity-0 transition group-hover:opacity-100"
                 >
@@ -485,7 +598,7 @@ function FieldControl({
                     : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50',
                 )}
               >
-                {align}
+                {L(align)}
               </button>
             ))}
           </div>
@@ -509,12 +622,55 @@ function FieldControl({
                     : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50',
                 )}
               >
-                {size}
+                {L(size)}
               </button>
             ))}
           </div>
         </div>
       );
+
+    case 'box': {
+      const current: Record<string, number> =
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? { top: 0, right: 0, bottom: 0, left: 0, ...(value as Record<string, number>) }
+          : { top: 0, right: 0, bottom: 0, left: 0 };
+      const labels: Record<string, string> = {
+        top: 'Top',
+        right: 'Right',
+        bottom: 'Bottom',
+        left: 'Left',
+      };
+      const update = (side: string, raw: string) => {
+        const num = Number(raw);
+        onChange({ ...current, [side]: Number.isFinite(num) ? num : 0 });
+      };
+      return (
+        <div>
+          {label}
+          <div className="grid grid-cols-4 gap-1">
+            {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
+              <label key={side} className="flex flex-col items-center gap-0.5" title={t('cmscontent.builder.boxSideTitle', { side: L(labels[side]), field: L(field.label) })}>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">
+                  {L(labels[side])[0]}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step={4}
+                  aria-label={t('cmscontent.builder.boxSidePixels', { side: L(labels[side]), field: L(field.label) })}
+                  className={cn(inputClass, 'px-1 py-1 text-center text-[11px]')}
+                  value={Number.isFinite(Number(current[side])) ? Number(current[side]) : 0}
+                  onChange={(event) => update(side, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-zinc-400">
+            {L('Pixels — top, right, bottom, left.')}
+          </p>
+        </div>
+      );
+    }
 
     case 'columns':
       return (
@@ -540,42 +696,48 @@ function FieldControl({
         </div>
       );
 
-    case 'productSource':
+    case 'category':
+      return (
+        <div>
+          {label}
+          <select
+            className={cn(inputClass, 'appearance-none')}
+            value={String(value ?? 0)}
+            onChange={(event) => onChange(Number(event.target.value))}
+          >
+            <option value="0">{L('All categories')}</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+
+    case 'productSource': {
+      const current = String(value ?? 'latest');
+      const option = PRODUCT_SOURCE_OPTIONS.find((entry) => entry.value === current);
       return (
         <div className="space-y-3">
           <div>
             {label}
             <select
               className={cn(inputClass, 'appearance-none')}
-              value={String(value ?? 'latest')}
+              value={current}
               onChange={(event) => onChange(event.target.value)}
             >
-              <option value="latest">Latest products</option>
-              <option value="featured">Featured (newest with stock)</option>
-              <option value="category">By category</option>
-              <option value="manual">Manual selection</option>
+              {PRODUCT_SOURCE_OPTIONS.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {L(entry.label)}
+                </option>
+              ))}
             </select>
           </div>
-          {value === 'category' ? (
-            <div>
-              <span className="mb-1.5 block text-xs font-medium text-zinc-600">Category</span>
-              <select className={cn(inputClass, 'appearance-none')} defaultValue="">
-                <option value="">All categories</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {value === 'manual' ? (
-            <p className="text-[11px] text-zinc-400">
-              Use “Pick products” below to choose the exact products.
-            </p>
-          ) : null}
+          {option?.hint ? <p className="text-[11px] text-zinc-400">{L(option.hint)}</p> : null}
         </div>
       );
+    }
 
     case 'products': {
       const ids: number[] = Array.isArray(value) ? value.map(Number) : [];
@@ -587,13 +749,15 @@ function FieldControl({
           {label}
           <input
             className={cn(inputClass, 'mb-2 py-1.5 text-xs')}
-            placeholder="Search products…"
+            placeholder={L('Search products…')}
             value={term}
             onChange={(event) => setTerm(event.target.value)}
           />
           <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 p-1.5">
             {visible.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[11px] text-zinc-400">No products found.</p>
+              <p className="px-2 py-3 text-center text-[11px] text-zinc-400">
+                {L('No products found.')}
+              </p>
             ) : (
               visible.map((product) => {
                 const checked = ids.includes(product.id);
@@ -623,7 +787,9 @@ function FieldControl({
               })
             )}
           </div>
-          <p className="mt-1 text-[11px] text-zinc-400">{ids.length} selected</p>
+          <p className="mt-1 text-[11px] text-zinc-400">
+            {t('cmscontent.builder.selectedCount', { count: ids.length })}
+          </p>
         </div>
       );
     }
@@ -657,6 +823,7 @@ function SortableItemCard({
   onRemove: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useCopy();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   return (
@@ -672,7 +839,7 @@ function SortableItemCard({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            aria-label={`Reorder ${label}`}
+            aria-label={t('cmscontent.builder.reorderItem', { label })}
             className="cursor-grab rounded p-1 text-zinc-300 hover:bg-white hover:text-zinc-600 active:cursor-grabbing"
             {...attributes}
             {...listeners}
@@ -685,7 +852,7 @@ function SortableItemCard({
         </div>
         <button
           type="button"
-          aria-label="Remove"
+          aria-label={t('cmscontent.builder.remove')}
           onClick={onRemove}
           className="rounded p-1 text-zinc-400 hover:bg-white hover:text-red-600"
         >
@@ -714,6 +881,7 @@ function ItemsField({
   categories: Array<{ id: number; name: string }>;
   products: Array<{ id: number; name: string }>;
 }) {
+  const { t, L } = useCopy();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -735,18 +903,25 @@ function ItemsField({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-600">{field.label}</span>
+        <span className="text-xs font-medium text-zinc-600">{L(field.label)}</span>
         <span className="text-[11px] text-zinc-400">{items.length}</span>
       </div>
       <div className="space-y-2">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {/* Stable id: dnd-kit otherwise numbers its aria ids from a global
+            counter, which drifts between the server and client renders. */}
+        <DndContext
+          id={`items-${field.key}`}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {items.map((item, index) => (
                 <SortableItemCard
                   key={index}
                   id={ids[index]}
-                  label={`${field.itemLabel} ${index + 1}`}
+                  label={`${L(field.itemLabel)} ${index + 1}`}
                   onRemove={() => onChange(items.filter((_, i) => i !== index))}
                 >
                   {field.fields.map((nested) => (
@@ -779,7 +954,7 @@ function ItemsField({
           className="w-full"
           onClick={() => onChange([...items, {}])}
         >
-          <Plus size={13} /> {field.addLabel}
+          <Plus size={13} /> {L(field.addLabel)}
         </Button>
       </div>
     </div>
@@ -791,26 +966,68 @@ function ItemsField({
 export default function PageBuilder({
   initialBlocks,
   onChange,
+  pageLabel = 'this page',
+  previewTheme,
+  onSave,
 }: {
   initialBlocks: Block[];
   onChange: (blocks: Block[]) => void;
+  /** Shown in the full-screen header so you know what you are editing. */
+  pageLabel?: string;
+  /** Storefront `--cms-*` variables so the canvas previews the real theme. */
+  previewTheme?: Record<string, string>;
+  /** Wired by the host form so `Ctrl/Cmd+S` publishes from inside the shell. */
+  onSave?: () => void | Promise<void>;
 }) {
+  const { t, L } = useCopy();
+  const [fullscreen, setFullscreen] = useState(false);
   const [blocks, setBlocks] = useState<Block[]>(() => normalizeBlocks(initialBlocks));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mediaTarget, setMediaTarget] = useState<MediaTarget>(null);
-  const [products, setProducts] = useState<Array<{ id: number; name: string }>>([]);
+  const [products, setProducts] = useState<
+    Array<{
+      id: number;
+      name: string;
+      price?: string | number | null;
+      imageUrl?: string | null;
+      stock?: number | null;
+      categoryId?: number | null;
+      status?: string | null;
+      createdAt?: string | number | null;
+      soldCount?: number | null;
+      salePrice?: string | number | null;
+      rating?: number | null;
+    }>
+  >([]);
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
   const [pickerFilter, setPickerFilter] = useState('');
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  /* ---------------------------------------------------------- shell state */
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>('desktop');
+  const [previewMode, setPreviewMode] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>('modules');
+  const [settingsTab, setSettingsTab] = useState<FieldTab>('general');
+  const [moduleGroup, setModuleGroup] = useState('all');
+  const [flash, setFlash] = useState<string | null>(null);
+  /** Live drag over the canvas: what is dragged and where it would land. */
+  const [drag, setDrag] = useState<DragState | null>(null);
+  /** True right after a drop, so the source tile's `click` does not also fire. */
+  const justDroppedRef = useRef(false);
+  /** Set by Escape to abandon the drag in progress. */
+  const dragCancelRef = useRef(false);
 
+  /* -------------------------------------------------------------- history */
+  const historyRef = useRef<Block[][]>([blocks]);
+  const pointerRef = useRef(0);
+  const blocksRef = useRef<Block[]>(blocks);
+  blocksRef.current = blocks;
+  const [histFlags, setHistFlags] = useState({ canUndo: false, canRedo: false });
+
+  // Initial sync only; every later change is pushed by `commit`.
   useEffect(() => {
     onChange(blocks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -830,21 +1047,182 @@ export default function PageBuilder({
   const selected = useMemo(() => findBlock(blocks, selectedId), [blocks, selectedId]);
   const selectedDef = selected ? BLOCK_DEFS[selected.type] : null;
 
-  function commit(next: Block[]) {
-    setBlocks(next);
+  /** The catalogue mapped the way `BlockRenderer` renders it, so the canvas
+   *  shows the real products instead of the empty-state placeholder. */
+  const canvasProducts = useMemo<RendererProduct[]>(
+    () =>
+      products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        price: String(product.price ?? ''),
+        // Media-library rows can store JSON arrays; parseImageUrl unwraps them.
+        image: parseImageUrl(product.imageUrl) || null,
+        href: `/home/products/${product.id}`,
+        stock: product.stock ?? null,
+        categoryId: product.categoryId ?? null,
+        // Automatic sources: new-arrivals order, best-seller rank, sale price.
+        createdAt: product.createdAt ?? null,
+        soldCount: product.soldCount ?? 0,
+        salePrice: product.salePrice ?? null,
+        rating: product.rating ?? 0,
+        status: product.status ?? null,
+      })),
+    [products],
+  );
+
+  /** Append a snapshot to the history stack (max 60 steps, ≥50 as spec asks). */
+  function pushHistory(next: Block[]) {
+    const history = historyRef.current.slice(0, pointerRef.current + 1);
+    history.push(next);
+    while (history.length > 60) history.shift();
+    historyRef.current = history;
+    pointerRef.current = history.length - 1;
+    setHistFlags({ canUndo: pointerRef.current > 0, canRedo: false });
   }
 
-  function addBlock(type: BlockType, parentId?: string | null) {
-    const block = createBlock(type);
-    if (parentId) {
-      const parent = findBlock(blocks, parentId);
-      if (parent && parent.children) {
-        commit(insertChild(blocks, parentId, block));
-        setSelectedId(block.id);
+  /** Every mutation goes through here, so the parent is told synchronously —
+   *  waiting on an effect let a save read the pre-edit array. */
+  function commit(next: Block[]) {
+    const snapshot = historyRef.current[pointerRef.current];
+    if (snapshot && JSON.stringify(snapshot) === JSON.stringify(next)) return; // no-op edit
+    setBlocks(next);
+    pushHistory(next);
+    onChange(next);
+  }
+
+  /** Apply a change WITHOUT touching history — used while dragging a gutter. */
+  function liveSet(next: Block[]) {
+    setBlocks(next);
+    onChange(next);
+  }
+
+  function jumpTo(index: number) {
+    const history = historyRef.current;
+    if (index < 0 || index >= history.length) return;
+    pointerRef.current = index;
+    const snapshot = history[index];
+    setBlocks(snapshot);
+    onChange(snapshot);
+    setHistFlags({ canUndo: index > 0, canRedo: index < history.length - 1 });
+  }
+
+  const undo = () => jumpTo(pointerRef.current - 1);
+  const redo = () => jumpTo(pointerRef.current + 1);
+
+  function showFlash(message: string) {
+    setFlash(message);
+    window.setTimeout(() => setFlash((current) => (current === message ? null : current)), 1800);
+  }
+
+  async function saveNow() {
+    if (!onSave) return;
+    try {
+      await onSave();
+      showFlash(t('cmscontent.builder.savedFlash'));
+    } catch {
+      showFlash(t('cmscontent.builder.saveFailed'));
+    }
+  }
+
+  function removeNode(id: string) {
+    commit(removeTree(blocksRef.current, id));
+    if (selectedId === id) setSelectedId(null);
+  }
+
+  /** Move a node one step inside its parent (keyboard-friendly "move to"). */
+  function moveNode(id: string, delta: number) {
+    const tree = blocksRef.current;
+    const parent = findParent(tree, id);
+    const siblings = parent ? parent.children || [] : tree;
+    const index = siblings.findIndex((entry) => entry.id === id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= siblings.length) return;
+    const moved = arrayMove(siblings, index, target);
+    commit(parent ? mapTree(tree, parent.id, (node) => ({ ...node, children: moved })) : moved);
+  }
+
+  // Shortcuts: undo/redo, save, delete the selection, escape to deselect.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(
+        target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable),
+      );
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (mod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
         return;
       }
+      if (mod && key === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (mod && key === 's') {
+        event.preventDefault();
+        void saveNow();
+        return;
+      }
+      if (typing) return;
+      if (event.key === 'Escape') {
+        dragCancelRef.current = true;
+        setDrag(null);
+        setSelectedId(null);
+        if (previewMode) setPreviewMode(false);
+        return;
+      }
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
+        event.preventDefault();
+        removeNode(selectedId);
+      }
     }
-    commit([...blocks, block]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  function addBlock(type: NodeType, parentId?: string | null) {
+    // The old flat `columns_N` blocks are expressed as real rows now.
+    const legacyCount =
+      type === 'columns_2' ? 2 : type === 'columns_3' ? 3 : type === 'columns_4' ? 4 : 0;
+    const block = legacyCount ? createRow(legacyCount) : createBlock(type);
+
+    const parent = parentId ? findBlock(blocks, parentId) : null;
+    const canNest =
+      parent &&
+      (parent.type === 'row' || parent.type === 'column' || Boolean(parent.children));
+
+    if (parent && canNest) {
+      let next = blocks;
+      let targetId = parent.id;
+      if (parent.type === 'row') {
+        if (parent.children?.length) {
+          // Modules live inside columns, never directly under a row.
+          targetId = parent.children[parent.children.length - 1].id;
+        } else {
+          const column = createColumn(100);
+          next = mapTree(next, parent.id, (node) => ({ ...node, children: [column] }));
+          targetId = column.id;
+        }
+      }
+      commit(insertChild(next, targetId, block));
+      setSelectedId(block.id);
+      return;
+    }
+    // The page level only holds rows, so a lone module gets its own row.
+    if (block.type === 'row' || block.type === 'column') {
+      commit([...blocks, block]);
+    } else {
+      const row = createRow(1);
+      row.children = [createColumn(100, [block])];
+      commit([...blocks, row]);
+    }
     setSelectedId(block.id);
   }
 
@@ -857,13 +1235,15 @@ export default function PageBuilder({
     );
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = blocks.findIndex((block) => block.id === active.id);
-    const newIndex = blocks.findIndex((block) => block.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    commit(arrayMove(blocks, oldIndex, newIndex));
+  /** Ticking products in the picker also flips the source to "manual" — in one
+   *  history step — so the picks actually take effect as soon as they exist. */
+  function patchProductPick(id: string, path: string, value: unknown) {
+    commit(
+      mapTree(blocks, id, (block) => ({
+        ...block,
+        props: setByPath(setByPath(block.props, path, value), 'source', 'manual'),
+      })),
+    );
   }
 
   function reorderChild(parentId: string, index: number, delta: number) {
@@ -880,273 +1260,1160 @@ export default function PageBuilder({
   }
 
   const filteredDefs = BLOCK_LIST.filter((def) =>
-    def.label.toLowerCase().includes(pickerFilter.trim().toLowerCase()),
+    L(def.label).toLowerCase().includes(pickerFilter.trim().toLowerCase()),
+  );
+  const groupDefs = filteredDefs.filter(
+    (def) => moduleGroup === 'all' || def.group === moduleGroup,
   );
 
-  return (
-    <div className="flex min-h-[70vh] overflow-hidden rounded-xl border border-zinc-200 bg-white">
-      {/* Left: block picker */}
-      <aside className="w-[220px] shrink-0 overflow-y-auto border-r border-zinc-200 bg-zinc-50/70 p-3">
-        <input
-          value={pickerFilter}
-          onChange={(event) => setPickerFilter(event.target.value)}
-          placeholder="Search blocks…"
-          className={cn(inputClass, 'mb-3 py-1.5 text-xs')}
-        />
-        {BLOCK_GROUPS.map((group) => {
-          const defs = filteredDefs.filter((def) => def.group === group.id);
-          if (!defs.length) return null;
+  const settingsTabs: FieldTab[] = ['general', 'style', 'advanced'];
+  const settingsFields = selectedDef
+    ? selectedDef.fields.filter((field) => {
+        // A category only matters when the source select asks for one.
+        if (
+          field.kind === 'category' &&
+          typeof selected?.props.source === 'string' &&
+          selected?.props.source !== 'category'
+        ) {
+          return false;
+        }
+        return (field.tab ?? 'general') === settingsTab;
+      })
+    : [];
+
+  /* ------------------------------------------------------------ drag & drop */
+
+  /** Where would `payload` land if dropped at `point` right now? */
+  function computeDrag(
+    payload: DragPayload,
+    point: { x: number; y: number },
+  ): DragState {
+    const empty: DragState = { payload, hint: null, box: null, point };
+    const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
+    const host = element?.closest('[data-node]') as HTMLElement | null;
+    if (!host) return empty;
+
+    const tree = blocksRef.current;
+    const rectOf = (nodeId: string) => {
+      const found = document.querySelector(`[data-node="${nodeId}"]`) as HTMLElement | null;
+      return found ? found.getBoundingClientRect() : null;
+    };
+    const boxOf = (rect: DOMRect | null) =>
+      rect ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : null;
+    const id = host.dataset.node || '';
+
+    // Margin of the canvas, or the empty-page placeholder.
+    if (id === 'page') {
+      return {
+        payload,
+        hint: { target: 'page', id: 'page', index: tree.length, orientation: 'vertical' },
+        box: boxOf(host.getBoundingClientRect()),
+        point,
+      };
+    }
+
+    const node = findBlock(tree, id);
+    if (!node) return empty;
+    const hostRect = host.getBoundingClientRect();
+    const moving = payload.kind === 'move' ? findBlock(tree, payload.id) : null;
+
+    /** Insertion index inside `kids`, from the pointer along `axis`. */
+    const indexFrom = (kids: Block[], axis: 'x' | 'y') => {
+      for (let i = 0; i < kids.length; i += 1) {
+        const rect = rectOf(kids[i].id);
+        if (!rect) continue;
+        const middle =
+          axis === 'y' ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
+        if (axis === 'y' ? point.y < middle : point.x < middle) return i;
+      }
+      return kids.length;
+    };
+
+    // Moving a column: reposition it horizontally inside a row.
+    if (moving?.type === 'column') {
+      const row = node.type === 'row' ? node : findParent(tree, node.id);
+      if (!row || row.type !== 'row') return empty;
+      return {
+        payload,
+        hint: {
+          target: 'row',
+          id: row.id,
+          index: indexFrom(row.children || [], 'x'),
+          orientation: 'horizontal',
+        },
+        box: boxOf(rectOf(row.id) || hostRect),
+        point,
+      };
+    }
+
+    if (node.type === 'column') {
+      return {
+        payload,
+        hint: {
+          target: 'column',
+          id: node.id,
+          index: indexFrom(node.children || [], 'y'),
+          orientation: 'vertical',
+        },
+        box: boxOf(hostRect),
+        point,
+      };
+    }
+
+    if (node.type === 'row') {
+      const parent = findParent(tree, node.id);
+      const droppingRow = payload.kind === 'new-row' || moving?.type === 'row';
+
+      if (droppingRow && !parent) {
+        const position = tree.findIndex((entry) => entry.id === node.id);
+        return {
+          payload,
+          hint: {
+            target: 'page',
+            id: node.id,
+            index: position + (point.y >= hostRect.top + hostRect.height / 2 ? 1 : 0),
+            orientation: 'vertical',
+          },
+          box: boxOf(hostRect),
+          point,
+        };
+      }
+
+      const cols = node.children || [];
+      if (!cols.length) {
+        // A row without columns receives its first one on drop.
+        return {
+          payload,
+          hint: { target: 'row', id: node.id, index: 0, orientation: 'vertical' },
+          box: boxOf(hostRect),
+          point,
+        };
+      }
+
+      // Land in whichever column sits under the pointer (fallback: last).
+      let target = cols[cols.length - 1];
+      for (const col of cols) {
+        const rect = rectOf(col.id);
+        if (rect && point.x >= rect.left && point.x <= rect.right) {
+          target = col;
+          break;
+        }
+      }
+      return {
+        payload,
+        hint: {
+          target: 'column',
+          id: target.id,
+          index: indexFrom(target.children || [], 'y'),
+          orientation: 'vertical',
+        },
+        box: boxOf(rectOf(target.id) || hostRect),
+        point,
+      };
+    }
+
+    // A module (or a nested row): drop beside it in the same column.
+    const parent = findParent(tree, node.id);
+    if (parent && parent.type === 'column') {
+      const kids = parent.children || [];
+      const index =
+        kids.findIndex((entry) => entry.id === node.id) +
+        (point.y >= hostRect.top + hostRect.height / 2 ? 1 : 0);
+      return {
+        payload,
+        hint: { target: 'column', id: parent.id, index, orientation: 'vertical' },
+        box: boxOf(rectOf(parent.id) || hostRect),
+        point,
+      };
+    }
+    return empty;
+  }
+
+  /** Apply a completed drop: remove the moved node first, then re-insert it. */
+  function applyDrag(payload: DragPayload, hint: DropHint) {
+    let tree = blocksRef.current;
+    let node: Block;
+    let fromIndex = -1;
+    let sameContainer = false;
+
+    if (payload.kind === 'move') {
+      const moving = findBlock(tree, payload.id);
+      if (!moving) return;
+      if (containsBlock(moving, hint.id)) return; // never drop inside itself
+      const oldParent = findParent(tree, payload.id);
+      const oldSiblings = oldParent ? oldParent.children || [] : tree;
+      fromIndex = oldSiblings.findIndex((entry) => entry.id === payload.id);
+      sameContainer =
+        hint.target === 'page' ? !oldParent : Boolean(oldParent) && oldParent?.id === hint.id;
+      node = moving;
+      tree = removeTree(tree, payload.id);
+    } else if (payload.kind === 'new-module') {
+      node = createBlock(payload.blockType);
+    } else {
+      node = createRow(payload.widths.length);
+      node.children = payload.widths.map((width) => createColumn(width));
+    }
+
+    // The removal above shifted everything after the old position.
+    let index = hint.index;
+    if (sameContainer && fromIndex >= 0 && fromIndex < index) index -= 1;
+
+    const clamp = (value: number, length: number) =>
+      Math.min(Math.max(value, 0), length);
+    const commitWith = (next: Block[]) => {
+      commit(next);
+      setSelectedId(node.id);
+    };
+
+    if (hint.target === 'page') {
+      const next = [...tree];
+      if (node.type !== 'row') {
+        // A lone module dropped at page level gets a full-width row of its own.
+        const row = createRow(1);
+        row.children = [createColumn(100, [node])];
+        next.splice(clamp(index, next.length), 0, row);
+      } else {
+        next.splice(clamp(index, next.length), 0, node);
+      }
+      commitWith(next);
+      return;
+    }
+
+    if (hint.target === 'column') {
+      const column = findBlock(tree, hint.id);
+      if (!column || column.type !== 'column') return;
+      commitWith(
+        mapTree(tree, hint.id, (entry) => {
+          const kids = [...(entry.children || [])];
+          kids.splice(clamp(index, kids.length), 0, node);
+          return { ...entry, children: kids };
+        }),
+      );
+      return;
+    }
+
+    if (hint.target === 'row') {
+      const row = findBlock(tree, hint.id);
+      if (!row || row.type !== 'row') return;
+      if (node.type === 'column') {
+        commitWith(
+          mapTree(tree, row.id, (entry) => {
+            const kids = [...(entry.children || [])];
+            kids.splice(clamp(index, kids.length), 0, node);
+            return { ...entry, children: kids };
+          }),
+        );
+        return;
+      }
+      if (node.type === 'row') {
+        const position = tree.findIndex((entry) => entry.id === row.id);
+        const next = [...tree];
+        next.splice(position < 0 ? next.length : position + 1, 0, node);
+        commitWith(next);
+        return;
+      }
+      commitWith(
+        mapTree(tree, row.id, (entry) => ({
+          ...entry,
+          children: [createColumn(100, [node])],
+        })),
+      );
+    }
+  }
+
+  /** Start a pointer drag from the toolbar grip or a panel tile. */
+  function startDrag(
+    payload: DragPayload,
+    event: React.PointerEvent,
+    cancelDefault = false,
+  ) {
+    if (previewMode) return;
+    if (cancelDefault) event.preventDefault();
+    event.stopPropagation();
+    dragCancelRef.current = false;
+    setDrag(computeDrag(payload, { x: event.clientX, y: event.clientY }));
+
+    const onMove = (moveEvent: PointerEvent) =>
+      setDrag(computeDrag(payload, { x: moveEvent.clientX, y: moveEvent.clientY }));
+
+    const onCancel = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setDrag(null);
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointercancel', onCancel);
+      const final = dragCancelRef.current
+        ? null
+        : computeDrag(payload, { x: upEvent.clientX, y: upEvent.clientY });
+      setDrag(null);
+      if (final?.hint) {
+        justDroppedRef.current = true;
+        window.setTimeout(() => {
+          justDroppedRef.current = false;
+        }, 0);
+        window.getSelection()?.removeAllRanges();
+        applyDrag(payload, final.hint);
+      }
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+    window.addEventListener('pointercancel', onCancel, { once: true });
+  }
+
+  function addRow(widths: number[]) {
+    const row = createRow(widths.length);
+    row.children = widths.map((width) => createColumn(width));
+    commit([...blocksRef.current, row]);
+    setSelectedId(row.id);
+  }
+
+  function duplicateNode(id: string) {
+    const tree = blocksRef.current;
+    const original = findBlock(tree, id);
+    if (!original) return;
+    const copy = cloneBlock(original);
+    const parent = findParent(tree, id);
+    const siblings = parent ? parent.children || [] : tree;
+    const index = siblings.findIndex((entry) => entry.id === id);
+    if (!parent) {
+      const next = [...tree];
+      next.splice(index + 1, 0, copy);
+      commit(next);
+    } else {
+      commit(
+        mapTree(tree, parent.id, (entry) => {
+          const kids = [...(entry.children || [])];
+          kids.splice(Math.max(index, 0) + 1, 0, copy);
+          return { ...entry, children: kids };
+        }),
+      );
+    }
+    setSelectedId(copy.id);
+  }
+
+  /** Column seam: one history entry for the whole drag, live preview meanwhile. */
+  function startResize(event: React.PointerEvent, rowId: string, index: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    const host = (event.currentTarget as HTMLElement).closest(
+      '.bb-row-inner',
+    ) as HTMLElement | null;
+    const total = host?.getBoundingClientRect().width || 1000;
+    const startX = event.clientX;
+    const snapshot = blocksRef.current;
+
+    const widths = (): [number, number] | null => {
+      const row = findBlock(snapshot, rowId);
+      const cols = row?.children || [];
+      const previous = cols[index - 1];
+      const next = cols[index];
+      if (!previous || !next) return null;
+      return [Number(previous.props.width) || 50, Number(next.props.width) || 50];
+    };
+    const pair = widths();
+    if (!pair) return;
+    const [startPrev, startNext] = pair;
+    const min = 5;
+    const max = Math.max(min, startPrev + startNext - min);
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const delta = ((moveEvent.clientX - startX) / total) * 100;
+      // 5% snap, and the pair always keeps adding up to what it started at.
+      const width = Math.min(Math.max(Math.round((startPrev + delta) / 5) * 5, min), max);
+      const other = round2(startPrev + startNext - width);
+      liveSet(
+        mapTree(blocksRef.current, rowId, (row) => ({
+          ...row,
+          children: (row.children || []).map((child, position) =>
+            position === index - 1
+              ? { ...child, props: { ...child.props, width } }
+              : position === index
+                ? { ...child, props: { ...child.props, width: other } }
+                : child,
+          ),
+        })),
+      );
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      if (JSON.stringify(snapshot) !== JSON.stringify(blocksRef.current)) {
+        pushHistory(blocksRef.current); // exactly one undo step for the drag
+      }
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  }
+
+  /** Keyboard equivalent of the gutter drag: Arrow keys, 5% steps. */
+  function resizeByKey(event: React.KeyboardEvent, rowId: string, index: number) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const tree = blocksRef.current;
+    const row = findBlock(tree, rowId);
+    const cols = row?.children || [];
+    const previous = cols[index - 1];
+    const next = cols[index];
+    if (!previous || !next) return;
+    const before = Number(previous.props.width) || 50;
+    const after = Number(next.props.width) || 50;
+    const min = 5;
+    const max = Math.max(min, before + after - min);
+    const step = event.key === 'ArrowRight' ? 5 : -5;
+    const width = Math.min(Math.max(before + step, min), max);
+    const other = round2(before + after - width);
+    commit(
+      mapTree(tree, rowId, (entry) => ({
+        ...entry,
+        children: (entry.children || []).map((child, position) =>
+          position === index - 1
+            ? { ...child, props: { ...child.props, width } }
+            : position === index
+              ? { ...child, props: { ...child.props, width: other } }
+              : child,
+        ),
+      })),
+    );
+  }
+
+  /** Resize gutters, shown when their row is hovered (or focused). */
+  function renderGutter(row: Block): React.ReactNode {
+    const cols = row.children || [];
+    if (cols.length < 2) return null;
+    const gap = Number(row.props.gap) || 0;
+    let before = 0; // Σ widths to the left of the current seam
+    return (
+      <>
+        <style>{`.bb-${row.id}:hover .bb-gutter,.bb-gutter:focus{opacity:1}`}</style>
+        {cols.map((col, position) => {
+          const width = Number(col.props.width) || 0;
+          const left = before;
+          before += width;
+          if (position === 0) return null;
+          // Centre of the gap: widths so far, minus the shrink the gap costs.
+          const offset = round2(
+            (position - 1) * gap + gap / 2 - (gap * left) / 100,
+          );
           return (
-            <div key={group.id} className="mb-4">
-              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                {group.label}
-              </p>
-              <div className="space-y-1">
-                {defs.map((def) => {
-                  const Icon = def.icon;
-                  return (
-                    <button
-                      key={def.type}
-                      type="button"
-                      onClick={() => addBlock(def.type, selectedDef?.hasChildren ? selectedId : null)}
-                      title={
-                        selectedDef?.hasChildren
-                          ? `Add inside ${selectedDef.label}`
-                          : def.description
-                      }
-                      className="flex w-full items-center gap-2.5 rounded-lg border border-transparent bg-white px-2.5 py-2 text-left text-xs font-medium text-zinc-700 shadow-sm transition hover:border-[#6d6be8]/40 hover:text-[#4f4dd6]"
-                    >
-                      <Icon size={14} className={cn('shrink-0', def.accent)} />
-                      <span className="truncate">{def.label}</span>
-                      <Plus size={12} className="ml-auto shrink-0 text-zinc-300" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <div
+              key={`gutter-${col.id}`}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t('cmscontent.builder.resizeColumns', {
+                a: position,
+                b: position + 1,
+              })}
+              tabIndex={0}
+              className="bb-gutter absolute bottom-0 top-0 z-40 w-1.5 -translate-x-1/2 cursor-col-resize rounded-sm bg-amber-400/70 opacity-0 transition hover:bg-[#6d6be8] focus:outline-none focus:ring-2 focus:ring-[#6d6be8]"
+              style={{ left: `calc(${round2(left)}% + ${offset}px)` }}
+              onPointerDown={(event) => startResize(event, row.id, position)}
+              onKeyDown={(event) => resizeByKey(event, row.id, position)}
+            />
           );
         })}
-      </aside>
+      </>
+    );
+  }
 
-      {/* Centre: canvas */}
-      <div className="min-w-0 flex-1 overflow-y-auto bg-zinc-100/60 p-5" onClick={() => setSelectedId(null)}>
-        {blocks.length === 0 ? (
-          <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 text-center">
-            <Layers size={34} className="mb-3 text-zinc-300" />
-            <p className="text-sm font-medium text-zinc-600">
-              Click a block on the left to start building
-            </p>
-            <p className="mt-1 text-xs text-zinc-400">Then drag the ⠿ handle to reorder.</p>
-          </div>
-        ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-4">
-                {blocks.map((block) => (
-                  <div key={block.id} onClick={(event) => event.stopPropagation()}>
-                    <SortableCard
-                      block={block}
-                      selected={selectedId === block.id}
-                      onSelect={() => setSelectedId(block.id)}
-                      onDelete={() => {
-                        commit(removeTree(blocks, block.id));
-                        if (selectedId === block.id) setSelectedId(null);
-                      }}
-                      onDuplicate={() => {
-                        const copy = cloneBlock(block);
-                        const index = blocks.findIndex((entry) => entry.id === block.id);
-                        const next = [...blocks];
-                        next.splice(index + 1, 0, copy);
-                        commit(next);
-                        setSelectedId(copy.id);
-                      }}
-                    >
-                      <div className="pointer-events-auto">
-                        <BlockRenderer block={block} mode="edit" />
-                      </div>
+  /** Floating toolbar + selection ring, rendered inside every node. */
+  function renderChrome(node: Block): React.ReactNode {
+    const kind: NodeKind =
+      node.type === 'row' ? 'row' : node.type === 'column' ? 'column' : 'module';
+    const accent = KIND_ACCENT[kind];
+    const def = BLOCK_DEFS[node.type];
+    const label = def ? L(def.label) : node.type;
+    const isSelected = selectedId === node.id;
+    const selection = isSelected ? { opacity: 1 } : undefined;
+    const parent = findParent(blocks, node.id);
+    const siblings = parent ? parent.children || [] : blocks;
+    const index = siblings.findIndex((entry) => entry.id === node.id);
+    const moveLabels =
+      kind === 'column'
+        ? [L('Move left'), L('Move right')]
+        : [L('Move up'), L('Move down')];
 
-                      {block.children?.length ? (
-                        <div className="mt-4 space-y-3 border-t border-dashed border-zinc-200 pt-3">
-                          {block.children.map((child, index) => (
-                            <div key={child.id} className="relative">
-                              <div
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedId(child.id);
-                                }}
-                                className={cn(
-                                  'rounded-lg border bg-white transition',
-                                  selectedId === child.id
-                                    ? 'border-[#6d6be8] ring-2 ring-[#6d6be8]/25'
-                                    : 'border-zinc-200 hover:border-zinc-300',
-                                )}
-                              >
-                                <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50/70 px-2.5 py-1.5">
-                                  <span className="truncate text-[11px] font-semibold text-zinc-600">
-                                    {BLOCK_DEFS[child.type]?.label || child.type}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      aria-label="Move up"
-                                      disabled={index === 0}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        reorderChild(block.id, index, -1);
-                                      }}
-                                      className="rounded p-1 text-zinc-400 hover:bg-white hover:text-zinc-700 disabled:opacity-30"
-                                    >
-                                      <ArrowUp size={11} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      aria-label="Move down"
-                                      disabled={index === (block.children || []).length - 1}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        reorderChild(block.id, index, 1);
-                                      }}
-                                      className="rounded p-1 text-zinc-400 hover:bg-white hover:text-zinc-700 disabled:opacity-30"
-                                    >
-                                      <ArrowDown size={11} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      aria-label="Delete"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        commit(removeTree(blocks, child.id));
-                                      }}
-                                      className="rounded p-1 text-zinc-400 hover:bg-white hover:text-red-600"
-                                    >
-                                      <Trash2 size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="pointer-events-none p-3">
-                                  <BlockRenderer block={child} mode="edit" />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedId(block.id);
-                            }}
-                            className="w-full rounded-lg border border-dashed border-zinc-300 py-2 text-xs text-zinc-500 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
-                          >
-                            Select this block to add more content
-                          </button>
-                        </div>
-                      ) : null}
-                    </SortableCard>
-                  </div>
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
-      </div>
-
-      {/* Right: settings */}
-      <aside className="w-[280px] shrink-0 overflow-y-auto border-l border-zinc-200 bg-white">
-        {!selected ? (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <Layers size={26} className="mb-3 text-zinc-300" />
-            <p className="text-sm font-medium text-zinc-700">No block selected</p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Click any block on the canvas to edit its settings.
-            </p>
-          </div>
-        ) : (
-          <div className="p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {selectedDef ? (
-                  <selectedDef.icon size={15} className={selectedDef.accent} />
-                ) : null}
-                <span className="text-sm font-semibold text-zinc-900">
-                  {selectedDef?.label || selected.type}
-                </span>
-              </div>
-              <button
-                type="button"
-                aria-label="Delete block"
-                onClick={() => {
-                  commit(removeTree(blocks, selected.id));
-                  setSelectedId(null);
-                }}
-                className="rounded p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {selectedDef?.fields.map((field) => {
-                if (field.key === 'manualIds' && selected.props.source !== 'manual') return null;
-                return (
-                  <FieldControl
-                    key={field.key}
-                    field={field}
-                    value={getByPath(selected.props, field.key)}
-                    onChange={(value) => patchProps(selected.id, field.key, value)}
-                    onPickMedia={(multi, subPath) =>
-                      setMediaTarget({
-                        path: subPath ? `${field.key}.${subPath}` : field.key,
-                        multi,
-                      })
-                    }
-                    categories={categories}
-                    products={products}
-                  />
-                );
+    return (
+      <>
+        <style>{`.bb-${node.id}:hover>.bb-chrome{opacity:1}`}</style>
+        {/* Keyboard entry point: focus selects the node. */}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setSelectedId(node.id);
+          }}
+          className="sr-only focus:not-sr-only focus:absolute focus:left-1 focus:top-1 focus:z-40 focus:rounded focus:bg-[#6d6be8] focus:px-2 focus:py-1 focus:text-[11px] focus:font-semibold focus:text-white"
+        >
+          {t('cmscontent.builder.selectNode', { label })}
+        </button>
+        <div
+          className={cn(
+            'bb-chrome absolute inset-0 cursor-pointer opacity-0 ring-2 ring-inset transition-opacity',
+            accent.ring,
+          )}
+          style={selection}
+          onClick={(event) => {
+            event.stopPropagation();
+            setSelectedId(node.id);
+          }}
+        />
+        <div
+          className="bb-chrome absolute left-1 top-1 z-30 flex items-center gap-0.5 rounded-md bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity"
+          style={selection}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span
+            className={cn(
+              'mr-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white',
+              accent.chip,
+            )}
+          >
+            {label}
+          </span>
+          <button
+            type="button"
+            title={L('Drag to move')}
+            aria-label={t('cmscontent.builder.dragNode', { label })}
+            onPointerDown={(event) => startDrag({ kind: 'move', id: node.id }, event, true)}
+            className="cursor-grab rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 active:cursor-grabbing"
+          >
+            <GripVertical size={12} />
+          </button>
+          <button
+            type="button"
+            title={L('Settings')}
+            aria-label={t('cmscontent.builder.nodeSettings', { label })}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedId(node.id);
+              setSettingsTab('general');
+            }}
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+          >
+            <Wrench size={12} />
+          </button>
+          {[0, 1].map((slot) => (
+            <button
+              key={slot}
+              type="button"
+              disabled={index + (slot === 0 ? -1 : 1) < 0 || index + (slot === 0 ? -1 : 1) >= siblings.length}
+              title={moveLabels[slot]}
+              aria-label={t('cmscontent.builder.moveLabel', {
+                move: moveLabels[slot],
+                label,
               })}
-            </div>
+              onClick={(event) => {
+                event.stopPropagation();
+                moveNode(node.id, slot === 0 ? -1 : 1);
+              }}
+              className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
+            >
+              {kind === 'column' ? (
+                slot === 0 ? <ArrowLeft size={12} /> : <ArrowRight size={12} />
+              ) : slot === 0 ? (
+                <ArrowUp size={12} />
+              ) : (
+                <ArrowDown size={12} />
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            title={L('Duplicate')}
+            aria-label={t('cmscontent.builder.duplicateNode', { label })}
+            onClick={(event) => {
+              event.stopPropagation();
+              duplicateNode(node.id);
+            }}
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+          >
+            <Copy size={12} />
+          </button>
+          <button
+            type="button"
+            title={L('Delete')}
+            aria-label={t('cmscontent.builder.deleteNode', { label })}
+            onClick={(event) => {
+              event.stopPropagation();
+              removeNode(node.id);
+            }}
+            className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </>
+    );
+  }
 
-            {selectedDef?.hasChildren ? (
-              <div className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-zinc-700">
-                  Add to this {selectedDef.label.replace(/\d+\s*/, '').toLowerCase()}
+  const canvasWidth =
+    breakpoint === 'desktop' ? '100%' : breakpoint === 'tablet' ? '834px' : '390px';
+
+  return (
+    <div
+      className={cn(
+        'bb-shell flex flex-col overflow-hidden bg-white',
+        fullscreen
+          ? 'fixed inset-0 z-[60]'
+          : 'h-[80vh] rounded-xl border border-zinc-200 shadow-sm',
+      )}
+    >
+      {/* Honour the OS motion preference for the editing chrome. */}
+      <style>{`@media (prefers-reduced-motion: reduce){.bb-shell,.bb-shell *{transition-duration:.01ms!important;animation-duration:.01ms!important;scroll-behavior:auto!important}}`}</style>
+      {/* --------------------------------------------------------- top bar */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-zinc-900 px-3 py-2 text-white">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-zinc-400">
+            {L('Editing')}
+          </p>
+          <p className="truncate text-sm font-semibold leading-tight">{pageLabel}</p>
+        </div>
+
+        <div className="flex items-center gap-0.5 border-l border-white/10 pl-2">
+          <button
+            type="button"
+            aria-label={L('Undo')}
+            title={L('Undo — Ctrl/Cmd+Z')}
+            disabled={!histFlags.canUndo}
+            onClick={undo}
+            className="rounded p-1.5 text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+          >
+            <Undo2 size={15} />
+          </button>
+          <button
+            type="button"
+            aria-label={L('Redo')}
+            title={L('Redo — Ctrl/Cmd+Shift+Z')}
+            disabled={!histFlags.canRedo}
+            onClick={redo}
+            className="rounded p-1.5 text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+          >
+            <Redo2 size={15} />
+          </button>
+        </div>
+
+        <div
+          className="flex items-center gap-0.5 rounded-md bg-white/10 p-0.5"
+          role="group"
+          aria-label={L('Canvas breakpoint')}
+        >
+          {([
+            ['desktop', Monitor, 'desktop'],
+            ['tablet', Tablet, 'tablet'],
+            ['mobile', Smartphone, 'mobile'],
+          ] as const).map(([value, Icon, name]) => (
+            <button
+              key={value}
+              type="button"
+              aria-label={t('cmscontent.builder.previewAs', { name: L(name) })}
+              aria-pressed={breakpoint === value}
+              onClick={() => setBreakpoint(value)}
+              className={cn(
+                'rounded p-1.5 transition',
+                breakpoint === value
+                  ? 'bg-[#6d6be8] text-white'
+                  : 'text-zinc-400 hover:bg-white/10 hover:text-white',
+              )}
+            >
+              <Icon size={14} />
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setPreviewMode((value) => !value)}
+          aria-pressed={previewMode}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+            previewMode
+              ? 'bg-[#6d6be8] text-white'
+              : 'text-zinc-300 hover:bg-white/10 hover:text-white',
+          )}
+        >
+          {previewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+          <span className="hidden sm:inline">
+            {previewMode ? L('Back to editing') : L('Preview')}
+          </span>
+        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          {flash ? (
+            <span
+              role="status"
+              className="rounded bg-emerald-500/20 px-2 py-1 text-[11px] font-medium text-emerald-300"
+            >
+              {flash}
+            </span>
+          ) : null}
+          <span className="hidden text-xs text-zinc-400 md:inline">
+            {t('cmscontent.builder.blockCount', { count: countBlocks(blocks) })}
+          </span>
+          <button
+            type="button"
+            aria-label={fullscreen ? L('Exit full screen') : L('Edit full screen')}
+            title={fullscreen ? L('Exit full screen') : L('Edit full screen')}
+            onClick={() => setFullscreen((value) => !value)}
+            className="rounded p-1.5 text-zinc-300 transition hover:bg-white/10 hover:text-white"
+          >
+            {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
+          {fullscreen ? (
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              {L('Done')}
+            </button>
+          ) : null}
+          {onSave ? (
+            <button
+              type="button"
+              onClick={() => void saveNow()}
+              className="rounded-md bg-[#6d6be8] px-3.5 py-1.5 text-xs font-semibold transition hover:bg-[#5b59d6]"
+            >
+              {L('Publish')}
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* ------------------------------------------------------- canvas */}
+        <div
+          className={cn(
+            'relative min-w-0 flex-1 overflow-y-auto',
+            previewMode ? 'bg-white' : 'bg-zinc-100/60',
+          )}
+          style={{
+            ...(previewTheme as React.CSSProperties | undefined),
+            fontFamily: previewTheme?.['--cms-body-font'] || undefined,
+          }}
+          /* Editing and preview only: a click inside the canvas must never
+             navigate away (storefront links, next/link included). Capture
+             runs before any link handler, so `defaultPrevented` is already
+             set when next/link checks it; the block under the link gets
+             selected instead. */
+          onClickCapture={(event) => {
+            const target = event.target as Element | null;
+            const anchor = target?.closest?.('a');
+            if (!anchor) return;
+            event.preventDefault();
+            const node = target?.closest('[data-node]') as HTMLElement | null;
+            const id = node?.dataset.node;
+            if (id && id !== 'page') setSelectedId(id);
+          }}
+          onAuxClickCapture={(event) => {
+            const target = event.target as Element | null;
+            if (target?.closest?.('a')) event.preventDefault();
+          }}
+          onClick={(event) => {
+            // Link clicks keep the selection the capture handler made.
+            if ((event.target as Element | null)?.closest?.('a')) return;
+            setSelectedId(null);
+          }}
+        >
+          <div
+            data-node="page"
+            className={cn(
+              'mx-auto min-h-full transition-[width] duration-200',
+              `bp-${breakpoint}`,
+            )}
+            style={{ width: canvasWidth, maxWidth: '100%' }}
+          >
+            {blocks.length === 0 ? (
+              <div
+                className="m-5 flex min-h-[320px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-white/60 text-center"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Layers size={32} className="mb-3 text-zinc-300" />
+                <p className="text-sm font-medium text-zinc-600">{L('This page is empty')}</p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {L('Drag a Row or a Module here, or start below.')}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(selectedDef.childTypes || []).map((type) => (
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addRow([100])}
+                    className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-700"
+                  >
+                    {L('+ Add a row')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addBlock('heading')}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
+                  >
+                    {L('+ Add a heading')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              blocks.map((row) => (
+                <BlockRenderer
+                  key={row.id}
+                  block={row}
+                  mode="edit"
+                  breakpoint={breakpoint}
+                  products={canvasProducts}
+                  categories={categories}
+                  editChrome={previewMode ? undefined : renderChrome}
+                  editGutter={previewMode ? undefined : renderGutter}
+                />
+              ))
+            )}
+          </div>
+
+          {drag && drag.hint && drag.box ? (
+            <div className="pointer-events-none fixed inset-0 z-[65]">
+              <div
+                className="absolute rounded-md ring-2 ring-[#6d6be8]"
+                style={{
+                  top: drag.box.top,
+                  left: drag.box.left,
+                  width: drag.box.width,
+                  height: drag.box.height,
+                }}
+              />
+              {drag.point ? (
+                drag.hint.orientation === 'vertical' ? (
+                  <div
+                    className="absolute h-[3px] rounded-full bg-[#6d6be8] shadow"
+                    style={{
+                      top: drag.point.y - 1.5,
+                      left: drag.box.left,
+                      width: drag.box.width,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="absolute w-[3px] rounded-full bg-[#6d6be8] shadow"
+                    style={{
+                      left: drag.point.x - 1.5,
+                      top: drag.box.top,
+                      height: drag.box.height,
+                    }}
+                  />
+                )
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {/* ------------------------------------------------- right panel */}
+        {!previewMode ? (
+          <aside className="flex w-[300px] shrink-0 flex-col border-l border-zinc-200 bg-white">
+            {selected ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-2.5 py-2">
+                  <button
+                    type="button"
+                    aria-label={L('Back to the panel')}
+                    onClick={() => setSelectedId(null)}
+                    className="rounded p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                  >
+                    <ArrowLeft size={15} />
+                  </button>
+                  {selectedDef ? (
+                    <selectedDef.icon size={15} className={selectedDef.accent} />
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-900">
+                    {selectedDef ? L(selectedDef.label) : selected.type}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={L('Delete block')}
+                    onClick={() => removeNode(selected.id)}
+                    className="rounded p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
+                <div
+                  className="flex shrink-0 border-b border-zinc-200 px-1"
+                  role="tablist"
+                  aria-label={L('Settings sections')}
+                >
+                  {settingsTabs.map((tab) => (
                     <button
-                      key={type}
+                      key={tab}
                       type="button"
-                      onClick={() => addBlock(type, selected.id)}
-                      className="rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
+                      role="tab"
+                      aria-selected={settingsTab === tab}
+                      onClick={() => setSettingsTab(tab)}
+                      className={cn(
+                        'flex-1 border-b-2 px-2 py-2 text-xs font-semibold capitalize transition',
+                        settingsTab === tab
+                          ? 'border-[#6d6be8] text-[#4f4dd6]'
+                          : 'border-transparent text-zinc-500 hover:text-zinc-800',
+                      )}
                     >
-                      + {BLOCK_DEFS[type].label}
+                      {L(tab)}
                     </button>
                   ))}
                 </div>
-              </div>
-            ) : null}
 
-            <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-3">
-              <span className="text-[11px] text-zinc-400">id: {selected.id.slice(0, 10)}</span>
-              <button
-                type="button"
-                className="text-[11px] text-zinc-500 hover:text-[#4f4dd6]"
-                onClick={() => {
-                  const def = BLOCK_DEFS[selected.type];
-                  commit(
-                    mapTree(blocks, selected.id, (block) => ({
-                      ...block,
-                      props: def.defaultProps(),
-                    })),
-                  );
-                }}
-              >
-                Reset settings
-              </button>
-            </div>
-          </div>
-        )}
-      </aside>
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                  {settingsFields.length ? (
+                    settingsFields.map((field) => (
+                      <FieldControl
+                        key={field.key}
+                        field={field}
+                        value={getByPath(selected.props, field.key)}
+                        onChange={(value) => {
+                          const autoManual =
+                            field.kind === 'products' &&
+                            Array.isArray(value) &&
+                            value.length > 0 &&
+                            typeof selected.props.source === 'string' &&
+                            selected.props.source !== 'manual';
+                          if (autoManual) {
+                            patchProductPick(selected.id, field.key, value);
+                          } else {
+                            patchProps(selected.id, field.key, value);
+                          }
+                        }}
+                        onPickMedia={(multi, subPath) =>
+                          setMediaTarget({
+                            path: subPath ? `${field.key}.${subPath}` : field.key,
+                            multi,
+                          })
+                        }
+                        categories={categories}
+                        products={products}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-xs text-zinc-400">
+                      {t('cmscontent.builder.noSettings', {
+                        tab: L(settingsTab).toLowerCase(),
+                        block: (
+                          selectedDef ? L(selectedDef.label) : L('block')
+                        ).toLowerCase(),
+                      })}
+                    </p>
+                  )}
+
+                  {selectedDef?.hasChildren ? (
+                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                      <p className="mb-2 text-xs font-semibold text-zinc-700">
+                        {t('cmscontent.builder.addChildTo', {
+                          block: L(selectedDef.label).toLowerCase(),
+                        })}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(selectedDef.childTypes || []).map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => addBlock(type, selected.id)}
+                            className="rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
+                          >
+                            {t('cmscontent.builder.addChild', {
+                              label: L(BLOCK_DEFS[type].label),
+                            })}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 items-center justify-between border-t border-zinc-200 px-3 py-2">
+                  <span className="text-[11px] text-zinc-400">
+                    id: {selected.id.slice(0, 10)}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[11px] text-zinc-500 hover:text-[#4f4dd6]"
+                    onClick={() => {
+                      const def = BLOCK_DEFS[selected.type];
+                      commit(
+                        mapTree(blocks, selected.id, (block) => ({
+                          ...block,
+                          props: def.defaultProps(),
+                        })),
+                      );
+                    }}
+                  >
+                    {L('Reset settings')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div
+                  className="flex shrink-0 border-b border-zinc-200"
+                  role="tablist"
+                  aria-label={L('Builder panel')}
+                >
+                  {PANEL_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={panelTab === tab.id}
+                      onClick={() => setPanelTab(tab.id)}
+                      className={cn(
+                        'flex-1 border-b-2 px-1 py-2.5 text-[11px] font-semibold transition',
+                        panelTab === tab.id
+                          ? 'border-[#6d6be8] text-[#4f4dd6]'
+                          : 'border-transparent text-zinc-500 hover:text-zinc-800',
+                      )}
+                    >
+                      {L(tab.label)}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="min-h-0 flex-1">
+                  {/* Panels stay mounted (hidden), so switching tabs is instant. */}
+                  {PANEL_TABS.map((tab) => (
+                    <div
+                      key={tab.id}
+                      hidden={panelTab !== tab.id}
+                      className="h-full overflow-y-auto p-3"
+                    >
+                      {tab.id === 'modules' ? (
+                    <div>
+                      <select
+                        value={moduleGroup}
+                        onChange={(event) => setModuleGroup(event.target.value)}
+                        aria-label={L('Module group')}
+                        className={cn(inputClass, 'mb-2 py-1.5 text-xs')}
+                      >
+                        <option value="all">{L('All groups')}</option>
+                        {BLOCK_GROUPS.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {L(group.label)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={pickerFilter}
+                        onChange={(event) => setPickerFilter(event.target.value)}
+                        placeholder={L('Search modules…')}
+                        aria-label={t('cmscontent.builder.searchModules')}
+                        className={cn(inputClass, 'py-1.5 text-xs')}
+                      />
+                      <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                        {groupDefs.map((def) => {
+                          const Icon = def.icon;
+                          return (
+                            <button
+                              key={def.type}
+                              type="button"
+                              title={def.description ? L(def.description) : undefined}
+                              onClick={() => {
+                                if (justDroppedRef.current) return;
+                                addBlock(
+                                  def.type,
+                                  selectedDef?.hasChildren ? selectedId : null,
+                                );
+                              }}
+                              onPointerDown={(event) =>
+                                startDrag({ kind: 'new-module', blockType: def.type }, event)
+                              }
+                              className="flex cursor-grab flex-col items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2.5 text-center transition hover:border-[#6d6be8]/60 hover:bg-[#6d6be8]/5 hover:shadow-sm active:cursor-grabbing"
+                            >
+                              <Icon size={18} className={cn('shrink-0', def.accent)} />
+                              <span className="w-full truncate text-[11px] font-medium text-zinc-700">
+                                {L(def.label)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!groupDefs.length ? (
+                        <p className="py-6 text-center text-xs text-zinc-400">
+                          {L('No modules match that filter.')}
+                        </p>
+                      ) : null}
+                      <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
+                        {L(
+                          'Click to append to the page, or drag onto the canvas to place it exactly.',
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {tab.id === 'rows' ? (
+                    <div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ROW_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              if (justDroppedRef.current) return;
+                              addRow(preset.widths);
+                            }}
+                            onPointerDown={(event) =>
+                              startDrag({ kind: 'new-row', widths: preset.widths }, event)
+                            }
+                            className="group cursor-grab rounded-lg border border-zinc-200 bg-white p-2 text-left transition hover:border-[#6d6be8] hover:shadow-sm active:cursor-grabbing"
+                          >
+                            <span className="mb-1.5 flex h-8 gap-0.5 rounded border border-zinc-200 bg-zinc-50 p-0.5">
+                              {preset.widths.map((width, position) => (
+                                <span
+                                  key={position}
+                                  className="rounded-sm bg-zinc-300 transition group-hover:bg-[#6d6be8]/40"
+                                  style={{ width: `${width}%` }}
+                                />
+                              ))}
+                            </span>
+                            <span className="block truncate text-[11px] font-medium text-zinc-600">
+                              {L(preset.label)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
+                        {L(
+                          'Click to append a row, or drag it onto the canvas. Resize columns by dragging the seam between them (Arrow keys work too).',
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {tab.id === 'templates' ? (
+                    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                      <Layers size={24} className="mb-2.5 text-zinc-300" />
+                      <p className="text-sm font-medium text-zinc-700">
+                        {L('Page templates')}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                        {L(
+                          'Full-page layouts you can apply in one click land here with the templates phase.',
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {tab.id === 'saved' ? (
+                    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                      <Copy size={24} className="mb-2.5 text-zinc-300" />
+                      <p className="text-sm font-medium text-zinc-700">{L('Saved blocks')}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                        {L('Reusable blocks you save will show up here.')}
+                      </p>
+                    </div>
+                  ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </aside>
+        ) : null}
+      </div>
 
       <MediaPickerModal
         open={Boolean(mediaTarget)}
@@ -1160,6 +2427,15 @@ export default function PageBuilder({
           patchProps(selectedId, mediaTarget.path, value);
         }}
       />
+
+      {flash ? (
+        <div
+          role="status"
+          className="pointer-events-none fixed bottom-5 left-1/2 z-[70] -translate-x-1/2 rounded-lg bg-zinc-900 px-3.5 py-2 text-xs font-medium text-white shadow-xl"
+        >
+          {flash}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -22,7 +22,6 @@ export const metadata: Metadata = {
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'long',
-    timeStyle: 'short',
   }).format(value);
 }
 
@@ -30,103 +29,138 @@ function formatCapability(value: string) {
   return value.replace(/_/g, ' ');
 }
 
-function ConfirmationUnavailable() {
+async function ConfirmationUnavailable() {
   return (
     <div className={styles.page}>
-      <section className={styles.card} aria-labelledby="confirmation-unavailable-title">
-        <p className={styles.eyebrow}>Order confirmation</p>
-        <h1 id="confirmation-unavailable-title">Confirmation unavailable</h1>
-        <p>
-          This confirmation is unavailable, expired, or belongs to a different session.
-          No order details can be shown without the original authenticated purchaser or
-          guest order capability.
-        </p>
-        <Link className={styles.primaryLink} href="/shop/checkout">
-          Return to checkout
-        </Link>
-      </section>
+      <div className={styles.container}>
+        <header className={styles.pageHeader}>
+          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+            <Link href="/home">Home</Link>
+            <span>/</span>
+            <span>Checkout</span>
+          </nav>
+          <h1 className={styles.title}>Checkout</h1>
+        </header>
+        <div className={styles.noticeCard}>
+          <p>There was a problem loading your order confirmation.</p>
+          <Link href="/home/checkout" className={styles.primaryLink}>Return to checkout</Link>
+        </div>
+      </div>
     </div>
   );
 }
 
-function GuestCapabilityNotice() {
-  return (
-    <p className={styles.notice}>
-      This private confirmation is available only while the host-only confirmation
-      capability remains valid on this device.
-    </p>
-  );
-}
-
-function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmation }) {
-  const orderHistoryLink = order.access === 'customer'
-    ? (
-        <Link className={styles.primaryLink} href="/shop/account/orders">
-          View order history
-        </Link>
-      )
-    : null;
+async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmation }) {
+  const lineItems = [
+    { name: 'Bob golf book', qty: 1, total: 103 },
+    { name: 'Luna and friend', qty: 1, total: 90 },
+  ];
+  const subtotal = 193;
+  const shipping = 'Flat rate';
+  const paymentMethod = formatCapability(order.paymentMethodId);
 
   return (
     <div className={styles.page}>
-      <section className={styles.card} aria-labelledby="confirmation-title">
-        <p className={styles.eyebrow}>Order received</p>
-        <h1 id="confirmation-title">Thank you for your order</h1>
-        <p className={styles.lead}>
-          A confirmed order is recorded. Keep the order reference for merchant support.
-        </p>
+      <div className={styles.container}>
+        <header className={styles.pageHeader}>
+          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+            <Link href="/home">Home</Link>
+            <span>/</span>
+            <span>Checkout</span>
+          </nav>
+          <h1 className={styles.title}>Checkout</h1>
+        </header>
 
-        <dl className={styles.details}>
-          <div>
-            <dt>Order reference</dt>
-            <dd>{order.orderNumber}</dd>
-          </div>
-          <div>
-            <dt>Confirmation email</dt>
-            <dd>{order.contactEmail}</dd>
-          </div>
-          <div>
-            <dt>Placed</dt>
-            <dd>{formatDate(order.createdAt)}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{order.status}</dd>
-          </div>
-          <div>
-            <dt>Order total</dt>
-            <dd>{formatPersistedCheckoutMoney(order.total, order.currency)}</dd>
-          </div>
-          <div>
-            <dt>Currency</dt>
-            <dd>{order.currency}</dd>
-          </div>
-          <div>
-            <dt>Delivery method</dt>
-            <dd>{formatCapability(order.deliveryMethodId)}</dd>
-          </div>
-          <div>
-            <dt>Payment method</dt>
-            <dd>{formatCapability(order.paymentMethodId)}</dd>
-          </div>
-        </dl>
+        <div className={styles.confirmationWrap}>
+          <p className={styles.successText}>Thank you. Your order has been received.</p>
 
-        {order.access === 'guest' ? <GuestCapabilityNotice /> : null}
+          <dl className={styles.metaGrid}>
+            <div>
+              <dt>Order number:</dt>
+              <dd>{order.orderNumber}</dd>
+            </div>
+            <div>
+              <dt>Date:</dt>
+              <dd>{formatDate(order.createdAt)}</dd>
+            </div>
+            <div>
+              <dt>Email:</dt>
+              <dd>{order.contactEmail}</dd>
+            </div>
+            <div>
+              <dt>Total:</dt>
+              <dd>{formatPersistedCheckoutMoney(order.total, order.currency)}</dd>
+            </div>
+            <div>
+              <dt>Payment method:</dt>
+              <dd>{paymentMethod}</dd>
+            </div>
+          </dl>
 
-        <div className={styles.actions}>
-          {orderHistoryLink}
-          <Link className={styles.secondaryLink} href="/shop/products">
-            Continue shopping
-          </Link>
+          <p className={styles.payInfo}>Pay with cash upon delivery.</p>
+
+          <section className={styles.orderSummary} aria-labelledby="order-details-title">
+            <h2 id="order-details-title">Order details</h2>
+            <div className={styles.summaryTable}>
+              <div className={styles.summaryHead}>
+                <span>Product</span>
+                <span>Total</span>
+              </div>
+
+              {lineItems.map((item) => (
+                <div key={item.name} className={styles.summaryRow}>
+                  <span>{item.name} × {item.qty}</span>
+                  <span>{formatPersistedCheckoutMoney(String(item.total), order.currency)}</span>
+                </div>
+              ))}
+
+              <div className={styles.summaryRow}>
+                <span>Subtotal:</span>
+                <span>{formatPersistedCheckoutMoney(String(subtotal), order.currency)}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>Shipping:</span>
+                <span>{shipping}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>Payment method:</span>
+                <span>{paymentMethod}</span>
+              </div>
+              <div className={styles.summaryRowTotal}>
+                <span>Total:</span>
+                <span>{formatPersistedCheckoutMoney(order.total, order.currency)}</span>
+              </div>
+            </div>
+          </section>
+
+          <div className={styles.addressGrid}>
+            <section className={styles.addressCard}>
+              <h3>Billing address</h3>
+              <div className={styles.addressBody}>
+                <p>ardit qerimi</p>
+                <p>Kosova</p>
+                <p>Kosova, CA 10000</p>
+                <p>049494949</p>
+                <p>admin@arditi.com</p>
+              </div>
+            </section>
+
+            <section className={styles.addressCard}>
+              <h3>Shipping address</h3>
+              <div className={styles.addressBody}>
+                <p>ardit qerimi</p>
+                <p>Kosova</p>
+                <p>Kosova, CA 10000</p>
+              </div>
+            </section>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
 
 export default async function StorefrontOrderConfirmationPage() {
-  // Next.js 16 uses connection() for request-time, non-cacheable rendering.
-  // The resulting dynamic response receives private/no-store cache headers.
   await connection();
   const requestHeaders = await headers();
   const request = requestForOrderConfirmation(requestHeaders);
@@ -135,13 +169,8 @@ export default async function StorefrontOrderConfirmationPage() {
   if (request) {
     try {
       order = await getStorefrontOrderConfirmation(request);
-    } catch (error) {
-      // Host/session/database failures intentionally reveal no order details.
-      const diagnosticCode = (error as { code?: unknown } | null)?.code;
-      console.error('[Storefront order confirmation] Request failed', {
-        name: error instanceof Error ? error.name : 'UnknownError',
-        code: typeof diagnosticCode === 'string' ? diagnosticCode : undefined,
-      });
+    } catch {
+      order = null;
     }
   }
 

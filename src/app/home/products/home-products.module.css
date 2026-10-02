@@ -1,8 +1,28 @@
+/* Catalog design tokens at the root: the shared product card
+   (src/app/home/components/ProductCard.tsx) now renders on the homepage
+   sections too, where `.catalogPage` is not an ancestor — without these the
+   card's gold price / danger colors would fall back to the inherited ink.
+   `.catalogPage` below re-states them for its own subtree (same values). */
+:root {
+  --catalog-ink: #1a1611;
+  --catalog-muted: #6b6355;
+  /* Reference image price color — #7E6F38 (gold/olive) */
+  --catalog-accent: #7e6f38;
+  --catalog-accent-dark: #7e6f38;
+  --catalog-cream: #f2ecdf;
+  --catalog-paper: #fffefb;
+  --catalog-surface: #f8f5ee;
+  --catalog-line: #ded5c4;
+  --catalog-danger: #9b3d32;
+  --catalog-success: #3d6b4a;
+}
+
 .catalogPage {
   --catalog-ink: #1a1611;
   --catalog-muted: #6b6355;
-  --catalog-accent: #8a6f2b;
-  --catalog-accent-dark: #69521e;
+  /* Reference image price color — #7E6F38 (gold/olive) */
+  --catalog-accent: #7e6f38;
+  --catalog-accent-dark: #7e6f38;
   --catalog-cream: #f2ecdf;
   --catalog-paper: #fffefb;
   --catalog-surface: #f8f5ee;
@@ -10,8 +30,9 @@
   --catalog-danger: #9b3d32;
   --catalog-success: #3d6b4a;
   min-width: 0;
-  background: var(--catalog-paper);
-  color: var(--catalog-ink);
+  /* buildThemeCss injects background/color at (0,2,1); re-assert */
+  background: #fffefb !important;
+  color: #1a1611 !important;
 }
 
 .catalogPage :where(a, button, input, select):focus-visible {
@@ -122,10 +143,8 @@
 
 .catalogBody {
   padding-block: 2.5rem 5.5rem;
-  background:
-    linear-gradient(rgba(255, 254, 251, 0.96), rgba(255, 254, 251, 0.96)),
-    radial-gradient(circle at 1px 1px, rgba(138, 111, 43, 0.13) 1px, transparent 0);
-  background-size: auto, 22px 22px;
+  /* buildThemeCss can override background; re-assert with !important */
+  background: #fffefb !important;
 }
 
 .catalogLayout {
@@ -649,7 +668,7 @@
 }
 
 .viewButton[data-active='true'] {
-  background: var(--catalog-ink);
+  background: #7e6f38;
   color: #fff;
 }
 
@@ -747,6 +766,13 @@
   gap: clamp(1.25rem, 2.2vw, 2rem) clamp(0.9rem, 1.7vw, 1.5rem);
 }
 
+/* Four across on wide screens — three left each card uncomfortably wide. */
+@media (min-width: 1500px) {
+  .resultsGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .resultsList {
   display: flex;
   flex-direction: column;
@@ -759,45 +785,63 @@
   color: var(--catalog-ink);
 }
 
+
 .productCard {
   position: relative;
   display: flex;
   height: 100%;
   flex-direction: column;
-  background: transparent;
+  background: #ffffff;
+  border: 1px solid #e8e2d8;
+  transition: box-shadow 180ms ease, transform 180ms ease;
 }
 
 .productCard:hover {
   transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(26, 22, 17, 0.10);
 }
 
+/* SALE badge — shown when the product has a discount */
+.saleBadge {
+  position: absolute;
+  z-index: 3;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.25rem 0.55rem;
+  background: #cc3333;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+
+/* No panel and no outline: the artwork supplies its own background. */
 .mediaWrap,
 .listMedia {
   position: relative;
   overflow: hidden;
-  border: 1px solid #e4dccd;
-  background: var(--catalog-cream);
+  background: transparent;
 }
 
+/* No fixed ratio — the image's own proportions decide the height. */
 .mediaWrap {
-  aspect-ratio: 4 / 5;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 .mediaLink {
-  position: absolute;
-  inset: 0;
   display: block;
+  line-height: 0;
 }
 
 .productImage {
   position: relative;
   width: 100%;
-  height: 100%;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.95), rgba(242, 236, 223, 0.78) 68%),
-    var(--catalog-cream);
+  background: transparent;
 }
 
 .productImage::after {
@@ -817,9 +861,11 @@
   transform: translateX(70%);
 }
 
+/* Full bleed at the artwork's own ratio — no inset padding, nothing behind it. */
 .productImageImg {
-  object-fit: contain;
-  padding: clamp(1rem, 8%, 2.6rem);
+  display: block;
+  width: 100%;
+  height: auto;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 240ms ease, transform 420ms ease;
@@ -898,6 +944,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  padding: 0.85rem 0.85rem 1rem;
 }
 
 .productCategory,
@@ -932,12 +979,25 @@
 }
 
 .productTitle {
-  font-size: clamp(1rem, 1.4vw, 1.15rem);
-  line-height: 1.32;
+  font-size: clamp(1.05rem, 1.35vw, 1.25rem);
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .productTitle:hover,
 .listTitle:hover {
+  color: var(--catalog-accent-dark);
+}
+
+/* buildThemeCss injects `.shopWrapper h1..h6 { color: var(--cms-text) }` at
+   specificity (0,2,1); under a dark theme it overrides the catalog's dark
+   titles on the light page, so re-assert them (and the hovers) above it. */
+:global(.shopWrapper.shopWrapper) .catalogPage :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--catalog-ink);
+}
+
+:global(.shopWrapper.shopWrapper) .catalogPage
+  :is(.productTitle, .listTitle):hover {
   color: var(--catalog-accent-dark);
 }
 
@@ -950,13 +1010,15 @@
 }
 
 .priceRow {
-  margin-top: 0.65rem;
+  margin-top: 0.3rem;
 }
 
 .productPrice {
-  color: var(--catalog-accent-dark);
-  font-size: 1.05rem;
-  font-weight: 800;
+  /* buildThemeCss injects colour overrides at (0,2,1); re-assert with !important */
+  color: #7e6f38 !important;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
@@ -997,24 +1059,28 @@
   line-height: 1.2;
 }
 
+/* The reference button is inset and centred, not edge-to-edge. */
 .addToCartSlot {
+  display: flex;
   width: 100%;
+  justify-content: center;
   margin-top: auto;
-  padding-top: 1rem;
+  padding-top: 0.9rem;
 }
 
 .addToCartSlot button {
-  width: 100%;
-  min-height: 2.8rem;
+  width: auto;
+  min-width: 58%;
+  min-height: 2.9rem;
   margin: 0;
-  padding: 0.72rem 1rem;
-  border: 1px solid var(--catalog-ink);
+  padding: 0.85rem 2rem;
+  border: 1px solid #7e6f38;
   border-radius: 2px;
-  background: var(--catalog-ink);
+  background: #7e6f38;
   color: #fff;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   opacity: 1;
   text-transform: uppercase;
   visibility: visible;
@@ -1023,8 +1089,8 @@
 }
 
 .addToCartSlot button:hover {
-  border-color: var(--catalog-accent-dark);
-  background: var(--catalog-accent-dark);
+  border-color: #5c5129;
+  background: #5c5129;
   transform: translateY(-1px);
 }
 

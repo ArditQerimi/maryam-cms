@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Newsletter capture used by the `newsletter` widget. There is no
@@ -11,6 +12,7 @@ import { useState } from 'react';
 export default function NewsletterForm({ inputId }: { inputId: string }) {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const { t } = useLocale();
 
   return (
     <form
@@ -21,7 +23,7 @@ export default function NewsletterForm({ inputId }: { inputId: string }) {
       }}
     >
       <label className="shop-widget-field" htmlFor={inputId}>
-        <span className="shop-widget-label">Email address</span>
+        <span className="shop-widget-label">{t('home.widget.newsletter.label')}</span>
         <input
           id={inputId}
           type="email"
@@ -34,12 +36,12 @@ export default function NewsletterForm({ inputId }: { inputId: string }) {
         />
       </label>
       <button type="submit" className="button is-outline shop-widget-button">
-        Subscribe
+        {t('home.widget.newsletter.submit')}
       </button>
       <p className="shop-widget-note" role="status">
         {submitted
-          ? 'Thank you! Our newsletter list opens soon — watch this space.'
-          : 'Newsletter signup is coming soon — leave your address and check back with us.'}
+          ? t('home.widget.newsletter.thanks')
+          : t('home.widget.newsletter.pending')}
       </p>
     </form>
   );

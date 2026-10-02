@@ -6,6 +6,7 @@ import { Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Field, Input } from '@/components/admin/ui';
 import { saveTracking, sendTrackingEmail } from '@/app/cms/actions/orders';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type TrackingValues = {
   trackingNumber: string;
@@ -27,6 +28,7 @@ export default function TrackingCard({
   initial: TrackingValues | null;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -36,13 +38,13 @@ export default function TrackingCard({
     try {
       const result = await saveTracking(orderId, formData);
       if (result.ok) {
-        toast.success('Tracking details saved.');
+        toast.success(t('cmsshared.tracking.success'));
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not save the tracking details.');
+        toast.error(result.error || t('cmsshared.tracking.error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the tracking details.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.tracking.error'));
     } finally {
       setSaving(false);
     }
@@ -54,18 +56,18 @@ export default function TrackingCard({
     try {
       const result = await sendTrackingEmail(orderId);
       if (result.ok) {
-        toast.success('Tracking email sent to the customer.');
+        toast.success(t('cmsshared.tracking.sent'));
         router.refresh();
       } else if (result.notConfigured) {
-        toast.error(result.error || 'SMTP is not configured.', {
-          description: 'Open Settings → Email (/cms/settings/email) and save your outbound email settings.',
+        toast.error(result.error || t('cmsshared.tracking.smtp_error'), {
+          description: t('cmsshared.tracking.smtp_hint'),
           duration: 8000,
         });
       } else {
-        toast.error(result.error || 'Could not send the tracking email.');
+        toast.error(result.error || t('cmsshared.tracking.send_error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not send the tracking email.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.tracking.send_error'));
     } finally {
       setSending(false);
     }
@@ -73,7 +75,7 @@ export default function TrackingCard({
 
   return (
     <form action={onSave} className="space-y-4">
-      <Field label="Tracking number" htmlFor={`trackingNumber-${orderId}`}>
+      <Field label={t('cmsshared.tracking.number')} htmlFor={`trackingNumber-${orderId}`}>
         <Input
           id={`trackingNumber-${orderId}`}
           name="trackingNumber"
@@ -81,7 +83,7 @@ export default function TrackingCard({
           placeholder="e.g. 1Z999AA10123456784"
         />
       </Field>
-      <Field label="Carrier" htmlFor={`carrier-${orderId}`}>
+      <Field label={t('cmsshared.tracking.carrier')} htmlFor={`carrier-${orderId}`}>
         <Input
           id={`carrier-${orderId}`}
           name="carrier"
@@ -90,9 +92,9 @@ export default function TrackingCard({
         />
       </Field>
       <Field
-        label="Tracking URL"
+        label={t('cmsshared.tracking.url')}
         htmlFor={`trackingUrl-${orderId}`}
-        hint="Optional link the customer can follow to track the parcel."
+        hint={t('cmsshared.tracking.url_hint')}
       >
         <Input
           id={`trackingUrl-${orderId}`}
@@ -106,7 +108,7 @@ export default function TrackingCard({
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" variant="primary" size="md" disabled={saving}>
           {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-          Save tracking
+          {t('cmsshared.tracking.save')}
         </Button>
         <Button
           type="button"
@@ -116,14 +118,16 @@ export default function TrackingCard({
           onClick={onSend}
         >
           {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          Email customer
+          {t('cmsshared.tracking.email')}
         </Button>
       </div>
 
       <p className="text-xs text-zinc-500">
         {initial?.sentAt
-          ? `Last tracking email sent ${new Date(initial.sentAt).toLocaleString('en-GB')}.`
-          : 'No tracking email has been sent yet.'}
+          ? t('cmsshared.tracking.last_sent', {
+              date: new Date(initial.sentAt).toLocaleString('en-GB'),
+            })
+          : t('cmsshared.tracking.never_sent')}
       </p>
     </form>
   );

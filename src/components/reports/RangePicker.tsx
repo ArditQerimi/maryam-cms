@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
 import { Button, Input } from '@/components/admin/ui';
 import { saveReportRange } from '@/app/cms/actions/reports';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 type RangePickerProps = {
   basePath: string;
@@ -12,11 +14,11 @@ type RangePickerProps = {
   label: string;
 };
 
-const PRESETS: Array<{ preset: string; label: string }> = [
-  { preset: '7d', label: 'Last 7 days' },
-  { preset: '30d', label: 'Last 30 days' },
-  { preset: 'month', label: 'This month' },
-  { preset: 'custom', label: 'Custom' },
+const PRESETS: Array<{ preset: string; labelKey: keyof Dictionary }> = [
+  { preset: '7d', labelKey: 'cmsshared.reports.preset_7d' },
+  { preset: '30d', labelKey: 'cmsshared.reports.preset_30d' },
+  { preset: 'month', labelKey: 'cmsshared.reports.preset_month' },
+  { preset: 'custom', labelKey: 'cmsshared.reports.preset_custom' },
 ];
 
 /** Preset + custom date-range picker; persists the choice via saveReportRange. */
@@ -25,6 +27,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
   const [customOpen, setCustomOpen] = useState(current.preset === 'custom');
   const [from, setFrom] = useState(current.from);
   const [to, setTo] = useState(current.to);
+  const { t } = useLocale();
 
   const navigate = (preset: string, rangeFrom?: string, rangeTo?: string) => {
     void saveReportRange({ preset, from: rangeFrom, to: rangeTo }).catch(() => undefined);
@@ -52,7 +55,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
           <CalendarDays size={14} />
-          Period
+          {t('cmsshared.reports.period')}
         </span>
         {PRESETS.map((entry) => (
           <Button
@@ -68,7 +71,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
             size="sm"
             variant={isActive(entry.preset) ? 'primary' : 'outline'}
           >
-            {entry.label}
+            {t(entry.labelKey)}
           </Button>
         ))}
         <span className="ml-auto rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-600">
@@ -80,7 +83,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-600" htmlFor="report-from">
-              From
+              {t('cmsshared.reports.from')}
             </label>
             <Input
               className="h-9 w-40 py-1.5 text-sm"
@@ -92,7 +95,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-600" htmlFor="report-to">
-              To
+              {t('cmsshared.reports.to')}
             </label>
             <Input
               className="h-9 w-40 py-1.5 text-sm"
@@ -103,7 +106,7 @@ export default function RangePicker({ basePath, current, label }: RangePickerPro
             />
           </div>
           <Button disabled={!from || !to} onClick={applyCustom} size="sm">
-            Apply range
+            {t('cmsshared.reports.apply_range')}
           </Button>
         </div>
       ) : null}

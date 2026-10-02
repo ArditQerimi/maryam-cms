@@ -4,7 +4,7 @@ import type {
   CheckoutConfirmation,
   CheckoutFieldErrors,
   CheckoutRequest,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import * as schema from '@/db/schema-tenant';
 import type { StorefrontContext } from './context';
 import {
@@ -442,8 +442,14 @@ async function decrementLockedStock(
   }
 }
 
+/**
+ * Stock decrements arrive as untyped parameters (`$1 - $2`), which PostgreSQL
+ * rejects with "operator is not unique: unknown - unknown" (42725) because it
+ * cannot pick a `-` overload before the parameter types are known. The explicit
+ * `integer` casts let the parser resolve `int4 - int4` immediately.
+ */
 function sqlSubtract(current: number, quantity: number) {
-  return sql`${current} - ${quantity}`;
+  return sql`${current}::integer - ${quantity}::integer`;
 }
 
 async function createSaleAndItems(input: {

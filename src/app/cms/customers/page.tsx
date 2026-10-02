@@ -5,6 +5,7 @@ import { getContextDb } from '@/lib/tenant';
 import { customers, sales } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate, formatMoney } from '@/lib/cms/format';
+import { getT, type Dictionary } from '@/lib/i18n/server';
 import {
   Button,
   EmptyState,
@@ -24,6 +25,15 @@ const PAGE_SIZE = 20;
 /** Narrowed to the `status` pgEnum values before it reaches `eq()`. */
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Pending', 'Archived', 'Suspended'] as const;
 type CustomerStatusFilter = (typeof STATUS_OPTIONS)[number];
+
+/** Localized label per `status` filter value (the `value` prop stays the enum). */
+const STATUS_LABEL_KEYS: Record<CustomerStatusFilter, keyof Dictionary> = {
+  Active: 'cmscustomers.status.active',
+  Inactive: 'cmscustomers.status.inactive',
+  Pending: 'cmscustomers.status.pending',
+  Archived: 'cmscustomers.status.archived',
+  Suspended: 'cmscustomers.status.suspended',
+};
 
 type SearchParams = {
   q?: string;
@@ -48,6 +58,7 @@ export default async function CustomersPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const params = await searchParams;
 
   const q = (params.q || '').trim().slice(0, 120);
@@ -102,10 +113,10 @@ export default async function CustomersPage({
   const stat = stats[0] ?? { total: 0, active: 0, disabled: 0, newThisMonth: 0 };
 
   const statCards = [
-    { label: 'Total customers', value: stat.total, href: '/cms/customers' },
-    { label: 'Active', value: stat.active, href: '/cms/customers?status=Active' },
-    { label: 'Disabled', value: stat.disabled, href: '/cms/customers?status=Suspended' },
-    { label: 'New this month', value: stat.newThisMonth, href: '/cms/customers' },
+    { label: t('cmscustomers.customers.stat.total'), value: stat.total, href: '/cms/customers' },
+    { label: t('cmscustomers.status.active'), value: stat.active, href: '/cms/customers?status=Active' },
+    { label: t('cmscustomers.customers.stat.disabled'), value: stat.disabled, href: '/cms/customers?status=Suspended' },
+    { label: t('cmscustomers.customers.stat.new'), value: stat.newThisMonth, href: '/cms/customers' },
   ];
 
   const paginationParams: Record<string, string | undefined> = {};
@@ -117,8 +128,8 @@ export default async function CustomersPage({
   return (
     <div>
       <PageHeader
-        title="Customers"
-        description="Registered storefront accounts and CRM contacts."
+        title={t('cmscustomers.customers.title')}
+        description={t('cmscustomers.customers.description')}
       />
 
       {/* Stat strip */}
@@ -147,7 +158,7 @@ export default async function CustomersPage({
             htmlFor="q"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Search
+            {t('cmscustomers.search.label')}
           </label>
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -155,7 +166,7 @@ export default async function CustomersPage({
               id="q"
               name="q"
               defaultValue={q}
-              placeholder="Name or email…"
+              placeholder={t('cmscustomers.search.placeholder')}
               className="pl-9"
             />
           </div>
@@ -165,37 +176,39 @@ export default async function CustomersPage({
             htmlFor="status"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Status
+            {t('cmscustomers.status.label')}
           </label>
           <Select id="status" name="status" defaultValue={status}>
-            <option value="">All statuses</option>
+            <option value="">{t('cmscustomers.status.all')}</option>
             {STATUS_OPTIONS.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {t(STATUS_LABEL_KEYS[option])}
               </option>
             ))}
           </Select>
         </div>
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="md">
-            Filter
+            {t('cmscustomers.filter')}
           </Button>
           <Link
             href="/cms/customers"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Clear
+            {t('cmscustomers.clear')}
           </Link>
         </div>
       </form>
 
       {rows.length === 0 ? (
         <EmptyState
-          title={hasFilters ? 'No customers match these filters' : 'No customers yet'}
-          description={
+          title={
             hasFilters
-              ? 'Try a different search term or clear the filters.'
-              : 'Storefront accounts and POS customers will appear here.'
+              ? t('cmscustomers.customers.no_match.title')
+              : t('cmscustomers.customers.empty.title')
+          }
+          description={
+            hasFilters ? t('cmscustomers.no_match.desc') : t('cmscustomers.customers.empty.desc')
           }
           icon={<Users size={28} />}
         />
@@ -203,13 +216,13 @@ export default async function CustomersPage({
         <Table>
           <thead>
             <tr>
-              <Th>Customer</Th>
-              <Th>Email</Th>
-              <Th className="text-right">Orders</Th>
-              <Th className="text-right">Total spent</Th>
-              <Th>Registered</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
+              <Th>{t('cmscustomers.customers.th.customer')}</Th>
+              <Th>{t('cmscustomers.th.email')}</Th>
+              <Th className="text-right">{t('cmscustomers.th.orders')}</Th>
+              <Th className="text-right">{t('cmscustomers.customers.th.total_spent')}</Th>
+              <Th>{t('cmscustomers.registered')}</Th>
+              <Th>{t('cmscustomers.status.label')}</Th>
+              <Th className="text-right">{t('cmscustomers.customers.th.actions')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -243,7 +256,7 @@ export default async function CustomersPage({
                       href={`/cms/customers/${customer.id}`}
                       className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      View profile
+                      {t('cmscustomers.customers.view_profile')}
                     </Link>
                   </div>
                 </Td>

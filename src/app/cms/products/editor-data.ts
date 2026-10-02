@@ -135,6 +135,7 @@ export async function getProductEditorData(id: number): Promise<{
     salePrice: config.salePrice,
     saleFrom: config.saleFrom,
     saleTo: config.saleTo,
+    rating: config.rating,
     sku: product.sku ?? '',
     barcode: product.barcode ?? '',
     stockQuantity: String(product.stockQuantity ?? 0),

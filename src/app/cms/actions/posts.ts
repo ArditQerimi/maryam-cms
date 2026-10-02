@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, sql } from 'drizzle-orm';
+import { eq, ilike } from 'drizzle-orm';
 import { getContextDb } from '@/lib/tenant';
 import { blogComments, blogPostTags, blogPosts, statusEnum } from '@/db/schema-tenant';
 import { requireCmsSession, type CmsSession } from '@/lib/cms/session';
@@ -173,17 +173,26 @@ export async function duplicatePost(id: number): Promise<PostActionResult> {
   const [source] = await db.select().from(blogPosts).where(eq(blogPosts.id, id)).limit(1);
   if (!source) return { ok: false, error: 'Post not found.' };
 
-  const [countRow] = await db
-    .select({ value: sql<number>`count(*)::int` })
+  // Find the smallest "<slug>-copy-<n>" that is not taken yet. Counting exact
+  // matches used to collide ("X-copy-1" already exists) on the second copy.
+  const base = `${source.slug}-copy`.slice(0, 240);
+  const copies = await db
+    .select({ slug: blogPosts.slug })
     .from(blogPosts)
-    .where(eq(blogPosts.slug, source.slug));
-  const slug = `${source.slug}-copy-${(countRow?.value ?? 0) + 1}`;
+    .where(ilike(blogPosts.slug, `${base}-%`));
+  const used = new Set(copies.map((row) => row.slug));
+  let suffix = 1;
+  let slug = `${base}-${suffix}`;
+  while (used.has(slug)) {
+    suffix += 1;
+    slug = `${base}-${suffix}`;
+  }
 
   const [row] = await db
     .insert(blogPosts)
     .values({
       categoryId: source.categoryId,
-      title: `${source.title} (copy)`,
+      title: `${source.title.slice(0, 240)} (copy)`,
       slug,
       excerpt: source.excerpt,
       content: source.content,

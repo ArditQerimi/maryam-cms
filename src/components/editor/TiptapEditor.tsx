@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import MediaPickerModal from '@/components/admin/MediaPickerModal';
 import { cn } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 type Props = {
   value: string;
@@ -73,12 +74,14 @@ function Divider() {
 export default function TiptapEditor({
   value,
   onChange,
-  placeholder = 'Start writing…',
+  placeholder,
   minHeight = 320,
   compact = false,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const { t } = useLocale();
+  const resolvedPlaceholder = placeholder ?? t('cmsshared.editor.placeholder');
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -87,7 +90,7 @@ export default function TiptapEditor({
         heading: { levels: compact ? [2, 3, 4] : [1, 2, 3, 4] },
         link: { openOnClick: false, autolink: true },
       }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: resolvedPlaceholder }),
       ImageExt.configure({ allowBase64: false }),
       Highlight.configure({ multicolor: false }),
       TextStyleKit,
@@ -117,7 +120,7 @@ export default function TiptapEditor({
   const setLink = useCallback(() => {
     if (!editor) return;
     const previous = editor.getAttributes('link').href as string | undefined;
-    const url = window.prompt('Link URL', previous || 'https://');
+    const url = window.prompt(t('cmsshared.editor.link_prompt'), previous || 'https://');
     if (url === null) return;
     if (url === '' || url === 'https://') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
@@ -125,7 +128,7 @@ export default function TiptapEditor({
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     setLinkUrl(url);
-  }, [editor]);
+  }, [editor, t]);
 
   if (!editor) {
     return (
@@ -143,16 +146,16 @@ export default function TiptapEditor({
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
       <div className="flex flex-wrap items-center gap-0.5 border-b border-zinc-100 bg-zinc-50/70 px-2 py-1.5">
-        <ToolButton title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <ToolButton title={t('cmsshared.editor.bold')} active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={15} />
         </ToolButton>
-        <ToolButton title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolButton title={t('cmsshared.editor.italic')} active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <Italic size={15} />
         </ToolButton>
-        <ToolButton title="Underline" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+        <ToolButton title={t('cmsshared.editor.underline')} active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
           <UnderlineIcon size={15} />
         </ToolButton>
-        <ToolButton title="Strikethrough" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
+        <ToolButton title={t('cmsshared.editor.strike')} active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
           <Strikethrough size={15} />
         </ToolButton>
 
@@ -162,7 +165,7 @@ export default function TiptapEditor({
           ([1, 2, 3, 4] as const).map((level) => (
             <ToolButton
               key={level}
-              title={`Heading ${level}`}
+              title={t('cmsshared.editor.heading', { level })}
               active={headingLevel === level}
               onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
             >
@@ -171,7 +174,7 @@ export default function TiptapEditor({
           ))}
 
         <ToolButton
-          title="Paragraph"
+          title={t('cmsshared.editor.paragraph')}
           active={editor.isActive('paragraph') && !headingLevel}
           onClick={() => editor.chain().focus().setParagraph().run()}
         >
@@ -180,28 +183,28 @@ export default function TiptapEditor({
 
         <Divider />
 
-        <ToolButton title="Bullet list" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <ToolButton title={t('cmsshared.editor.bullet_list')} active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
           <List size={15} />
         </ToolButton>
-        <ToolButton title="Numbered list" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        <ToolButton title={t('cmsshared.editor.numbered_list')} active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
           <ListOrdered size={15} />
         </ToolButton>
-        <ToolButton title="Quote" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        <ToolButton title={t('cmsshared.editor.quote')} active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
           <Quote size={15} />
         </ToolButton>
-        <ToolButton title="Divider" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+        <ToolButton title={t('cmsshared.editor.divider')} onClick={() => editor.chain().focus().setHorizontalRule().run()}>
           <Minus size={15} />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton title="Link" active={editor.isActive('link')} onClick={setLink}>
+        <ToolButton title={t('cmsshared.editor.link')} active={editor.isActive('link')} onClick={setLink}>
           <Link2 size={15} />
         </ToolButton>
-        <ToolButton title="Insert image" onClick={() => setPickerOpen(true)}>
+        <ToolButton title={t('cmsshared.editor.insert_image')} onClick={() => setPickerOpen(true)}>
           <ImageIcon size={15} />
         </ToolButton>
-        <ToolButton title="Inline code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
+        <ToolButton title={t('cmsshared.editor.inline_code')} active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
           <Code size={15} />
         </ToolButton>
 
@@ -209,7 +212,7 @@ export default function TiptapEditor({
 
         <label
           className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-1.5 text-zinc-600 transition hover:bg-zinc-100"
-          title="Text colour"
+          title={t('cmsshared.editor.text_colour')}
         >
           <span className="text-xs font-semibold">A</span>
           <input
@@ -218,21 +221,21 @@ export default function TiptapEditor({
             onChange={(event) => editor.chain().focus().setColor(event.target.value).run()}
           />
         </label>
-        <ToolButton title="Clear formatting" onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>
+        <ToolButton title={t('cmsshared.editor.clear_formatting')} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>
           <Eraser size={15} />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton title="Undo" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>
+        <ToolButton title={t('cmsshared.editor.undo')} disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>
           <Undo2 size={15} />
         </ToolButton>
-        <ToolButton title="Redo" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>
+        <ToolButton title={t('cmsshared.editor.redo')} disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>
           <Redo2 size={15} />
         </ToolButton>
 
         <span className="ml-auto pr-1 text-[11px] text-zinc-400">
-          {editor.state.doc.textContent.length} chars
+          {t('cmsshared.editor.chars', { count: editor.state.doc.textContent.length })}
         </span>
       </div>
 
@@ -250,7 +253,7 @@ export default function TiptapEditor({
 
       {linkUrl ? (
         <div className="border-t border-zinc-100 bg-zinc-50 px-3 py-1.5 text-[11px] text-zinc-500">
-          Link: <span className="text-[#4f4dd6]">{linkUrl}</span>
+          {t('cmsshared.editor.link_label')} <span className="text-[#4f4dd6]">{linkUrl}</span>
         </div>
       ) : null}
     </div>

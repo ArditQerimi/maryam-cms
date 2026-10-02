@@ -10,6 +10,7 @@ import {
   updateTaxRate,
   type TaxRateInput,
 } from '@/app/cms/actions/settings';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type TaxRateRow = {
   id: number;
@@ -78,6 +79,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
   const [addDraft, setAddDraft] = useState<DraftRow>(EMPTY_DRAFT);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     setRows(initialRows);
@@ -100,10 +102,10 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
     try {
       const result = await createTaxRate(toInput(addDraft));
       if (result.ok) {
-        toast.success('Tax rate added.');
+        toast.success(t('cmsshared.settings.tax.added'));
         setAddDraft(EMPTY_DRAFT);
       } else {
-        toast.error(result.error || 'Could not add the tax rate.');
+        toast.error(result.error || t('cmsshared.settings.tax.add_error'));
       }
     } finally {
       setBusy(false);
@@ -116,11 +118,11 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
     try {
       const result = await updateTaxRate(id, toInput(editDraft));
       if (result.ok) {
-        toast.success('Tax rate updated.');
+        toast.success(t('cmsshared.settings.tax.updated'));
         setEditingId(null);
         setEditDraft(null);
       } else {
-        toast.error(result.error || 'Could not update the tax rate.');
+        toast.error(result.error || t('cmsshared.settings.tax.update_error'));
       }
     } finally {
       setBusy(false);
@@ -133,9 +135,9 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
     try {
       const result = await deleteTaxRate(id);
       if (result.ok) {
-        toast.success('Tax rate deleted.');
+        toast.success(t('cmsshared.settings.tax.deleted'));
       } else {
-        toast.error(result.error || 'Could not delete the tax rate.');
+        toast.error(result.error || t('cmsshared.settings.tax.delete_error'));
       }
     } finally {
       setBusy(false);
@@ -148,21 +150,21 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
-            <Th>Country</Th>
-            <Th>State</Th>
-            <Th>Postcode</Th>
-            <Th className="text-right">Rate %</Th>
-            <Th>Name</Th>
-            <Th>On shipping?</Th>
-            <Th>Enabled</Th>
-            <Th className="text-right">Actions</Th>
+            <Th>{t('cmsshared.field.country')}</Th>
+            <Th>{t('cmsshared.settings.tax.th_state')}</Th>
+            <Th>{t('cmsshared.settings.tax.th_postcode')}</Th>
+            <Th className="text-right">{t('cmsshared.settings.tax.th_rate')}</Th>
+            <Th>{t('cmsshared.field.name')}</Th>
+            <Th>{t('cmsshared.settings.tax.th_on_shipping')}</Th>
+            <Th>{t('cmsshared.shipping.th_enabled')}</Th>
+            <Th className="text-right">{t('cmsshared.shipping.th_actions')}</Th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
               <Td colSpan={8} className="py-8 text-center text-sm text-zinc-500">
-                No tax rates yet — add the first one below.
+                {t('cmsshared.settings.tax.empty')}
               </Td>
             </tr>
           ) : null}
@@ -220,7 +222,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-[#6d6be8]"
-                    aria-label="Apply to shipping"
+                    aria-label={t('cmsshared.settings.tax.apply_shipping')}
                     disabled={!editing}
                     checked={editing && draft ? draft.shipping : row.shipping}
                     onChange={(event) => updateDraft('shipping', event.target.checked)}
@@ -230,7 +232,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-[#6d6be8]"
-                    aria-label="Enabled"
+                    aria-label={t('cmsshared.shipping.th_enabled')}
                     disabled={!editing}
                     checked={editing && draft ? draft.enabled : row.enabled}
                     onChange={(event) => updateDraft('enabled', event.target.checked)}
@@ -242,7 +244,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                       <>
                         <button
                           type="button"
-                          aria-label="Save tax rate"
+                          aria-label={t('cmsshared.settings.tax.save_rate')}
                           disabled={busy}
                           onClick={() => void handleSave(row.id)}
                           className="rounded p-1.5 text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-50"
@@ -251,7 +253,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                         </button>
                         <button
                           type="button"
-                          aria-label="Cancel editing"
+                          aria-label={t('cmsshared.settings.tax.cancel_edit')}
                           onClick={() => {
                             setEditingId(null);
                             setEditDraft(null);
@@ -265,7 +267,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                       <>
                         <button
                           type="button"
-                          aria-label="Edit tax rate"
+                          aria-label={t('cmsshared.settings.tax.edit_rate')}
                           onClick={() => {
                             setEditingId(row.id);
                             setConfirmDeleteId(null);
@@ -290,12 +292,12 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
                             onClick={() => void handleDelete(row.id)}
                             className="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white transition hover:bg-red-700"
                           >
-                            Confirm?
+                            {t('cmsshared.settings.tax.confirm')}
                           </button>
                         ) : (
                           <button
                             type="button"
-                            aria-label="Delete tax rate"
+                            aria-label={t('cmsshared.settings.tax.delete_rate')}
                             onClick={() => {
                               setEditingId(null);
                               setConfirmDeleteId(row.id);
@@ -344,7 +346,7 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
               <input
                 type="checkbox"
                 className="h-4 w-4 accent-[#6d6be8]"
-                aria-label="Apply to shipping"
+                aria-label={t('cmsshared.settings.tax.apply_shipping')}
                 checked={addDraft.shipping}
                 onChange={(event) => updateAdd('shipping', event.target.checked)}
               />
@@ -353,21 +355,21 @@ export default function TaxRatesTable({ initialRows }: { initialRows: TaxRateRow
               <input
                 type="checkbox"
                 className="h-4 w-4 accent-[#6d6be8]"
-                aria-label="Enabled"
+                aria-label={t('cmsshared.shipping.th_enabled')}
                 checked={addDraft.enabled}
                 onChange={(event) => updateAdd('enabled', event.target.checked)}
               />
             </Td>
             <Td className="text-right">
               <Button size="sm" onClick={() => void handleAdd()} disabled={busy}>
-                <Plus size={13} /> Add rate
+                <Plus size={13} /> {t('cmsshared.settings.tax.add_rate')}
               </Button>
             </Td>
           </tr>
         </tbody>
       </table>
       <p className="px-4 py-2 text-[11px] text-zinc-400">
-        Use the bottom row to add a new rate — country codes are two letters (e.g. AL, MK, DE).
+        {t('cmsshared.settings.tax.hint')}
       </p>
     </div>
   );

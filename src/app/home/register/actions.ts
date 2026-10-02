@@ -8,6 +8,10 @@ import { createCustomerSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { isValidEmail, isValidName, isValidPassword } from '@/lib/auth-validation';
 import { getSafeReturnTo } from '../login/safe-return-to';
+import { EMAIL_VERIFICATION_TTL_MS, issueAuthToken } from '@/lib/auth-tokens';
+import { getRequestOrigin } from '@/lib/email/origin';
+import { sendEmail } from '@/lib/email/send';
+import { emailVerificationMessage, welcomeEmailMessage } from '@/lib/email/auth-templates';
 
 export type RegisterField =
   | 'firstName'
@@ -107,6 +111,9 @@ export async function registerCustomer(
       passwordHash: hashedPassword,
       tenantRoleId: customerRole.id,
       status: 'Active',
+      // Explicit e-commerce account marker (migration 008): this row belongs
+      // to the storefront, not to the ERP staff roster.
+      userType: 'storefront',
     }).returning();
 
     customerId = customer.id;
@@ -125,9 +132,47 @@ export async function registerCustomer(
     return { error: 'session-unavailable' };
   }
 
+  // Welcome + confirmation emails fire after the session exists. Delivery
+  // problems are logged but must never undo a successful registration.
+  try {
+    const verifyToken = await issueAuthToken(
+      customerId,
+      'email_verification',
+      EMAIL_VERIFICATION_TTL_MS,
+    );
+    const [origin, company] = await Promise.all([
+      getRequestOrigin(),
+      getContextCompany().catch(() => null),
+    ]);
+    const storeName = company?.name?.trim() || 'the store';
+    const recipientName = firstName.split(' ')[0] || firstName;
+    const verifyUrl = `${origin}/home/verify-email?token=${verifyToken}`;
+
+    await Promise.all([
+      sendEmail({
+        to: email,
+        subject: `Welcome to ${storeName}!`,
+        text: `Your customer account has been created. View your account at ${origin}/home/account. If you didn't create this account, you can ignore this email.`,
+        react: welcomeEmailMessage({
+          name: recipientName,
+          email,
+          accountUrl: `${origin}/home/account`,
+        }),
+      }),
+      sendEmail({
+        to: email,
+        subject: 'Confirm your email address',
+        text: `Confirm your email address by opening ${verifyUrl}. The link expires in 24 hours. If you didn't create an account with this address, ignore this email.`,
+        react: emailVerificationMessage({ name: recipientName, verifyUrl }),
+      }),
+    ]);
+  } catch (error) {
+    console.error('[register] welcome/verification emails failed', error);
+  }
+
   const successParams = new URLSearchParams({
     success: 'account-created',
     returnTo,
   });
-  redirect(`/shop/register?${successParams.toString()}`);
+  redirect(`/home/register?${successParams.toString()}`);
 }

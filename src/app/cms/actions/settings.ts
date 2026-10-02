@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { desc, eq, like } from 'drizzle-orm';
-import nodemailer from 'nodemailer';
 import { getContextDb } from '@/lib/tenant';
 import { settingsStore, taxRates } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { isResendConfigured, sendEmail } from '@/lib/email/send';
+import { testEmailMessage } from '@/lib/email/templates';
 import type { SettingsValues, SettingValue } from '@/components/settings/types';
 import type { ActionResult } from './theme';
 
@@ -131,10 +132,11 @@ const GENERAL_KEYS = [
   'general_currency',
   'general_currency_position',
   'general_decimal_separator',
+  'general_map_coordinates',
 ] as const;
 
 export async function saveGeneralSettings(values: SettingsValues): Promise<ActionResult> {
-  const result = await persist(values, GENERAL_KEYS, ['/cms/settings/general', '/shop']);
+  const result = await persist(values, GENERAL_KEYS, ['/cms/settings/general', '/home']);
   if (result.ok && typeof values.general_admin_email === 'string') {
     const email = values.general_admin_email.trim();
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -160,7 +162,7 @@ export async function saveReadingSettings(values: SettingsValues): Promise<Actio
   if (!Number.isFinite(perPage) || perPage < 1 || perPage > 100) {
     return { ok: false, error: 'Posts per page must be between 1 and 100.' };
   }
-  return persist(values, READING_KEYS, ['/cms/settings/reading', '/shop']);
+  return persist(values, READING_KEYS, ['/cms/settings/reading', '/home']);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -180,7 +182,7 @@ export async function saveDiscussionSettings(values: SettingsValues): Promise<Ac
   if (!Number.isFinite(days) || days < 0 || days > 3650) {
     return { ok: false, error: 'Close comments after must be between 0 and 3650 days.' };
   }
-  return persist(values, DISCUSSION_KEYS, ['/cms/settings/discussion', '/shop']);
+  return persist(values, DISCUSSION_KEYS, ['/cms/settings/discussion', '/home']);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -219,7 +221,7 @@ export async function savePermalinkSettings(values: SettingsValues): Promise<Act
   if (!allowed.has(String(values.permalink_structure))) {
     return { ok: false, error: 'Choose a valid permalink structure.' };
   }
-  return persist(values, PERMALINK_KEYS, ['/cms/settings/permalinks', '/shop']);
+  return persist(values, PERMALINK_KEYS, ['/cms/settings/permalinks', '/home']);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -247,7 +249,8 @@ export async function saveSmtpSettings(values: SettingsValues): Promise<ActionRe
 export type TestEmailResult = { ok: boolean; error?: string; delivered?: string };
 
 /**
- * Sends a real test message through the saved SMTP settings.
+ * Sends a real test message through the active provider — Resend when
+ * `RESEND_API_KEY` is set, otherwise the saved SMTP settings.
  * Never throws — always returns a typed result for the toast.
  */
 export async function sendTestEmail(recipient: string): Promise<TestEmailResult> {
@@ -261,13 +264,6 @@ export async function sendTestEmail(recipient: string): Promise<TestEmailResult>
 
     const values = await readSettings([...SMTP_KEYS]);
     const host = typeof values.smtp_host === 'string' ? values.smtp_host.trim() : '';
-    if (!host) {
-      return {
-        ok: false,
-        error: 'SMTP is not configured yet — save the host, port and credentials first, then send the test again.',
-      };
-    }
-
     const port = Number(values.smtp_port) || 587;
     const encryption = typeof values.smtp_encryption === 'string' ? values.smtp_encryption : 'tls';
     const username = typeof values.smtp_username === 'string' ? values.smtp_username : '';
@@ -276,29 +272,51 @@ export async function sendTestEmail(recipient: string): Promise<TestEmailResult>
       ? values.smtp_from_name
       : 'Maryam CMS';
     const fromEmail = typeof values.smtp_from_email === 'string' ? values.smtp_from_email.trim() : '';
-    if (!fromEmail) {
-      return { ok: false, error: 'Set a "from" email address first.' };
+
+    const resendReady = isResendConfigured();
+    if (!resendReady && (!host || !fromEmail)) {
+      return {
+        ok: false,
+        error:
+          'No email provider yet — set RESEND_API_KEY in the .env file (Resend), or fill in the SMTP host and "from" address below, save, then try again.',
+      };
     }
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: encryption === 'ssl' || port === 465,
-      requireTLS: encryption === 'tls',
-      ...(username ? { auth: { user: username, pass: password } } : {}),
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-    });
-
-    const info = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
+    const outcome = await sendEmail({
       to,
-      subject: 'Test email from Maryam CMS',
-      text: 'This is a test message. If you are reading it, your SMTP settings work.',
-      html: '<p>This is a <strong>test message</strong>.</p><p>If you are reading it, your SMTP settings work.</p>',
+      subject: 'Test email from your store',
+      text: 'This is a test message. If you are reading it, your outbound email channel is configured correctly.',
+      react: testEmailMessage(to),
+      smtp: resendReady
+        ? null
+        : {
+            host,
+            port,
+            secure: encryption === 'ssl' || port === 465,
+            requireTLS: encryption === 'tls',
+            user: username,
+            pass: password,
+            from: fromEmail,
+            fromName,
+          },
     });
 
-    return { ok: true, delivered: info.response || to };
+    if (!outcome.ok) {
+      if ('notConfigured' in outcome) {
+        return {
+          ok: false,
+          error:
+            'No email provider yet — set RESEND_API_KEY in .env (Resend) or configure and save the SMTP settings below.',
+        };
+      }
+      return { ok: false, error: `Could not send the test email: ${outcome.error}` };
+    }
+
+    return {
+      ok: true,
+      delivered:
+        outcome.provider === 'resend' ? `Resend accepted (${outcome.detail})` : outcome.detail,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[cms/settings] sendTestEmail failed', error);
@@ -333,19 +351,19 @@ const BANK_KEYS = [
 ] as const;
 
 export async function saveStripeSettings(values: SettingsValues): Promise<ActionResult> {
-  return persist(values, STRIPE_KEYS, ['/cms/settings/payments', '/shop/checkout']);
+  return persist(values, STRIPE_KEYS, ['/cms/settings/payments', '/home/checkout']);
 }
 
 export async function savePaypalSettings(values: SettingsValues): Promise<ActionResult> {
-  return persist(values, PAYPAL_KEYS, ['/cms/settings/payments', '/shop/checkout']);
+  return persist(values, PAYPAL_KEYS, ['/cms/settings/payments', '/home/checkout']);
 }
 
 export async function saveCodSettings(values: SettingsValues): Promise<ActionResult> {
-  return persist(values, COD_KEYS, ['/cms/settings/payments', '/shop/checkout']);
+  return persist(values, COD_KEYS, ['/cms/settings/payments', '/home/checkout']);
 }
 
 export async function saveBankSettings(values: SettingsValues): Promise<ActionResult> {
-  return persist(values, BANK_KEYS, ['/cms/settings/payments', '/shop/checkout']);
+  return persist(values, BANK_KEYS, ['/cms/settings/payments', '/home/checkout']);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -366,7 +384,7 @@ export async function saveTaxPreferences(values: SettingsValues): Promise<Action
     };
     await upsertSettingRow('tax_preferences', JSON.stringify(normalized));
     revalidatePath('/cms/settings/tax');
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true };
   } catch (error) {
     console.error('[cms/settings] saveTaxPreferences failed', error);

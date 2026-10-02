@@ -7,10 +7,12 @@ import { Copy, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { deletePage, duplicatePage } from '@/app/cms/actions/pages';
 import { Button } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /** Edit / duplicate / delete controls for one row of the pages table. */
 export default function PageRowActions({ id, title }: { id: number; title: string }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [busy, setBusy] = useState<'duplicate' | 'delete' | null>(null);
 
   async function onDuplicate() {
@@ -18,31 +20,31 @@ export default function PageRowActions({ id, title }: { id: number; title: strin
     try {
       const result = await duplicatePage(id);
       if (result.ok) {
-        toast.success('Page duplicated.');
+        toast.success(t('cmsshared.page_row_actions.duplicated'));
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not duplicate the page.');
+        toast.error(result.error || t('cmsshared.page_row_actions.duplicate_error'));
       }
     } catch {
-      toast.error('Could not duplicate the page.');
+      toast.error(t('cmsshared.page_row_actions.duplicate_error'));
     } finally {
       setBusy(null);
     }
   }
 
   async function onDelete() {
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    if (!window.confirm(t('cmsshared.page_row_actions.delete_confirm', { title }))) return;
     setBusy('delete');
     try {
       const result = await deletePage(id);
       if (result.ok) {
-        toast.success('Page deleted.');
+        toast.success(t('cmsshared.page_row_actions.deleted'));
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not delete the page.');
+        toast.error(result.error || t('cmsshared.page_row_actions.delete_error'));
       }
     } catch {
-      toast.error('Could not delete the page.');
+      toast.error(t('cmsshared.page_row_actions.delete_error'));
     } finally {
       setBusy(null);
     }
@@ -54,17 +56,17 @@ export default function PageRowActions({ id, title }: { id: number; title: strin
         href={`/cms/pages/${id}/edit`}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50"
       >
-        <Pencil size={12} /> Edit
+        <Pencil size={12} /> {t('cmsshared.product_row_actions.edit')}
       </Link>
       <Button
         variant="outline"
         size="sm"
         onClick={onDuplicate}
         disabled={busy !== null}
-        aria-label={`Duplicate ${title}`}
+        aria-label={t('cmsshared.product_row_actions.duplicate_aria', { name: title })}
       >
         {busy === 'duplicate' ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
-        Duplicate
+        {t('cmsshared.product_row_actions.duplicate')}
       </Button>
       <Button
         variant="ghost"
@@ -72,10 +74,10 @@ export default function PageRowActions({ id, title }: { id: number; title: strin
         className="text-red-600"
         onClick={onDelete}
         disabled={busy !== null}
-        aria-label={`Delete ${title}`}
+        aria-label={t('cmsshared.product_row_actions.delete_aria', { name: title })}
       >
         {busy === 'delete' ? <Loader2 size={12} className="animate-spin" /> : null}
-        Delete
+        {t('cmsshared.action.delete')}
       </Button>
     </div>
   );

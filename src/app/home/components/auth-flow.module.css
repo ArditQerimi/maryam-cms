@@ -1,0 +1,70 @@
+/*
+ * Shared chrome for the standalone auth pages (forgot password, reset
+ * password, verify email). They reuse the register page's card and form
+ * classes — this module only adds the single-column layout, the card h1,
+ * and an olive success callout next to the register module's red alert.
+ */
+
+.singleColumn {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-content: center;
+  width: min(1160px, 100%);
+  margin: 0 auto;
+}
+
+.column {
+  width: min(34rem, 100%);
+}
+
+.heading {
+  margin: 0;
+  color: var(--auth-ink);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 550;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.infoAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0 0 1.15rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #cdd6b8;
+  background: #f4f7ec;
+  color: #3f5222;
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+
+.infoAlert svg {
+  flex: 0 0 auto;
+  margin-top: 0.08rem;
+}
+
+.footNote {
+  margin: 1.25rem 0 0;
+  color: var(--auth-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.textLink {
+  color: var(--auth-accent-dark);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.textLink:hover {
+  color: var(--auth-accent);
+}
+
+.textLink:focus-visible {
+  outline: 3px solid rgba(138, 111, 43, 0.3);
+  outline-offset: 3px;
+}

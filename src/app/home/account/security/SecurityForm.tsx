@@ -17,9 +17,19 @@ import {
   type PasswordActionState,
 } from '@/lib/account/actions';
 import { getPasswordStrength } from '@/lib/account/validation';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from '../account.module.css';
 
 const INITIAL_STATE: PasswordActionState = { status: 'idle' };
+
+/** `getPasswordStrength` returns fixed English labels (asserted by unit tests) → map them to dictionary keys here. */
+const STRENGTH_LABEL_KEYS = {
+  'Too short': 'account.strength.too_short',
+  Weak: 'account.strength.weak',
+  Fair: 'account.strength.fair',
+  Good: 'account.strength.good',
+  Strong: 'account.strength.strong',
+} as const;
 
 type PasswordFieldName = 'currentPassword' | 'newPassword' | 'confirmPassword';
 
@@ -32,6 +42,8 @@ type PasswordInputProps = {
   minLength: number;
   error?: string;
   hint: string;
+  showAria: string;
+  hideAria: string;
   pending: boolean;
   onValueChange: (value: string) => void;
   onVisibilityChange: () => void;
@@ -39,6 +51,7 @@ type PasswordInputProps = {
 
 function PasswordSubmit() {
   const { pending } = useFormStatus();
+  const { t } = useLocale();
 
   return (
     <button
@@ -52,7 +65,7 @@ function PasswordSubmit() {
       ) : (
         <KeyRound size={18} aria-hidden="true" />
       )}
-      <span>{pending ? 'Updating…' : 'Change password'}</span>
+      <span>{pending ? t('account.securityForm.updating') : t('account.securityForm.submit')}</span>
     </button>
   );
 }
@@ -66,6 +79,8 @@ function PasswordInput({
   minLength,
   error,
   hint,
+  showAria,
+  hideAria,
   pending,
   onValueChange,
   onVisibilityChange,
@@ -98,7 +113,7 @@ function PasswordInput({
           className={styles.passwordToggle}
           onClick={onVisibilityChange}
           disabled={pending}
-          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-label={visible ? hideAria : showAria}
           aria-pressed={visible}
           aria-controls={id}
         >
@@ -128,6 +143,7 @@ function PasswordFields({
   newPasswordError,
   confirmPasswordError,
 }: PasswordFieldsProps) {
+  const { t } = useLocale();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -146,13 +162,15 @@ function PasswordFields({
     <div className={styles.formFields}>
       <PasswordInput
         id="currentPassword"
-        label="Current password"
+        label={t('account.securityForm.currentPassword')}
         value={currentPassword}
         visible={visible.currentPassword}
         autoComplete="current-password"
         minLength={1}
         error={currentPasswordError}
-        hint="Enter the password currently used to sign in."
+        hint={t('account.securityForm.currentHint')}
+        showAria={t('account.securityForm.showCurrent')}
+        hideAria={t('account.securityForm.hideCurrent')}
         pending={pending}
         onValueChange={setCurrentPassword}
         onVisibilityChange={() => toggleVisibility('currentPassword')}
@@ -160,13 +178,15 @@ function PasswordFields({
 
       <PasswordInput
         id="newPassword"
-        label="New password"
+        label={t('account.securityForm.newPassword')}
         value={newPassword}
         visible={visible.newPassword}
         autoComplete="new-password"
         minLength={12}
         error={newPasswordError}
-        hint="Use 12–72 characters with uppercase, lowercase, and a number."
+        hint={t('account.securityForm.newHint')}
+        showAria={t('account.securityForm.showNew')}
+        hideAria={t('account.securityForm.hideNew')}
         pending={pending}
         onValueChange={setNewPassword}
         onVisibilityChange={() => toggleVisibility('newPassword')}
@@ -175,8 +195,8 @@ function PasswordFields({
       {newPassword ? (
         <div className={styles.strengthPanel} aria-live="polite">
           <div className={styles.strengthHeader}>
-            <span>Password strength</span>
-            <strong>{strength.label}</strong>
+            <span>{t('account.securityForm.strengthLabel')}</span>
+            <strong>{t(STRENGTH_LABEL_KEYS[strength.label])}</strong>
           </div>
           <div className={styles.strengthTrack} aria-hidden="true">
             <span data-score={strength.score} />
@@ -186,13 +206,15 @@ function PasswordFields({
 
       <PasswordInput
         id="confirmPassword"
-        label="Confirm new password"
+        label={t('account.securityForm.confirmPassword')}
         value={confirmPassword}
         visible={visible.confirmPassword}
         autoComplete="new-password"
         minLength={12}
         error={confirmPasswordError}
-        hint="Enter the new password a second time."
+        hint={t('account.securityForm.confirmHint')}
+        showAria={t('account.securityForm.showConfirm')}
+        hideAria={t('account.securityForm.hideConfirm')}
         pending={pending}
         onValueChange={setConfirmPassword}
         onVisibilityChange={() => toggleVisibility('confirmPassword')}
@@ -203,6 +225,7 @@ function PasswordFields({
 
 export default function SecurityForm() {
   const [state, formAction, pending] = useActionState(changeAccountPassword, INITIAL_STATE);
+  const { t } = useLocale();
   const fieldError = (field: PasswordFieldName) =>
     state.status === 'error' && state.field === field ? state.message : undefined;
   const formError = state.status === 'error' && (!state.field || state.field === 'form')
@@ -212,14 +235,14 @@ export default function SecurityForm() {
   return (
     <Form action={formAction} className={styles.form} aria-busy={pending}>
       <div className={styles.formIntro}>
-        <p className={styles.cardKicker}>Password</p>
-        <h3>Choose a new password</h3>
-        <p>Your current password is required before any change is made.</p>
+        <p className={styles.cardKicker}>{t('account.securityForm.kicker')}</p>
+        <h3>{t('account.securityForm.title')}</h3>
+        <p>{t('account.securityForm.intro')}</p>
       </div>
 
       <div className={styles.securityNote} role="note">
         <ShieldCheck size={19} aria-hidden="true" />
-        <span>Passwords are checked on the server and are never written to logs or returned by the form.</span>
+        <span>{t('account.securityForm.serverNote')}</span>
       </div>
 
       {formError ? (
@@ -245,11 +268,11 @@ export default function SecurityForm() {
       />
 
       <div className={styles.formFooter}>
-        <p>After success, the session in this browser is replaced with a newly signed session.</p>
+        <p>{t('account.securityForm.footer')}</p>
         <PasswordSubmit />
       </div>
       <span className={styles.srOnly} aria-live="polite">
-        {pending ? 'Changing your password' : ''}
+        {pending ? t('account.securityForm.changeStatus') : ''}
       </span>
     </Form>
   );

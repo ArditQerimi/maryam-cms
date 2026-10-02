@@ -4,7 +4,7 @@
  *
  * This is transport only: the value is NEVER trusted. Both the cart and the
  * checkout re-run the coupon through the server action in
- * `src/app/shop/cart/actions.ts`, and the checkout POST re-validates it again
+ * `src/app/home/cart/actions.ts`, and the checkout POST re-validates it again
  * inside the order transaction.
  */
 

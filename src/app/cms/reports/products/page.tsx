@@ -3,6 +3,7 @@ import { Coins, Package, ShoppingCart } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
 import { productVariants, products, saleItems, sales } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { formatMoney } from '@/lib/cms/format';
 import {
   Card,
@@ -52,8 +53,10 @@ async function getTopProductsByQuantity() {
 
 export default async function ProductsReportPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const { range, rows } = await getTopProductsByQuantity();
+  const rangeLabel = range.labelKey ? t(range.labelKey) : range.label;
 
   const totalUnits = rows.reduce((sum, row) => sum + (row.units || 0), 0);
   const totalRevenue = rows.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
@@ -61,39 +64,39 @@ export default async function ProductsReportPage() {
   return (
     <div>
       <PageHeader
-        title="Products report"
-        description={`Best sellers by quantity sold — ${range.label.toLowerCase()}.`}
+        title={t('cmsdash.products.title')}
+        description={t('cmsdash.products.description', { period: rangeLabel.toLowerCase() })}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          hint="Across the top 10 products"
+          hint={t('cmsdash.products.top10Hint')}
           icon={ShoppingCart}
-          label="Units sold"
+          label={t('cmsdash.products.units')}
           value={totalUnits.toLocaleString()}
         />
         <StatCard
-          hint="Across the top 10 products"
+          hint={t('cmsdash.products.top10Hint')}
           icon={Coins}
-          label="Revenue"
+          label={t('cmsdash.products.revenue')}
           value={formatMoney(totalRevenue)}
         />
         <StatCard
-          hint="With at least one sale in period"
+          hint={t('cmsdash.products.soldHint')}
           icon={Package}
-          label="Products sold"
+          label={t('cmsdash.products.sold')}
           value={rows.length.toLocaleString()}
         />
       </div>
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Top 10 products by quantity sold</CardTitle>
+          <CardTitle>{t('cmsdash.products.topTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <ProductBarChart
             data={rows.map((row) => ({
-              name: row.name || 'Deleted product',
+              name: row.name || t('cmsdash.deletedProduct'),
               quantity: row.units || 0,
             }))}
           />
@@ -102,14 +105,14 @@ export default async function ProductsReportPage() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Units, revenue, and remaining stock</CardTitle>
+          <CardTitle>{t('cmsdash.products.tableTitle')}</CardTitle>
         </CardHeader>
         {rows.length === 0 ? (
           <CardContent>
             <EmptyState
-              description="No online sales were recorded in the last 30 days."
+              description={t('cmsdash.products.emptyDescription')}
               icon={<Package size={28} />}
-              title="No product sales yet"
+              title={t('cmsdash.products.emptyTitle')}
             />
           </CardContent>
         ) : (
@@ -117,18 +120,18 @@ export default async function ProductsReportPage() {
             <Table bare>
               <thead>
                 <tr>
-                  <Th>Product</Th>
-                  <Th>SKU</Th>
-                  <Th className="text-right">Units sold</Th>
-                  <Th className="text-right">Revenue</Th>
-                  <Th className="text-right">Remaining stock</Th>
+                  <Th>{t('cmsdash.th.product')}</Th>
+                  <Th>{t('cmsdash.th.sku')}</Th>
+                  <Th className="text-right">{t('cmsdash.th.unitsSold')}</Th>
+                  <Th className="text-right">{t('cmsdash.th.revenue')}</Th>
+                  <Th className="text-right">{t('cmsdash.products.remainingStock')}</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr className="transition hover:bg-zinc-50" key={`${row.id ?? 'x'}-${row.sku ?? row.name}`}>
                     <Td className="max-w-[300px] truncate font-medium text-zinc-900">
-                      {row.name || 'Deleted product'}
+                      {row.name || t('cmsdash.deletedProduct')}
                     </Td>
                     <Td className="whitespace-nowrap text-zinc-500">{row.sku || '—'}</Td>
                     <Td className="text-right">{(row.units || 0).toLocaleString()}</Td>

@@ -10,6 +10,8 @@ import {
   slugify,
   type BlogPost,
 } from './blog-data';
+import ShopPageHeader from '../components/ShopPageHeader';
+import { getT } from '@/lib/i18n/server';
 import styles from './blog.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -18,13 +20,13 @@ export const metadata: Metadata = {
   title: 'Blog',
   description: 'Read the latest stories, recommendations, and ideas from the Elif bookstore.',
   alternates: {
-    canonical: '/shop/blogs',
+    canonical: '/home/blogs',
   },
   openGraph: {
     type: 'website',
     title: 'Blog | Elif',
     description: 'Read the latest stories, recommendations, and ideas from the Elif bookstore.',
-    url: '/shop/blogs',
+    url: '/home/blogs',
   },
 };
 
@@ -65,6 +67,7 @@ export default async function ShopBlogsPage({
 }) {
   const params = await searchParams;
   const posts = await getStorefrontBlogPosts();
+  const t = await getT();
   const query = firstParam(params.q ?? params.query ?? params.search).trim().slice(0, 120);
   const category = slugify(firstParam(params.category));
   const tag = slugify(firstParam(params.tag));
@@ -82,22 +85,13 @@ export default async function ShopBlogsPage({
   const pagePosts = filteredPosts.slice(pageStart, pageStart + PAGE_SIZE);
   const resultStart = filteredPosts.length > 0 ? pageStart + 1 : 0;
   const resultEnd = Math.min(pageStart + PAGE_SIZE, filteredPosts.length);
-  const resultLabel = filteredPosts.length === 1 ? 'post' : 'posts';
+  const resultLabel = t(
+    filteredPosts.length === 1 ? 'blog.results.labelOne' : 'blog.results.labelOther',
+  );
 
   return (
     <div className={styles.page}>
-      <header className={styles.pageBanner}>
-        <div className={styles.container}>
-          <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-            <Link href="/shop">Home</Link>
-            <span className={styles.breadcrumbSeparator} aria-hidden="true">
-              /
-            </span>
-            <span className={styles.breadcrumbCurrent}>Blog</span>
-          </nav>
-          <h1 className={styles.pageTitle}>Blog</h1>
-        </div>
-      </header>
+      <ShopPageHeader title={t('blog.title')} crumbs={[{ label: t('blog.title') }]} />
 
       <div className={`${styles.container} ${styles.blogLayout}`}>
         <BlogFilters
@@ -112,15 +106,22 @@ export default async function ShopBlogsPage({
         <section className={styles.results} aria-labelledby="blog-results-title">
           <div className={styles.resultsHeader}>
             <div>
-              <p className={styles.resultsKicker}>{hasFilters ? 'Filtered results' : 'From the blog'}</p>
+              <p className={styles.resultsKicker}>
+                {hasFilters ? t('blog.results.filteredKicker') : t('blog.results.defaultKicker')}
+              </p>
               <h2 id="blog-results-title" className={styles.resultsTitle}>
-                {hasFilters ? 'Search Results' : 'Latest Posts'}
+                {hasFilters ? t('blog.results.filteredTitle') : t('blog.results.defaultTitle')}
               </h2>
             </div>
             <span className={styles.resultsCount} aria-live="polite">
               {resultStart > 0
-                ? `Showing ${resultStart}–${resultEnd} of ${filteredPosts.length} ${resultLabel}`
-                : `No ${resultLabel} found`}
+                ? t('blog.results.showing', {
+                    start: resultStart,
+                    end: resultEnd,
+                    total: filteredPosts.length,
+                    label: resultLabel,
+                  })
+                : t('blog.results.none', { label: resultLabel })}
             </span>
           </div>
 
@@ -136,16 +137,14 @@ export default async function ShopBlogsPage({
                 {hasFilters ? <Search size={22} strokeWidth={1.5} /> : <BookOpen size={22} strokeWidth={1.5} />}
               </span>
               <h3 className={styles.emptyTitle}>
-                {hasFilters ? 'No posts match your search' : 'No blog posts yet'}
+                {hasFilters ? t('blog.empty.filteredTitle') : t('blog.empty.title')}
               </h3>
               <p className={styles.emptyText}>
-                {hasFilters
-                  ? 'Try another keyword or clear the active category and topic filters.'
-                  : 'New stories will appear here as soon as they are published.'}
+                {hasFilters ? t('blog.empty.filteredText') : t('blog.empty.text')}
               </p>
               {hasFilters ? (
-                <Link className={styles.emptyAction} href="/shop/blogs">
-                  Clear filters <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+                <Link className={styles.emptyAction} href="/home/blogs">
+                  {t('blog.empty.clear')} <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
                 </Link>
               ) : null}
             </div>

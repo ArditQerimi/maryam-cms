@@ -2,6 +2,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { blogPosts, cmsPages, settingsStore, themeSettings } from '@/db/schema-tenant';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import MenuBuilder from '@/components/appearance/MenuBuilder';
 import type { NavMenuItem, NavMenus, NavMenuLocation } from '@/lib/theme/types';
@@ -40,6 +41,7 @@ function parseMenus(raw: unknown): NavMenus {
 
 export default async function MenusPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const company = await getContextCompany();
   const db = await getContextDb();
@@ -90,8 +92,8 @@ export default async function MenusPage() {
   return (
     <div>
       <PageHeader
-        title="Menus"
-        description="Build navigation menus, drag to reorder and assign each one to a location."
+        title={t('cmsappearance.menus.title')}
+        description={t('cmsappearance.menus.description')}
       />
 
       <MenuBuilder

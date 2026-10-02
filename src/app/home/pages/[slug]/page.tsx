@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { and, eq } from 'drizzle-orm';
 import { getContextDb } from '@/lib/tenant';
 import { categories, cmsPages, products } from '@/db/schema-tenant';
 import { parseImageUrl } from '@/lib/image-url';
 import BlockRenderer, { type RendererProduct } from '@/app/cms/builder/BlockRenderer';
 import { normalizeBlocks } from '@/app/cms/builder/blocks';
+import { getT } from '@/lib/i18n/server';
 import styles from '../../legal/legal.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -33,18 +34,20 @@ async function getBlockProducts(): Promise<RendererProduct[]> {
         price: products.price,
         imageUrl: products.imageUrl,
         stockQuantity: products.stockQuantity,
+        categoryId: products.categoryId,
       })
       .from(products)
       .where(eq(products.status, 'Active'))
-      .limit(12);
+      .limit(500);
 
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
       price: row.price ?? '0',
       image: parseImageUrl(row.imageUrl),
-      href: `/shop/products/${row.id}`,
+      href: `/home/products/${row.id}`,
       stock: row.stockQuantity ?? 0,
+      categoryId: row.categoryId ?? null,
     }));
   } catch {
     return [];
@@ -75,16 +78,20 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   return {
     title,
     description,
-    alternates: { canonical: `/shop/pages/${page.slug}` },
-    openGraph: { title, description, url: `/shop/pages/${page.slug}`, type: 'website' },
+    alternates: { canonical: `/home/pages/${page.slug}` },
+    openGraph: { title, description, url: `/home/pages/${page.slug}`, type: 'website' },
   };
 }
 
 export default async function CmsStorefrontPage({ params }: PageParams) {
   const { slug } = await params;
+  // The `home` document is the front page itself — it only lives at `/home`.
+  if (decodeURIComponent(slug) === 'home') redirect('/home');
+
   const page = await getCmsPage(decodeURIComponent(slug));
   if (!page) notFound();
 
+  const t = await getT();
   const blocks = normalizeBlocks(page.blocks ?? []);
   const hasBuilderContent = blocks.length > 0;
   const [blockProducts, blockCategories] = hasBuilderContent
@@ -99,8 +106,8 @@ export default async function CmsStorefrontPage({ params }: PageParams) {
         <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
           <ol className={styles.breadcrumbList}>
             <li>
-              <Link className={styles.breadcrumbLink} href="/shop">
-                Home
+              <Link className={styles.breadcrumbLink} href="/home">
+                {t('pages.common.home')}
               </Link>
             </li>
             <li aria-current="page">{page.title}</li>
@@ -108,7 +115,9 @@ export default async function CmsStorefrontPage({ params }: PageParams) {
         </nav>
 
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>{page.pageType === 'legal' ? 'Store policy' : 'Page'}</p>
+          <p className={styles.eyebrow}>
+            {page.pageType === 'legal' ? t('pages.cms.policyEyebrow') : t('pages.cms.pageEyebrow')}
+          </p>
           <h1 className={styles.heroTitle}>{page.title}</h1>
           {page.excerpt ? <p className={styles.lede}>{page.excerpt}</p> : null}
           {featuredImage ? (
@@ -137,7 +146,7 @@ export default async function CmsStorefrontPage({ params }: PageParams) {
           ) : page.content?.trim() ? (
             <div className={styles.prose} dangerouslySetInnerHTML={{ __html: page.content }} />
           ) : (
-            <p>This page has no content yet.</p>
+            <p>{t('pages.cms.empty')}</p>
           )}
         </article>
       </div>

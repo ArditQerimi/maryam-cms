@@ -16,7 +16,7 @@
     "src/app/cms/actions/shipping.ts",
     "src/app/cms/actions/reports.ts",
     "src/app/api/shipping/available/route.ts",
-    "src/app/shop/checkout/page.tsx"
+    "src/app/home/checkout/page.tsx"
   ],
   "exclude": ["node_modules"]
 }

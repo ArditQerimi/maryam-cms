@@ -41,7 +41,7 @@ export type BlockType =
   | 'cta'
   | 'faq'
   | 'testimonial'
-  /* Storefront sections — rendered by `/shop` with live catalogue data. */
+  /* Storefront sections — rendered by `/home` with live catalogue data. */
   | 'store_products'
   | 'store_categories'
   | 'store_stats'
@@ -49,18 +49,33 @@ export type BlockType =
   | 'store_deal'
   | 'store_story'
   | 'store_mind'
-  | 'store_blog';
+  | 'store_blog'
+  | 'store_widgets';
 
 export type BlockProps = Record<string, any>;
 
+/** Structural node kinds the layout tree is built from. */
+export type LayoutType = 'row' | 'column';
+export type NodeType = BlockType | LayoutType;
+export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
+/** Per-breakpoint overrides, merged over `props` while that breakpoint is active. */
+export type Responsive<T = BlockProps> = Partial<Record<Breakpoint, Partial<T>>>;
+
 export type Block = {
   id: string;
-  type: BlockType;
+  type: NodeType;
   props: BlockProps;
   children?: Block[];
+  responsive?: Responsive;
 };
 
-export type FieldDef =
+/** Row/column container nodes carry no module-specific icon. */
+export const LAYOUT_TYPES: LayoutType[] = ['row', 'column'];
+
+/** Settings-panel tab a field belongs to (defaults to General). */
+export type FieldTab = 'general' | 'style' | 'advanced';
+
+export type FieldDef = { tab?: FieldTab } & (
   | { kind: 'text'; key: string; label: string; placeholder?: string }
   | { kind: 'textarea'; key: string; label: string; rows?: number; placeholder?: string }
   | { kind: 'richtext'; key: string; label: string }
@@ -77,6 +92,8 @@ export type FieldDef =
   | { kind: 'columns'; key: string; label: string }
   | { kind: 'spacing'; key: string; label: string }
   | { kind: 'productSource'; key: string; label: string }
+  /** Single category picker, filled from the live catalogue. */
+  | { kind: 'category'; key: string; label: string }
   | {
       kind: 'items';
       key: string;
@@ -84,7 +101,9 @@ export type FieldDef =
       itemLabel: string;
       addLabel: string;
       fields: FieldDef[];
-    };
+    }
+  /** Four-sided spacing editor (`{top,right,bottom,left}` in px). */
+  | { kind: 'box'; key: string; label: string });
 
 export type BlockGroup =
   | 'layout'
@@ -95,7 +114,7 @@ export type BlockGroup =
   | 'storefront';
 
 export type BlockDef = {
-  type: BlockType;
+  type: NodeType;
   label: string;
   group: BlockGroup;
   groupLabel: string;
@@ -105,7 +124,7 @@ export type BlockDef = {
   defaultProps: () => BlockProps;
   fields: FieldDef[];
   hasChildren?: boolean;
-  childTypes?: BlockType[];
+  childTypes?: NodeType[];
   minWidth?: number;
   maxWidth?: number;
   defaultWidth?: 'full' | 'half' | 'third' | 'twoThirds' | 'quarter';
@@ -143,7 +162,206 @@ const widthField = (): FieldDef => ({
   options: WIDTH_OPTIONS,
 });
 
-export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
+/* ------------------------------------------------------------ layout nodes */
+
+const VALIGN_OPTIONS = [
+  { value: 'stretch', label: 'Stretch to fit' },
+  { value: 'flex-start', label: 'Top' },
+  { value: 'center', label: 'Middle' },
+  { value: 'flex-end', label: 'Bottom' },
+];
+
+/** Row = a horizontal band; the skeleton every page is built from. */
+export const DEFAULT_ROW_PROPS: BlockProps = {
+  contentWidth: 'full',
+  maxWidth: 1280,
+  height: 'auto',
+  heightPx: 420,
+  valign: 'stretch',
+  gap: 24,
+  backgroundType: 'none',
+  backgroundColor: '#ffffff',
+  backgroundImage: '',
+  backgroundVideo: '',
+  overlayColor: '#000000',
+  overlayOpacity: 0,
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+  margin: { top: 0, right: 0, bottom: 0, left: 0 },
+  borderWidth: 0,
+  borderStyle: 'solid',
+  borderColor: '#e4e4e7',
+  radius: 0,
+  shadow: 'none',
+  visibility: { desktop: true, tablet: true, mobile: true },
+  cssId: '',
+  cssClass: '',
+};
+
+/** Column = a vertical slice inside a row; holds modules and nested rows. */
+export const DEFAULT_COLUMN_PROPS: BlockProps = {
+  width: 50,
+  valign: 'stretch',
+  gap: 24,
+  backgroundColor: 'transparent',
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+  borderWidth: 0,
+  borderStyle: 'solid',
+  borderColor: 'transparent',
+  radius: 0,
+  reverseOnMobile: false,
+  stackOrder: 'natural',
+  cssClass: '',
+};
+
+const BOX_SIDES = ['top', 'right', 'bottom', 'left'] as const;
+
+/** Deep clone for default props so two nodes never share a nested object. */
+function cloneProps<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** Spacing objects are merged side-by-side so partial stored values never crash. */
+function normalizeBox(value: unknown, fallback: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = { ...fallback };
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const side of BOX_SIDES) {
+      const raw = (value as Record<string, unknown>)[side];
+      const num = typeof raw === 'number' ? raw : Number(raw);
+      if (Number.isFinite(num)) out[side] = num;
+    }
+  }
+  return out;
+}
+
+const ROW_FIELDS: FieldDef[] = [
+  {
+    kind: 'select',
+    key: 'contentWidth',
+    label: 'Content width',
+    tab: 'general',
+    options: [
+      { value: 'full', label: 'Full width' },
+      { value: 'fixed', label: 'Boxed (max width)' },
+    ],
+  },
+  { kind: 'number', key: 'maxWidth', label: 'Max content width (px)', tab: 'general', min: 320, max: 2560, step: 10 },
+  {
+    kind: 'select',
+    key: 'height',
+    label: 'Row height',
+    tab: 'general',
+    options: [
+      { value: 'auto', label: 'Auto' },
+      { value: 'fixed', label: 'Fixed' },
+      { value: 'full', label: 'Full screen' },
+    ],
+  },
+  { kind: 'number', key: 'heightPx', label: 'Fixed height (px)', tab: 'general', min: 60, max: 3000, step: 10 },
+  { kind: 'select', key: 'valign', label: 'Vertical alignment', tab: 'general', options: VALIGN_OPTIONS },
+  { kind: 'number', key: 'gap', label: 'Column gap (px)', tab: 'general', min: 0, max: 160, step: 4 },
+  {
+    kind: 'select',
+    key: 'backgroundType',
+    label: 'Background type',
+    tab: 'style',
+    options: [
+      { value: 'none', label: 'None' },
+      { value: 'color', label: 'Colour' },
+      { value: 'image', label: 'Image' },
+      { value: 'video', label: 'Video' },
+    ],
+  },
+  { kind: 'color', key: 'backgroundColor', label: 'Background colour', tab: 'style' },
+  { kind: 'image', key: 'backgroundImage', label: 'Background image', tab: 'style' },
+  { kind: 'text', key: 'backgroundVideo', label: 'Background video URL', tab: 'style', placeholder: 'https://…/clip.mp4' },
+  { kind: 'color', key: 'overlayColor', label: 'Overlay colour', tab: 'style' },
+  { kind: 'range', key: 'overlayOpacity', label: 'Overlay opacity', tab: 'style', min: 0, max: 100, step: 5, unit: '%' },
+  { kind: 'box', key: 'padding', label: 'Padding', tab: 'style' },
+  { kind: 'box', key: 'margin', label: 'Margin', tab: 'style' },
+  { kind: 'range', key: 'borderWidth', label: 'Border width', tab: 'style', min: 0, max: 20, step: 1, unit: 'px' },
+  {
+    kind: 'select',
+    key: 'borderStyle',
+    label: 'Border style',
+    tab: 'style',
+    options: [
+      { value: 'solid', label: 'Solid' },
+      { value: 'dashed', label: 'Dashed' },
+      { value: 'dotted', label: 'Dotted' },
+      { value: 'double', label: 'Double' },
+    ],
+  },
+  { kind: 'color', key: 'borderColor', label: 'Border colour', tab: 'style' },
+  { kind: 'range', key: 'radius', label: 'Corner radius', tab: 'style', min: 0, max: 60, step: 1, unit: 'px' },
+  {
+    kind: 'select',
+    key: 'shadow',
+    label: 'Shadow',
+    tab: 'style',
+    options: [
+      { value: 'none', label: 'None' },
+      { value: 'sm', label: 'Small' },
+      { value: 'md', label: 'Medium' },
+      { value: 'lg', label: 'Large' },
+      { value: 'xl', label: 'Extra large' },
+    ],
+  },
+  { kind: 'text', key: 'cssId', label: 'CSS id', tab: 'advanced' },
+  { kind: 'text', key: 'cssClass', label: 'CSS classes', tab: 'advanced' },
+  { kind: 'toggle', key: 'visibility.desktop', label: 'Visible on desktop', tab: 'advanced' },
+  { kind: 'toggle', key: 'visibility.tablet', label: 'Visible on tablet', tab: 'advanced' },
+  { kind: 'toggle', key: 'visibility.mobile', label: 'Visible on mobile', tab: 'advanced' },
+];
+
+const COLUMN_FIELDS: FieldDef[] = [
+  { kind: 'number', key: 'width', label: 'Width (%)', tab: 'general', min: 5, max: 100, step: 1 },
+  { kind: 'select', key: 'valign', label: 'Vertical alignment', tab: 'general', options: VALIGN_OPTIONS },
+  { kind: 'toggle', key: 'reverseOnMobile', label: 'Reverse on mobile', tab: 'general' },
+  {
+    kind: 'select',
+    key: 'stackOrder',
+    label: 'Stack order on mobile',
+    tab: 'general',
+    options: [
+      { value: 'natural', label: 'As laid out' },
+      { value: 'reverse', label: 'Last column first' },
+    ],
+  },
+  { kind: 'color', key: 'backgroundColor', label: 'Background colour', tab: 'style' },
+  { kind: 'box', key: 'padding', label: 'Padding', tab: 'style' },
+  { kind: 'range', key: 'borderWidth', label: 'Border width', tab: 'style', min: 0, max: 20, step: 1, unit: 'px' },
+  { kind: 'color', key: 'borderColor', label: 'Border colour', tab: 'style' },
+  { kind: 'range', key: 'radius', label: 'Corner radius', tab: 'style', min: 0, max: 60, step: 1, unit: 'px' },
+  { kind: 'text', key: 'cssClass', label: 'CSS classes', tab: 'advanced' },
+];
+
+export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
+  row: {
+    type: 'row',
+    label: 'Row',
+    group: 'layout',
+    groupLabel: 'Layout',
+    icon: LayoutTemplate,
+    accent: 'text-sky-500',
+    description: 'A horizontal band of columns — the skeleton of the page.',
+    defaultProps: () => cloneProps(DEFAULT_ROW_PROPS),
+    fields: ROW_FIELDS,
+    hasChildren: true,
+    childTypes: ['column'],
+  },
+  column: {
+    type: 'column',
+    label: 'Column',
+    group: 'layout',
+    groupLabel: 'Layout',
+    icon: Columns3,
+    accent: 'text-sky-600',
+    description: 'A vertical slice inside a row that holds modules and nested rows.',
+    defaultProps: () => cloneProps(DEFAULT_COLUMN_PROPS),
+    fields: COLUMN_FIELDS,
+    hasChildren: true,
+    childTypes: [],
+  },
   /* ---------------------------------------------------------------- layout */
   columns_2: {
     type: 'columns_2',
@@ -316,7 +534,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     defaultWidth: 'full',
     defaultProps: () => ({
       text: 'Learn more',
-      url: '/shop',
+      url: '/home',
       variant: 'primary',
       align: 'left',
       openNewTab: false,
@@ -324,7 +542,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     }),
     fields: [
       { kind: 'text', key: 'text', label: 'Button text' },
-      { kind: 'text', key: 'url', label: 'Link URL', placeholder: 'https://… or /shop' },
+      { kind: 'text', key: 'url', label: 'Link URL', placeholder: 'https://… or /home' },
       {
         kind: 'select',
         key: 'variant',
@@ -443,6 +661,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
       source: 'latest',
       categoryId: '',
       manualIds: [],
+      layout: 'carousel',
       columns: '4',
       limit: 8,
       title: 'Featured products',
@@ -456,7 +675,17 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
         key: 'source',
         label: 'Products to show',
       },
+      { kind: 'category', key: 'categoryId', label: 'Category' },
       { kind: 'products', key: 'manualIds', label: 'Pick products' },
+      {
+        kind: 'select',
+        key: 'layout',
+        label: 'Layout',
+        options: [
+          { value: 'carousel', label: 'Carousel' },
+          { value: 'grid', label: 'Grid' },
+        ],
+      },
       {
         kind: 'select',
         key: 'columns',
@@ -497,7 +726,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
       overlay: 45,
       textColor: 'light',
       ctaText: 'Shop now',
-      ctaUrl: '/shop',
+      ctaUrl: '/home',
       ctaText2: '',
       ctaUrl2: '',
       align: 'center',
@@ -561,12 +790,12 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
           category: 'Libra',
           title: 'Titulli i slide-it',
           price: '',
-          url: '/shop/products',
+          url: '/home/products',
           ctaLabel: 'Shiko produktin',
         },
       ],
       secondaryLabel: 'Të gjitha librat',
-      secondaryUrl: '/shop/products',
+      secondaryUrl: '/home/products',
       layout: 'image-right',
       height: 'standard',
       textAlign: 'left',
@@ -589,7 +818,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
           { kind: 'text', key: 'category', label: 'Eyebrow / category', placeholder: 'Libra' },
           { kind: 'text', key: 'title', label: 'Title' },
           { kind: 'text', key: 'price', label: 'Price', placeholder: '20.00' },
-          { kind: 'text', key: 'url', label: 'Link', placeholder: '/shop/products/12' },
+          { kind: 'text', key: 'url', label: 'Link', placeholder: '/home/products/12' },
           { kind: 'text', key: 'ctaLabel', label: 'Button label', placeholder: 'Shiko produktin' },
         ],
       },
@@ -643,7 +872,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
       title: 'Ready to get started?',
       description: 'Tell shoppers exactly what to do next.',
       button: 'Browse the catalogue',
-      url: '/shop',
+      url: '/home',
       background: '',
       textColor: 'light',
       align: 'center',
@@ -766,7 +995,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
 
   /* ------------------------------------------------------------ storefront
      These render the real shop sections with live catalogue data, so they
-     only produce output on `/shop`; elsewhere the builder shows a stand-in. */
+     only produce output on `/home`; elsewhere the builder shows a stand-in. */
   store_products: {
     type: 'store_products',
     label: 'Product Showcase',
@@ -778,12 +1007,22 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     defaultProps: () => ({
       eyebrow: 'Your Shopping Expo',
       title: 'PRODUKTET E REJA',
+      source: 'latest',
+      categoryId: 0,
+      productIds: [],
       limit: 12,
       offset: 0,
     }),
     fields: [
       { kind: 'text', key: 'eyebrow', label: 'Eyebrow' },
       { kind: 'text', key: 'title', label: 'Title' },
+      {
+        kind: 'productSource',
+        key: 'source',
+        label: 'Which products',
+      },
+      { kind: 'category', key: 'categoryId', label: 'Category' },
+      { kind: 'products', key: 'productIds', label: 'Pick products' },
       { kind: 'number', key: 'limit', label: 'How many products', min: 1, max: 40 },
       { kind: 'number', key: 'offset', label: 'Skip first N products', min: 0, max: 200 },
     ],
@@ -865,9 +1104,27 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     defaultProps: () => ({}),
     fields: [],
   },
+  store_widgets: {
+    type: 'store_widgets',
+    label: 'Widget Area',
+    group: 'storefront',
+    groupLabel: 'Storefront sections',
+    icon: Grid2x2,
+    accent: 'text-emerald-500',
+    description: 'Whatever is configured for the homepage widget area.',
+    defaultProps: () => ({}),
+    fields: [],
+  },
 };
 
-export const BLOCK_LIST: BlockDef[] = Object.values(BLOCK_DEFS);
+/* The library no longer offers the old flat `columns_N` blocks: the Rows tab
+   owns column layouts. The types stay registered so stored documents keep
+   working — `normalizeBlocks` lifts them into real rows. */
+const LEGACY_COLUMN_BLOCKS = ['columns_2', 'columns_3', 'columns_4'];
+
+export const BLOCK_LIST: BlockDef[] = Object.values(BLOCK_DEFS).filter(
+  (def) => !isLayoutType(def.type) && !LEGACY_COLUMN_BLOCKS.includes(def.type),
+);
 
 let idCounter = 0;
 
@@ -878,8 +1135,30 @@ export function newBlockId() {
     .slice(2, 7)}`;
 }
 
-export function createBlock(type: BlockType): Block {
+export function isLayoutType(value: unknown): value is LayoutType {
+  return value === 'row' || value === 'column';
+}
+
+export function isRow(block: Block): block is Block & { type: 'row' } {
+  return block.type === 'row';
+}
+
+export function isColumn(block: Block): block is Block & { type: 'column' } {
+  return block.type === 'column';
+}
+
+/** True for content modules only — rows/columns are structure, not modules. */
+export function isBlockType(value: unknown): value is BlockType {
+  return (
+    typeof value === 'string' &&
+    !isLayoutType(value) &&
+    Object.prototype.hasOwnProperty.call(BLOCK_DEFS, value)
+  );
+}
+
+export function createBlock(type: NodeType): Block {
   const def = BLOCK_DEFS[type];
+  if (!def) throw new Error(`Unknown block type: ${String(type)}`);
   const block: Block = {
     id: newBlockId(),
     type,
@@ -891,8 +1170,225 @@ export function createBlock(type: BlockType): Block {
   return block;
 }
 
-export function isBlockType(value: unknown): value is BlockType {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(BLOCK_DEFS, value);
+/** A column holding `children`, sized as a percentage of its row. */
+export function createColumn(width: number, children: Block[] = []): Block {
+  const column = createBlock('column');
+  column.props.width = roundWidth(width);
+  column.children = children;
+  return column;
+}
+
+/** A row with `count` equally sized empty columns. */
+export function createRow(count = 1, props?: BlockProps): Block {
+  const columns = Math.max(1, Math.round(count));
+  const row = createBlock('row');
+  if (props) row.props = mergeProps(DEFAULT_ROW_PROPS, props);
+  row.children = Array.from({ length: columns }, () => createColumn(100 / columns));
+  return row;
+}
+
+function roundWidth(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/* --------------------------------------------------------- normalisation */
+
+const BREAKPOINTS: Breakpoint[] = ['desktop', 'tablet', 'mobile'];
+
+/** Stored JSON is untrusted: keep only the breakpoints we understand. */
+function normalizeResponsive(value: unknown): Responsive | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out: Responsive = {};
+  for (const breakpoint of BREAKPOINTS) {
+    const entry = (value as Record<string, unknown>)[breakpoint];
+    if (entry && typeof entry === 'object' && !Array.isArray(entry) && Object.keys(entry).length) {
+      out[breakpoint] = { ...(entry as BlockProps) };
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Merge stored props over defaults, coercing types so renders never crash. */
+function mergeProps(base: BlockProps, raw: unknown): BlockProps {
+  const out = cloneProps(base);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === undefined || value === null) continue;
+    const fallback = out[key];
+    if (key === 'padding' || key === 'margin') {
+      out[key] = normalizeBox(value, fallback);
+      continue;
+    }
+    if (key === 'visibility') {
+      out.visibility = { ...out.visibility, ...(typeof value === 'object' && value ? value : {}) };
+      continue;
+    }
+    if (typeof fallback === 'number') {
+      const num = Number(value);
+      if (Number.isFinite(num)) out[key] = num;
+      continue;
+    }
+    if (typeof fallback === 'string') {
+      if (typeof value === 'string') out[key] = value;
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+function makeRow(columns: Block[], source?: Record<string, unknown>): Block {
+  const row = createBlock('row');
+  if (source) {
+    if (typeof source.id === 'string' && source.id) row.id = source.id;
+    if (source.props && typeof source.props === 'object') {
+      row.props = mergeProps(DEFAULT_ROW_PROPS, source.props);
+    }
+    const responsive = normalizeResponsive(source.responsive);
+    if (responsive) row.responsive = responsive;
+  }
+  row.children = columns;
+  return row;
+}
+
+function normalizeColumn(raw: Record<string, unknown>): Block {
+  const column = createBlock('column');
+  if (typeof raw.id === 'string' && raw.id) column.id = raw.id;
+  const merged = mergeProps(DEFAULT_COLUMN_PROPS, raw.props);
+  // An explicit width is preserved; a missing one is filled in by the caller.
+  const declared = Number((raw.props as Record<string, unknown> | undefined)?.width);
+  if (!(Number.isFinite(declared) && declared > 0)) delete merged.width;
+  column.props = merged;
+  const responsive = normalizeResponsive(raw.responsive);
+  if (responsive) column.responsive = responsive;
+  const children: Block[] = [];
+  for (const entry of Array.isArray(raw.children) ? raw.children : []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const node = normalizeChild(entry as Record<string, unknown>);
+    if (node) children.push(node);
+  }
+  column.children = children;
+  return column;
+}
+
+function normalizeRow(raw: Record<string, unknown>): Block {
+  return makeRow(normalizeColumns(raw.children), raw);
+}
+
+/** Normalise a row's children, distributing widths across columns. */
+function normalizeColumns(value: unknown): Block[] {
+  const list = Array.isArray(value) ? value : [];
+  const columns: Block[] = [];
+  let stray: Record<string, unknown>[] = [];
+
+  const flushStray = () => {
+    if (!stray.length) return;
+    const nodes: Block[] = [];
+    for (const entry of stray) {
+      const node = normalizeChild(entry);
+      if (node) nodes.push(node);
+    }
+    stray = [];
+    if (nodes.length) {
+      const column = createColumn(100, nodes);
+      // Width is decided by the distribution pass below.
+      delete column.props.width;
+      columns.push(column);
+    }
+  };
+
+  for (const entry of list) {
+    if (!entry || typeof entry !== 'object') continue;
+    const typed = entry as Record<string, unknown>;
+    if (typed.type === 'column') {
+      flushStray();
+      columns.push(normalizeColumn(typed));
+    } else {
+      stray.push(typed);
+    }
+  }
+  flushStray();
+
+  if (!columns.length) return columns;
+
+  const declared = columns.reduce(
+    (sum, column) => sum + (Number.isFinite(column.props.width) ? column.props.width : 0),
+    0,
+  );
+  const missing = columns.filter((column) => !Number.isFinite(column.props.width)).length;
+  const share = missing ? Math.max(0, roundWidth((100 - declared) / missing)) : 0;
+
+  if (missing && share <= 0) {
+    const even = roundWidth(100 / columns.length);
+    return columns.map((column) => ({ ...column, props: { ...column.props, width: even } }));
+  }
+  return columns.map((column) =>
+    Number.isFinite(column.props.width)
+      ? column
+      : { ...column, props: { ...column.props, width: share } },
+  );
+}
+
+/** Legacy `columns_2/3/4` become a row with N columns, children index→column. */
+function liftColumns(raw: Record<string, unknown>, type: string): Block {
+  const count = type === 'columns_2' ? 2 : type === 'columns_3' ? 3 : 4;
+  const kids = Array.isArray(raw.children) ? raw.children : [];
+  const each = roundWidth(100 / count);
+  const columns: Block[] = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const column = createColumn(each);
+    const kid = kids[index];
+    if (kid && typeof kid === 'object') {
+      const node = normalizeChild(kid as Record<string, unknown>);
+      if (node) column.children!.push(node);
+    }
+    columns.push(column);
+  }
+  // Anything beyond the column count lands in the final column.
+  for (let index = count; index < kids.length; index += 1) {
+    const kid = kids[index];
+    if (!kid || typeof kid !== 'object') continue;
+    const node = normalizeChild(kid as Record<string, unknown>);
+    if (node) columns[columns.length - 1].children!.push(node);
+  }
+
+  const props = { ...(raw.props && typeof raw.props === 'object' ? raw.props : {}) } as BlockProps;
+  // Module-level presets from the flat era mean nothing for a row.
+  delete props.width;
+  delete props.align;
+  return makeRow(columns, { ...raw, props });
+}
+
+function normalizeModule(raw: Record<string, unknown>): Block {
+  const type = raw.type as BlockType;
+  const def = BLOCK_DEFS[type];
+  const block: Block = {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : newBlockId(),
+    type,
+    props: {
+      ...def.defaultProps(),
+      ...(raw.props && typeof raw.props === 'object' && !Array.isArray(raw.props) ? raw.props : {}),
+    },
+  };
+  const responsive = normalizeResponsive(raw.responsive);
+  if (responsive) block.responsive = responsive;
+  if (def.hasChildren) {
+    block.children = normalizeChildList(raw.children);
+  }
+  return block;
+}
+
+/** Normalise a list that may contain modules, nested rows or legacy columns. */
+function normalizeChildList(value: unknown): Block[] {
+  if (!Array.isArray(value)) return [];
+  const out: Block[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const node = normalizeChild(raw as Record<string, unknown>);
+    if (node) out.push(node);
+  }
+  return out;
 }
 
 /** Deep-clone a block tree while regenerating every id. */
@@ -905,30 +1401,46 @@ export function cloneBlock(block: Block): Block {
   if (Array.isArray(block.children)) {
     copy.children = block.children.map(cloneBlock);
   }
+  if (block.responsive) {
+    copy.responsive = JSON.parse(JSON.stringify(block.responsive));
+  }
   return copy;
 }
 
-/** Repair/normalise any stored JSON so the editor never crashes on old data. */
+function normalizeChild(raw: Record<string, unknown>): Block | null {
+  const type = raw.type;
+  if (type === 'row') return normalizeRow(raw);
+  if (type === 'column') return normalizeColumn(raw);
+  if (typeof type === 'string' && LEGACY_COLUMN_BLOCKS.includes(type)) return liftColumns(raw, type);
+  if (isBlockType(type)) return normalizeModule(raw);
+  return null;
+}
+
+/**
+ * Repair/normalise any stored JSON so the editor never crashes on old data.
+ *
+ * The document shape is `row[] → column[] → module|row`. Legacy flat documents
+ * are lifted on read: every top-level block becomes its own single-column row
+ * and `columns_N` becomes a row with N columns, so pre-tree pages keep
+ * rendering exactly as before.
+ */
 export function normalizeBlocks(value: unknown): Block[] {
   if (!Array.isArray(value)) return [];
   const out: Block[] = [];
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') continue;
-    const candidate = raw as Partial<Block>;
-    if (!isBlockType(candidate.type)) continue;
-    const def = BLOCK_DEFS[candidate.type];
-    const block: Block = {
-      id: typeof candidate.id === 'string' && candidate.id ? candidate.id : newBlockId(),
-      type: candidate.type,
-      props: {
-        ...def.defaultProps(),
-        ...(candidate.props && typeof candidate.props === 'object' ? candidate.props : {}),
-      },
-    };
-    if (def.hasChildren) {
-      block.children = normalizeBlocks(candidate.children);
+    const node = normalizeChild(raw as Record<string, unknown>);
+    if (!node) continue;
+    if (node.type === 'row') {
+      out.push(node);
+      continue;
     }
-    out.push(block);
+    if (node.type === 'column') {
+      out.push(makeRow([node]));
+      continue;
+    }
+    // Legacy flat module → its own single-column row.
+    out.push(makeRow([createColumn(100, [node])]));
   }
   return out;
 }

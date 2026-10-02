@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { NextRequest, NextResponse } from 'next/server';
 
-export const ORDER_CONFIRMATION_PATH = '/shop/order-confirmation';
+export const ORDER_CONFIRMATION_PATH = '/home/order-confirmation';
 export const ORDER_ACCESS_COOKIE_NAME = 'storefront_order_access';
 export const ORDER_ACCESS_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 export const ORDER_ACCESS_TTL_MS = ORDER_ACCESS_MAX_AGE_SECONDS * 1_000;

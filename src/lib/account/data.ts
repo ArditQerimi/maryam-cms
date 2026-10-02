@@ -24,7 +24,7 @@ import {
 
 type ContextCompany = Awaited<ReturnType<typeof getContextCompany>>;
 
-type AccountPrincipal = {
+export type AccountPrincipal = {
   userId: number;
   company: ContextCompany;
 };
@@ -219,10 +219,10 @@ export async function getAccountAccess(): Promise<AccountAccess> {
 export function getAccountLoginUrl(returnTo: string, notice?: 'password-changed') {
   const params = new URLSearchParams({ returnTo: getSafeAccountReturnTo(returnTo) });
   if (notice) params.set('notice', notice);
-  return `/shop/login?${params.toString()}`;
+  return `/home/login?${params.toString()}`;
 }
 
-export async function requireAccountCustomer(returnTo = '/shop/account') {
+async function requireValidatedPrincipal(returnTo: string) {
   const access = await getAccountAccess();
   if (access.status === 'unauthenticated') redirect(getAccountLoginUrl(returnTo));
   if (access.status === 'denied') notFound();
@@ -230,7 +230,21 @@ export async function requireAccountCustomer(returnTo = '/shop/account') {
   const principal: AccountPrincipal = { userId: access.userId, company: access.company };
   const customer = await readAccountCustomer(principal);
   if (!isExactCustomer(customer) || customer.id !== principal.userId) notFound();
+  return { principal, customer };
+}
 
+/**
+ * Authentication + exact Active-Customer validation, returning the signed-in
+ * principal (user id + request-bound company). Pages that query tenant data
+ * for this shopper (order history, wishlist) use it as their data guard.
+ */
+export async function requireAccountPrincipal(returnTo = '/home/account'): Promise<AccountPrincipal> {
+  const { principal } = await requireValidatedPrincipal(returnTo);
+  return principal;
+}
+
+export async function requireAccountCustomer(returnTo = '/home/account') {
+  const { customer } = await requireValidatedPrincipal(returnTo);
   return toCustomerDTO(customer);
 }
 

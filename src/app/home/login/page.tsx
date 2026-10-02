@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  Check,
   History,
   PackageCheck,
   ShieldCheck,
@@ -9,6 +10,7 @@ import {
 import LoginForm, { type LoginFeedback } from './LoginForm';
 import { getSafeReturnTo, withSafeReturnTo } from './safe-return-to';
 import { getContextCompany } from '@/lib/tenant';
+import { getT, type Dictionary } from '@/lib/i18n/server';
 import styles from './login.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,38 +25,45 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const ERROR_MESSAGES: Record<string, Exclude<LoginFeedback, null>> = {
+// Dictionary keys (not literal copy) so sq and en stay in sync — `t()` resolves
+// them against the active locale. Only the `?error=` code crosses the network.
+type LoginErrorEntry = { key: keyof Dictionary; field?: 'email' | 'password' };
+
+const ERROR_MESSAGES: Record<string, LoginErrorEntry> = {
   'missing-fields': {
-    message: 'Enter both your email address and password to continue.',
+    key: 'auth.login.error.missing-fields',
   },
   'invalid-email': {
-    message: 'Enter a valid email address.',
+    key: 'auth.login.error.invalid-email',
     field: 'email',
   },
   'password-too-short': {
-    message: 'Your password must contain at least 8 characters.',
+    key: 'auth.login.error.password-too-short',
     field: 'password',
   },
   'invalid-credentials': {
-    message: 'We could not sign you in. Check your email and password, then try again.',
+    key: 'auth.login.error.invalid-credentials',
   },
   'account-suspended': {
-    message: 'This store account is suspended. Please contact the store for help.',
+    key: 'auth.login.error.account-suspended',
   },
   'tenant-domain-required': {
-    message: 'This account belongs to a store. Sign in through that store’s website.',
+    key: 'auth.login.error.tenant-domain-required',
+  },
+  'wrong-audience': {
+    key: 'auth.login.error.wrong-audience',
   },
   'company-not-found': {
-    message: 'We could not find a store for this account. Check the address or contact support.',
+    key: 'auth.login.error.company-not-found',
   },
   'tenant-not-found': {
-    message: 'The store for this account could not be found. Please try again later.',
+    key: 'auth.login.error.tenant-not-found',
   },
   'database-error': {
-    message: 'We could not reach your store right now. Please try again shortly.',
+    key: 'auth.login.error.database-error',
   },
   'server-error': {
-    message: 'Something went wrong while signing in. Please try again.',
+    key: 'auth.login.error.server-error',
   },
 };
 
@@ -64,6 +73,7 @@ type LoginPageProps = {
   searchParams?: Promise<{
     error?: SearchParamValue;
     returnTo?: SearchParamValue;
+    notice?: SearchParamValue;
   }>;
 };
 
@@ -72,16 +82,20 @@ function firstValue(value: SearchParamValue) {
 }
 
 export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
-  const [params, company] = await Promise.all([
+  const [params, company, t] = await Promise.all([
     searchParams,
     getContextCompany().catch(() => null),
+    getT(),
   ]);
-  const storeName = company?.name?.trim() || 'the store';
+  const storeName = company?.name?.trim() || t('auth.store.unnamed');
   const errorCode = firstValue(params?.error);
+  const notice = firstValue(params?.notice);
   const requestedReturnTo = getSafeReturnTo(firstValue(params?.returnTo));
+  const errorEntry = errorCode ? ERROR_MESSAGES[errorCode] : undefined;
   const error: LoginFeedback = errorCode
-    ? ERROR_MESSAGES[errorCode] || {
-        message: 'We could not sign you in. Check your details and try again.',
+    ? {
+        message: t(errorEntry ? errorEntry.key : 'auth.login.error.fallback'),
+        field: errorEntry?.field,
       }
     : null;
 
@@ -91,10 +105,10 @@ export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
         <nav className={styles.breadcrumbNav} aria-label="Breadcrumb">
           <ol>
             <li>
-              <Link href="/shop">Home</Link>
+              <Link href="/home">{t('auth.crumb.home')}</Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page">My account</li>
+            <li aria-current="page">{t('auth.crumb.myAccount')}</li>
           </ol>
         </nav>
       </div>
@@ -102,21 +116,18 @@ export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
       <div className={styles.main}>
         <div className={styles.layout}>
           <section className={styles.intro} aria-labelledby="login-page-title">
-            <p className={styles.eyebrow}>Your {storeName} account</p>
-            <h1 id="login-page-title">Welcome back.</h1>
-            <p className={styles.introCopy}>
-              Sign in for a clear view of your orders and customer account,
-              without entering your credentials every time.
-            </p>
+            <p className={styles.eyebrow}>{t('auth.login.eyebrow', { store: storeName })}</p>
+            <h1 id="login-page-title">{t('auth.login.title')}</h1>
+            <p className={styles.introCopy}>{t('auth.login.intro')}</p>
 
-            <ul className={styles.benefitList} aria-label="Account benefits">
+            <ul className={styles.benefitList} aria-label={t('auth.login.benefits.aria')}>
               <li>
                 <span className={styles.benefitIcon}>
                   <History size={19} aria-hidden="true" />
                 </span>
                 <span>
-                  <strong>Order history</strong>
-                  <small>Keep every purchase close at hand</small>
+                  <strong>{t('auth.login.benefit.history.title')}</strong>
+                  <small>{t('auth.login.benefit.history.text')}</small>
                 </span>
               </li>
               <li>
@@ -124,8 +135,8 @@ export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
                   <ShoppingBag size={19} aria-hidden="true" />
                 </span>
                 <span>
-                  <strong>Quick access</strong>
-                  <small>Return without re-entering your credentials</small>
+                  <strong>{t('auth.login.benefit.quick.title')}</strong>
+                  <small>{t('auth.login.benefit.quick.text')}</small>
                 </span>
               </li>
               <li>
@@ -133,29 +144,36 @@ export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
                   <PackageCheck size={19} aria-hidden="true" />
                 </span>
                 <span>
-                  <strong>One secure place</strong>
-                  <small>Manage your storefront profile</small>
+                  <strong>{t('auth.login.benefit.secure.title')}</strong>
+                  <small>{t('auth.login.benefit.secure.text')}</small>
                 </span>
               </li>
             </ul>
 
             <div className={styles.trustNote}>
               <ShieldCheck size={18} aria-hidden="true" />
-              <span>Your credentials are sent securely to the store’s authentication service.</span>
+              <span>{t('auth.login.trust')}</span>
             </div>
           </section>
 
           <section className={styles.card} aria-labelledby="login-card-title">
             <div className={styles.cardHeader}>
-              <p className={styles.cardKicker}>Customer sign in</p>
-              <h2 id="login-card-title">Sign in to your account</h2>
-              <p>Enter the email and password associated with your customer account.</p>
+              <p className={styles.cardKicker}>{t('auth.login.card.kicker')}</p>
+              <h2 id="login-card-title">{t('auth.login.card.title')}</h2>
+              <p>{t('auth.login.card.copy')}</p>
             </div>
+
+            {notice === 'password-reset' ? (
+              <p className={styles.successAlert} role="status">
+                <Check size={17} aria-hidden="true" />
+                {t('auth.login.notice.passwordReset')}
+              </p>
+            ) : null}
 
             <LoginForm
               error={error}
-              registerHref={withSafeReturnTo('/shop/register', requestedReturnTo)}
-              forgotPasswordHref={withSafeReturnTo('/forgot-password', requestedReturnTo)}
+              registerHref={withSafeReturnTo('/home/register', requestedReturnTo)}
+              forgotPasswordHref="/home/forgot-password"
             />
           </section>
         </div>

@@ -1,0 +1,66 @@
+﻿/** home copy. Keys must stay prefixed with 'home'. */
+export const home = {
+  'home.eyebrow': 'Your Shopping Expo',
+  'home.readMore': 'Read more',
+  'home.category.fallback': 'Books',
+  'home.meta.title': '{store} — Books',
+  'home.meta.description':
+    'Browse the current book catalogue and open the real details of every product.',
+  'home.about.eyebrow': 'Current catalogue',
+  'home.about.title': 'DISCOVER NEW WORLDS',
+  'home.about.lead':
+    'In a carefully chosen selection of titles, find books that awaken the mind and touch the heart — from classic tafsir to contemporary works for the family and the spiritual journey.',
+  'home.about.cta': 'Choose your next title',
+  'home.about.badgeBrowse': 'Browse',
+  'home.about.badgeCatalog': 'Catalogue',
+  'home.about.badgeRead': 'Read',
+  'home.about.badgeBlog': 'the blog',
+  'home.about.imageAlt': 'Featured book',
+  'home.blog.title': 'FROM THE BLOG',
+  'home.blog.readMore': 'Read more →',
+  'home.category.title': 'BROWSE BY CATEGORY',
+  'home.deal.title.line1': 'BOOKS THAT INSPIRE',
+  'home.deal.title.line2': 'YOUR LIFE',
+  'home.deal.lead':
+    'A selection of titles from the current catalogue — books that stay in full on our shelves and leave a lasting mark.',
+  'home.hero.allBooks': 'All books',
+  'home.hero.viewProduct': 'View product',
+  'home.hero.prev': 'Previous slide',
+  'home.hero.next': 'Next slide',
+  'home.hero.nav': 'Navigation',
+  'home.hero.dot': 'Slide {n}',
+  'home.mind.eyebrow': 'About the catalogue',
+  'home.mind.title.line1': 'EXPAND',
+  'home.mind.title.line2': 'YOUR MIND',
+  'home.mind.title.line3': 'EVERY DAY',
+  'home.mind.lead':
+    'Knowledge grows from steady reading. Browse the current categories and pick the title that fits your question.',
+  'home.mind.categoriesLabel': 'Current categories',
+  'home.stats.titles': 'Active titles',
+  'home.stats.stock': 'In stock',
+  'home.stats.categories': 'Categories',
+  'home.stats.brands': 'Brands',
+  'home.story.title.line1': 'EVERY PAGE',
+  'home.story.title.line2': 'TELLS A STORY',
+  'home.story.lead':
+    'Every chapter has its own rhythm. Choose a title kept in the catalogue and find a story that is worth your time.',
+  'home.story.badge': 'BOOK',
+  'home.story.priceUnavailable': 'Price unavailable',
+  'home.story.stock': '{count} in stock',
+  'home.story.outOfStock': 'Momentarily out of stock',
+
+  // Storefront widgets (WidgetArea fallbacks + newsletter capture)
+  'home.widget.type.recent_posts': 'Recent posts',
+  'home.widget.type.recent_products': 'Recent products',
+  'home.widget.type.categories': 'Categories',
+  'home.widget.type.text': 'Text / HTML',
+  'home.widget.type.newsletter': 'Newsletter signup',
+  'home.widget.type.social': 'Social links',
+  'home.widget.untitled_post': 'Untitled post',
+  'home.widget.newsletter.label': 'Email address',
+  'home.widget.newsletter.submit': 'Subscribe',
+  'home.widget.newsletter.thanks':
+    'Thank you! Our newsletter list opens soon — watch this space.',
+  'home.widget.newsletter.pending':
+    'Newsletter signup is coming soon — leave your address and check back with us.',
+};

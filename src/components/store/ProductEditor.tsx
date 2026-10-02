@@ -42,6 +42,8 @@ import {
   type ProductFormValues,
   type VariantFormValues,
 } from './types';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export type TaxonomyOption = { id: number; name: string; categoryId?: number };
 
@@ -49,12 +51,12 @@ export type EditorVariant = VariantFormValues;
 
 type TabKey = 'general' | 'pricing' | 'images' | 'taxonomy' | 'variants';
 
-const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { key: 'general', label: 'General', icon: FileText },
-  { key: 'pricing', label: 'Pricing & inventory', icon: BadgeDollarSign },
-  { key: 'images', label: 'Images', icon: ImageIcon },
-  { key: 'taxonomy', label: 'Category & taxonomy', icon: Tags },
-  { key: 'variants', label: 'Variants', icon: Layers },
+const TABS: { key: TabKey; labelKey: keyof Dictionary; icon: React.ComponentType<{ size?: number }> }[] = [
+  { key: 'general', labelKey: 'cmsshared.product_editor.tab_general', icon: FileText },
+  { key: 'pricing', labelKey: 'cmsshared.product_editor.tab_pricing', icon: BadgeDollarSign },
+  { key: 'images', labelKey: 'cmsshared.product_editor.tab_images', icon: ImageIcon },
+  { key: 'taxonomy', labelKey: 'cmsshared.product_editor.tab_taxonomy', icon: Tags },
+  { key: 'variants', labelKey: 'cmsshared.product_editor.tab_variants', icon: Layers },
 ];
 
 const EMPTY_VALUES: ProductFormValues = {
@@ -68,6 +70,7 @@ const EMPTY_VALUES: ProductFormValues = {
   salePrice: '',
   saleFrom: '',
   saleTo: '',
+  rating: '',
   sku: '',
   barcode: '',
   stockQuantity: '0',
@@ -103,6 +106,7 @@ export default function ProductEditor({
   initialVariants: EditorVariant[];
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const productId = product?.id;
   const initial = product ?? EMPTY_VALUES;
 
@@ -180,6 +184,7 @@ export default function ProductEditor({
       salePrice: str(formData, 'salePrice', 40).trim(),
       saleFrom: str(formData, 'saleFrom', 20),
       saleTo: str(formData, 'saleTo', 20),
+      rating: str(formData, 'rating', 4).trim(),
       sku: str(formData, 'sku', 100).trim(),
       barcode: str(formData, 'barcode', 100).trim(),
       stockQuantity: str(formData, 'stockQuantity', 20).trim() || '0',
@@ -202,18 +207,18 @@ export default function ProductEditor({
     try {
       const result = mode === 'create' ? await createProduct(values) : await updateProduct(product!.id, values);
       if (!result.ok) {
-        toast.error(result.error || 'Could not save the product.');
+        toast.error(result.error || t('cmsshared.product_editor.save_error'));
         return;
       }
       if (mode === 'create' && result.id) {
-        toast.success('Product created.');
+        toast.success(t('cmsshared.product_editor.created'));
         router.push(`/cms/products/${result.id}/edit`);
         return;
       }
-      toast.success('Product saved.');
+      toast.success(t('cmsshared.product_editor.saved'));
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the product.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.product_editor.save_error'));
     } finally {
       setSaving(false);
     }
@@ -248,16 +253,18 @@ export default function ProductEditor({
     try {
       const result = await saveVariant({ ...row, productId });
       if (!result.ok) {
-        toast.error(result.error || 'Could not save the variant.');
+        toast.error(result.error || t('cmsshared.product_editor.variant_save_error'));
         return;
       }
-      toast.success(row.id ? 'Variant updated.' : 'Variant added.');
+      toast.success(
+        row.id ? t('cmsshared.product_editor.variant_updated') : t('cmsshared.product_editor.variant_added'),
+      );
       setVariantRows((current) =>
         current.map((item, i) => (i === index ? { ...result.variant } : item)),
       );
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the variant.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.product_editor.variant_save_error'));
     } finally {
       setVariantBusy(null);
     }
@@ -266,23 +273,23 @@ export default function ProductEditor({
   async function removeVariant(index: number) {
     const row = variantRows[index];
     if (!row || !productId) return;
-    if (!window.confirm(`Delete the variant "${row.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(t('cmsshared.product_editor.variant_delete_confirm', { name: row.name }))) return;
     setVariantBusy(index);
     try {
       if (row.id) {
         const result = await deleteVariant(row.id, productId);
         if (!result.ok) {
-          toast.error(result.error || 'Could not delete the variant.');
+          toast.error(result.error || t('cmsshared.product_editor.variant_delete_error'));
           return;
         }
-        toast.success('Variant deleted.');
+        toast.success(t('cmsshared.product_editor.variant_deleted'));
         setVariantRows((current) => current.filter((_, i) => i !== index));
         router.refresh();
       } else {
         setVariantRows((current) => current.filter((_, i) => i !== index));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete the variant.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.product_editor.variant_delete_error'));
     } finally {
       setVariantBusy(null);
     }
@@ -312,7 +319,7 @@ export default function ProductEditor({
                   )}
                 >
                   <item.icon size={15} />
-                  {item.label}
+                  {t(item.labelKey)}
                 </button>
               );
             })}
@@ -323,26 +330,26 @@ export default function ProductEditor({
         {tab === 'general' ? (
           <Card>
             <CardHeader>
-              <CardTitle>General information</CardTitle>
+              <CardTitle>{t('cmsshared.product_editor.general_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               <input type="hidden" name="name" value={name} />
               <input type="hidden" name="slug" value={slug} />
 
-              <Field label="Product name" htmlFor="product-name">
+              <Field label={t('cmsshared.product_editor.name_label')} htmlFor="product-name">
                 <Input
                   id="product-name"
                   value={name}
                   onChange={(event) => onNameChange(event.target.value)}
-                  placeholder="e.g. Linen summer shirt"
+                  placeholder={t('cmsshared.product_editor.name_placeholder')}
                   required
                 />
               </Field>
 
               <Field
-                label="Slug"
+                label={t('cmsshared.product_editor.slug_label')}
                 htmlFor="product-slug"
-                hint="Used in URLs — generated from the name until you edit it."
+                hint={t('cmsshared.product_editor.slug_hint')}
               >
                 <Input
                   id="product-slug"
@@ -356,12 +363,12 @@ export default function ProductEditor({
               </Field>
 
               <div>
-                <Label htmlFor="product-short">Short description</Label>
+                <Label htmlFor="product-short">{t('cmsshared.product_editor.short_label')}</Label>
                 <div className="rounded-lg border border-zinc-300 bg-white">
                   <TiptapEditor
                     value={shortDescription}
                     onChange={setShortDescription}
-                    placeholder="One or two sentences shown near the price…"
+                    placeholder={t('cmsshared.product_editor.short_placeholder')}
                     minHeight={140}
                     compact
                   />
@@ -370,12 +377,12 @@ export default function ProductEditor({
               </div>
 
               <div>
-                <Label htmlFor="product-description">Full description</Label>
+                <Label htmlFor="product-description">{t('cmsshared.product_editor.description_label')}</Label>
                 <div className="rounded-lg border border-zinc-300 bg-white">
                   <TiptapEditor
                     value={description}
                     onChange={setDescription}
-                    placeholder="Write the product description…"
+                    placeholder={t('cmsshared.product_editor.description_placeholder')}
                     minHeight={260}
                   />
                 </div>
@@ -383,9 +390,9 @@ export default function ProductEditor({
               </div>
 
               <Field
-                label="Status"
+                label={t('cmsshared.coupon.status')}
                 htmlFor="product-status"
-                hint="Only Active products are shown in the shop."
+                hint={t('cmsshared.product_editor.status_hint')}
               >
                 <Select id="product-status" name="status" defaultValue={initial.status}>
                   {PRODUCT_STATUSES.map((status) => (
@@ -403,10 +410,10 @@ export default function ProductEditor({
         {tab === 'pricing' ? (
           <Card>
             <CardHeader>
-              <CardTitle>Pricing &amp; inventory</CardTitle>
+              <CardTitle>{t('cmsshared.product_editor.pricing_title')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-5 sm:grid-cols-2">
-              <Field label="Regular price" htmlFor="price" hint="Shop currency.">
+              <Field label={t('cmsshared.product_editor.price_label')} htmlFor="price" hint={t('cmsshared.product_editor.price_hint')}>
                 <Input
                   id="price"
                   name="price"
@@ -418,7 +425,7 @@ export default function ProductEditor({
                 />
               </Field>
 
-              <Field label="Cost price" htmlFor="costPrice" hint="What one unit costs you.">
+              <Field label={t('cmsshared.product_editor.cost_label')} htmlFor="costPrice" hint={t('cmsshared.product_editor.cost_hint')}>
                 <Input
                   id="costPrice"
                   name="costPrice"
@@ -431,9 +438,9 @@ export default function ProductEditor({
               </Field>
 
               <Field
-                label="Sale price"
+                label={t('cmsshared.product_editor.sale_label')}
                 htmlFor="salePrice"
-                hint="Stored with its date window in the product config."
+                hint={t('cmsshared.product_editor.sale_hint')}
               >
                 <Input
                   id="salePrice"
@@ -442,24 +449,39 @@ export default function ProductEditor({
                   step="0.01"
                   min="0"
                   defaultValue={initial.salePrice}
-                  placeholder="No sale"
+                  placeholder={t('cmsshared.product_editor.sale_placeholder')}
                 />
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sale from" htmlFor="saleFrom">
+                <Field label={t('cmsshared.product_editor.sale_from')} htmlFor="saleFrom">
                   <Input id="saleFrom" name="saleFrom" type="date" defaultValue={initial.saleFrom} />
                 </Field>
-                <Field label="Sale to" htmlFor="saleTo">
+                <Field label={t('cmsshared.product_editor.sale_to')} htmlFor="saleTo">
                   <Input id="saleTo" name="saleTo" type="date" defaultValue={initial.saleTo} />
                 </Field>
               </div>
 
-              <Field label="SKU" htmlFor="sku">
+              <Field
+                label={t('cmsshared.product_editor.rating_label')}
+                htmlFor="rating"
+                hint={t('cmsshared.product_editor.rating_hint')}
+              >
+                <Select id="rating" name="rating" defaultValue={initial.rating}>
+                  <option value="">{t('cmsshared.product_editor.rating_none')}</option>
+                  <option value="5">★★★★★ 5</option>
+                  <option value="4">★★★★☆ 4</option>
+                  <option value="3">★★★☆☆ 3</option>
+                  <option value="2">★★☆☆☆ 2</option>
+                  <option value="1">★☆☆☆☆ 1</option>
+                </Select>
+              </Field>
+
+              <Field label={t('cmsshared.product_editor.sku_label')} htmlFor="sku">
                 <Input id="sku" name="sku" defaultValue={initial.sku} placeholder="ABC-123" />
               </Field>
 
-              <Field label="Barcode" htmlFor="barcode">
+              <Field label={t('cmsshared.product_editor.barcode_label')} htmlFor="barcode">
                 <Input
                   id="barcode"
                   name="barcode"
@@ -468,7 +490,7 @@ export default function ProductEditor({
                 />
               </Field>
 
-              <Field label="Stock quantity" htmlFor="stockQuantity">
+              <Field label={t('cmsshared.product_editor.stock_label')} htmlFor="stockQuantity">
                 <Input
                   id="stockQuantity"
                   name="stockQuantity"
@@ -479,9 +501,9 @@ export default function ProductEditor({
               </Field>
 
               <Field
-                label="Low-stock level"
+                label={t('cmsshared.product_editor.low_stock_label')}
                 htmlFor="minStockLevel"
-                hint="Below this quantity the product is flagged as low stock."
+                hint={t('cmsshared.product_editor.low_stock_hint')}
               >
                 <Input
                   id="minStockLevel"
@@ -493,9 +515,9 @@ export default function ProductEditor({
               </Field>
 
               <Field
-                label="Backorders"
+                label={t('cmsshared.product_editor.backorders_label')}
                 htmlFor="backorder"
-                hint="What happens when stock reaches zero."
+                hint={t('cmsshared.product_editor.backorders_hint')}
                 className="sm:col-span-2"
               >
                 <Select id="backorder" name="backorder" defaultValue={initial.backorder}>
@@ -508,8 +530,7 @@ export default function ProductEditor({
               </Field>
 
               <p className="text-xs text-zinc-500 sm:col-span-2">
-                Variant-level stock lives in the Variants tab; the value above is the product
-                fallback shown in lists and reports.
+                {t('cmsshared.product_editor.stock_note')}
               </p>
             </CardContent>
           </Card>
@@ -519,7 +540,7 @@ export default function ProductEditor({
         {tab === 'images' ? (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>Images</CardTitle>
+              <CardTitle>{t('cmsshared.product_editor.images_title')}</CardTitle>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -530,7 +551,7 @@ export default function ProductEditor({
                     setPickerOpen(true);
                   }}
                 >
-                  Pick featured image
+                  {t('cmsshared.product_editor.pick_featured')}
                 </Button>
                 <Button
                   type="button"
@@ -541,7 +562,7 @@ export default function ProductEditor({
                     setPickerOpen(true);
                   }}
                 >
-                  <Plus size={14} /> Add gallery images
+                  <Plus size={14} /> {t('cmsshared.product_editor.add_gallery')}
                 </Button>
               </div>
             </CardHeader>
@@ -551,13 +572,13 @@ export default function ProductEditor({
               ))}
 
               <div>
-                <Label>Featured image</Label>
+                <Label>{t('cmsshared.product_editor.featured_label')}</Label>
                 {featured ? (
                   <div className="flex items-center gap-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={featured}
-                      alt={name || 'Featured image'}
+                      alt={name || t('cmsshared.product_editor.featured_label')}
                       className="h-28 w-28 rounded-lg border border-zinc-200 object-cover"
                     />
                     <Button
@@ -566,7 +587,7 @@ export default function ProductEditor({
                       size="sm"
                       onClick={() => setImages((current) => current.slice(1))}
                     >
-                      <Trash2 size={14} /> Remove
+                      <Trash2 size={14} /> {t('cmsshared.product_editor.remove')}
                     </Button>
                   </div>
                 ) : (
@@ -577,7 +598,7 @@ export default function ProductEditor({
                       setPickerOpen(true);
                     }}
                     className="flex h-28 w-28 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-zinc-400 transition hover:border-[#6d6be8] hover:text-[#5b59d6]"
-                    aria-label="Choose the featured image"
+                    aria-label={t('cmsshared.product_editor.choose_featured')}
                   >
                     <ImageIcon size={22} />
                   </button>
@@ -585,9 +606,9 @@ export default function ProductEditor({
               </div>
 
               <div>
-                <Label>Gallery</Label>
+                <Label>{t('cmsshared.product_editor.gallery_label')}</Label>
                 {gallery.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No gallery images yet.</p>
+                  <p className="text-sm text-zinc-500">{t('cmsshared.product_editor.gallery_empty')}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                     {gallery.map((url, index) => (
@@ -599,7 +620,7 @@ export default function ProductEditor({
                         <img src={url} alt="" className="aspect-square w-full object-cover" />
                         <button
                           type="button"
-                          aria-label="Remove image"
+                          aria-label={t('cmsshared.product_editor.remove_image')}
                           onClick={() =>
                             setImages((current) => current.filter((item) => item !== url))
                           }
@@ -614,9 +635,10 @@ export default function ProductEditor({
               </div>
 
               <p className="text-xs text-zinc-500">
-                The featured image is the first entry of{' '}
-                <code>products.image_url</code>; the gallery is stored in the same column as a JSON
-                image list (readable by <code>parseImageUrl</code>).
+                {t('cmsshared.product_editor.images_note_before')}{' '}
+                <code>products.image_url</code>
+                {t('cmsshared.product_editor.images_note_after')} <code>parseImageUrl</code>
+                {t('cmsshared.product_editor.images_note_end')}
               </p>
             </CardContent>
           </Card>
@@ -626,20 +648,20 @@ export default function ProductEditor({
         {tab === 'taxonomy' ? (
           <Card>
             <CardHeader>
-              <CardTitle>Category &amp; taxonomy</CardTitle>
+              <CardTitle>{t('cmsshared.product_editor.taxonomy_title')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-5 sm:grid-cols-2">
               <Field
-                label="Category"
+                label={t('cmsshared.product_editor.category_label')}
                 htmlFor="categoryId"
-                hint="Used for storefront breadcrumbs and category pages."
+                hint={t('cmsshared.product_editor.category_hint')}
               >
                 <Select
                   id="categoryId"
                   value={categoryId}
                   onChange={(event) => onCategoryChange(event.target.value)}
                 >
-                  <option value="">No category</option>
+                  <option value="">{t('cmsshared.product_editor.category_none')}</option>
                   {taxonomy.categories.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.name}
@@ -648,13 +670,17 @@ export default function ProductEditor({
                 </Select>
               </Field>
 
-              <Field label="Sub-category" htmlFor="subCategoryId" hint="Optional second level.">
+              <Field
+                label={t('cmsshared.product_editor.subcategory_label')}
+                htmlFor="subCategoryId"
+                hint={t('cmsshared.product_editor.subcategory_hint')}
+              >
                 <Select
                   id="subCategoryId"
                   value={subCategoryId}
                   onChange={(event) => setSubCategoryId(event.target.value)}
                 >
-                  <option value="">None</option>
+                  <option value="">{t('cmsshared.product_editor.subcategory_none')}</option>
                   {visibleSubCategories.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.name}
@@ -663,9 +689,9 @@ export default function ProductEditor({
                 </Select>
               </Field>
 
-              <Field label="Brand" htmlFor="brandId">
+              <Field label={t('cmsshared.product_editor.brand_label')} htmlFor="brandId">
                 <Select id="brandId" name="brandId" defaultValue={initial.brandId}>
-                  <option value="">Unassigned</option>
+                  <option value="">{t('cmsshared.product_editor.brand_none')}</option>
                   {taxonomy.brands.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.name}
@@ -674,9 +700,13 @@ export default function ProductEditor({
                 </Select>
               </Field>
 
-              <Field label="Unit" htmlFor="unitId" hint="e.g. piece, kg, box.">
+              <Field
+                label={t('cmsshared.product_editor.unit_label')}
+                htmlFor="unitId"
+                hint={t('cmsshared.product_editor.unit_hint')}
+              >
                 <Select id="unitId" name="unitId" defaultValue={initial.unitId}>
-                  <option value="">Default (piece)</option>
+                  <option value="">{t('cmsshared.product_editor.unit_default')}</option>
                   {taxonomy.units.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.name}
@@ -686,8 +716,7 @@ export default function ProductEditor({
               </Field>
 
               <p className="text-xs text-zinc-500 sm:col-span-2">
-                Categories, brands and units are managed in the store admin — new entries created
-                there appear here after a refresh.
+                {t('cmsshared.product_editor.taxonomy_note')}
               </p>
             </CardContent>
           </Card>
@@ -698,41 +727,47 @@ export default function ProductEditor({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <div>
-                <CardTitle>Variants</CardTitle>
+                <CardTitle>{t('cmsshared.product_editor.variants_title')}</CardTitle>
                 <p className="mt-1 text-sm text-zinc-500">
                   {productId
-                    ? 'Every sellable option needs its own variant — the shop adds to cart per variant.'
-                    : 'Save the product first, then come back to add variants.'}
+                    ? t('cmsshared.product_editor.variants_subtitle')
+                    : t('cmsshared.product_editor.variants_subtitle_new')}
                 </p>
               </div>
               {productId ? (
                 <Button type="button" variant="outline" size="sm" onClick={addVariantRow}>
-                  <Plus size={14} /> Add variant
+                  <Plus size={14} /> {t('cmsshared.product_editor.add_variant')}
                 </Button>
               ) : null}
             </CardHeader>
             <CardContent className="space-y-4">
               {!productId ? (
                 <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
-                  Variants belong to a saved product. Fill in the General tab and press{' '}
-                  <span className="font-medium text-zinc-700">Create product</span> first.
+                  {t('cmsshared.product_editor.variants_locked_before')}{' '}
+                  <span className="font-medium text-zinc-700">
+                    {t('cmsshared.product_editor.create_product')}
+                  </span>
+                  {t('cmsshared.product_editor.variants_locked_after')}
                 </div>
               ) : variantRows.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
-                  No variants yet. Press <span className="font-medium text-zinc-700">Add variant</span> to
-                  create the default sellable option.
+                  {t('cmsshared.product_editor.variants_empty_before')}{' '}
+                  <span className="font-medium text-zinc-700">
+                    {t('cmsshared.product_editor.add_variant')}
+                  </span>
+                  {t('cmsshared.product_editor.variants_empty_after')}
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-zinc-200">
                   <table className="min-w-full divide-y divide-zinc-200 text-sm">
                     <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
                       <tr>
-                        <th className="px-3 py-2">Name</th>
-                        <th className="px-3 py-2">SKU</th>
-                        <th className="px-3 py-2">Price</th>
-                        <th className="px-3 py-2">Cost</th>
-                        <th className="px-3 py-2">Stock</th>
-                        <th className="px-3 py-2 text-right">Actions</th>
+                        <th className="px-3 py-2">{t('cmsshared.product_editor.col_name')}</th>
+                        <th className="px-3 py-2">{t('cmsshared.product_editor.col_sku')}</th>
+                        <th className="px-3 py-2">{t('cmsshared.product_editor.col_price')}</th>
+                        <th className="px-3 py-2">{t('cmsshared.product_editor.col_cost')}</th>
+                        <th className="px-3 py-2">{t('cmsshared.product_editor.col_stock')}</th>
+                        <th className="px-3 py-2 text-right">{t('cmsshared.product_editor.col_actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 bg-white">
@@ -742,7 +777,7 @@ export default function ProductEditor({
                           <tr key={row.id ?? `new-${index}`}>
                             <td className="px-3 py-2">
                               <Input
-                                aria-label="Variant name"
+                                aria-label={t('cmsshared.product_editor.variant_name_aria')}
                                 value={row.name}
                                 onChange={(event) =>
                                   updateVariantRow(index, { name: event.target.value })
@@ -752,7 +787,7 @@ export default function ProductEditor({
                             </td>
                             <td className="px-3 py-2">
                               <Input
-                                aria-label="Variant SKU"
+                                aria-label={t('cmsshared.product_editor.variant_sku_aria')}
                                 value={row.sku}
                                 onChange={(event) =>
                                   updateVariantRow(index, { sku: event.target.value })
@@ -763,7 +798,7 @@ export default function ProductEditor({
                             </td>
                             <td className="px-3 py-2">
                               <Input
-                                aria-label="Variant price"
+                                aria-label={t('cmsshared.product_editor.variant_price_aria')}
                                 type="number"
                                 step="0.01"
                                 min="0"
@@ -776,7 +811,7 @@ export default function ProductEditor({
                             </td>
                             <td className="px-3 py-2">
                               <Input
-                                aria-label="Variant cost price"
+                                aria-label={t('cmsshared.product_editor.variant_cost_aria')}
                                 type="number"
                                 step="0.01"
                                 min="0"
@@ -789,7 +824,7 @@ export default function ProductEditor({
                             </td>
                             <td className="px-3 py-2">
                               <Input
-                                aria-label="Variant stock"
+                                aria-label={t('cmsshared.product_editor.variant_stock_aria')}
                                 type="number"
                                 min="0"
                                 value={row.stock}
@@ -809,7 +844,7 @@ export default function ProductEditor({
                                   onClick={() => saveOneVariant(index)}
                                 >
                                   {busy ? <Loader2 size={14} className="animate-spin" /> : null}
-                                  {row.id ? 'Save' : 'Add'}
+                                  {row.id ? t('cmsshared.action.save') : t('cmsshared.action.add')}
                                 </Button>
                                 <Button
                                   type="button"
@@ -817,7 +852,9 @@ export default function ProductEditor({
                                   size="sm"
                                   disabled={busy}
                                   onClick={() => removeVariant(index)}
-                                  aria-label={`Delete variant ${row.name}`}
+                                  aria-label={t('cmsshared.product_editor.variant_delete_aria', {
+                                    name: row.name,
+                                  })}
                                 >
                                   <Trash2 size={14} />
                                 </Button>
@@ -832,8 +869,7 @@ export default function ProductEditor({
               )}
 
               <p className="text-xs text-zinc-500">
-                Price, cost and stock are saved per variant with the buttons above — they are not part
-                of the main product form.
+                {t('cmsshared.product_editor.variants_note')}
               </p>
             </CardContent>
           </Card>
@@ -846,22 +882,24 @@ export default function ProductEditor({
               href="/cms/products"
               className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
             >
-              Back to products
+              {t('cmsshared.product_editor.back_to_products')}
             </Link>
             {productId ? (
               <a
-                href={`/shop/products/${productId}`}
+                href={`/home/products/${productId}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
               >
-                View in shop <ExternalLink size={14} />
+                {t('cmsshared.product_editor.view_in_shop')} <ExternalLink size={14} />
               </a>
             ) : null}
           </div>
           <Button type="submit" disabled={saving}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : null}
-            {mode === 'create' ? 'Create product' : 'Save changes'}
+            {mode === 'create'
+              ? t('cmsshared.product_editor.create')
+              : t('cmsshared.action.save_changes')}
           </Button>
         </div>
       </form>

@@ -18,6 +18,8 @@ const ERROR_LABELS: Record<string, string> = {
   'tenant-domain-required': 'Store login is not available on this host.',
   'database-error': 'Could not reach the database. Try again.',
   'invalid-credentials': 'Incorrect email or password.',
+  'wrong-audience':
+    'This is a customer account and cannot open the admin panel. Sign in through the shop login instead.',
 };
 
 export async function cmsLogin(

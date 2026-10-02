@@ -23,7 +23,7 @@ function isHex(value: unknown): value is string {
 }
 
 /**
- * Rendered by `src/app/shop/layout.tsx`. In normal browsing it renders nothing;
+ * Rendered by `src/app/home/layout.tsx`. In normal browsing it renders nothing;
  * when the URL carries `?preview=1` (the customizer iframe) it listens for
  * `cms:theme` messages and applies the payload to the document root — so the
  * preview updates without ever reloading the iframe.

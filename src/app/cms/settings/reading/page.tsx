@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getContextDb } from '@/lib/tenant';
 import { cmsPages } from '@/db/schema-tenant';
+import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard';
 import SettingsForm from '@/components/settings/SettingsForm';
@@ -19,6 +20,7 @@ const DEFAULTS: SettingsValues = {
 
 export default async function ReadingSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const db = await getContextDb();
   const [pages, loaded] = await Promise.all([
@@ -32,7 +34,7 @@ export default async function ReadingSettingsPage() {
   const values = withDefaults(DEFAULTS, loaded);
 
   const pageOptions = [
-    { value: '', label: '— Select a page —' },
+    { value: '', label: t('cmssettings.reading.selectPage') },
     ...pages.map((page) => ({ value: String(page.id), label: page.title })),
   ];
 
@@ -40,60 +42,66 @@ export default async function ReadingSettingsPage() {
     {
       kind: 'radio',
       key: 'reading_homepage_type',
-      label: 'Homepage displays',
+      label: t('cmssettings.reading.homepageTypeLabel'),
       options: [
-        { value: 'latest', label: 'Your latest posts' },
-        { value: 'static', label: 'A static page (selected below)' },
+        { value: 'latest', label: t('cmssettings.reading.homepageLatest') },
+        { value: 'static', label: t('cmssettings.reading.homepageStatic') },
       ],
     },
     {
       kind: 'select',
       key: 'reading_homepage_page_id',
-      label: 'Homepage',
-      hint: 'Used only when “A static page” is selected above.',
+      label: t('cmssettings.reading.homepageLabel'),
+      hint: t('cmssettings.reading.homepageHint'),
       options: pageOptions,
     },
     {
       kind: 'number',
       key: 'reading_posts_per_page',
-      label: 'Blog pages show at most',
+      label: t('cmssettings.reading.postsPerPageLabel'),
       min: 1,
       max: 100,
-      suffix: 'posts per page',
-      hint: 'Between 1 and 100.',
+      suffix: t('cmssettings.reading.postsPerPageSuffix'),
+      hint: t('cmssettings.reading.postsPerPageHint'),
     },
     {
       kind: 'select',
       key: 'reading_discussion_page_id',
-      label: 'Discussion page',
-      hint: 'Optional page that hosts the comment threads.',
+      label: t('cmssettings.reading.discussionPageLabel'),
+      hint: t('cmssettings.reading.discussionPageHint'),
       options: pageOptions,
     },
   ];
 
+  const selectedPageLabel =
+    pageOptions.find((o) => o.value === String(values.reading_homepage_page_id))?.label || '';
+
   return (
     <div>
       <PageHeader
-        title="Reading settings"
-        description="Control what the homepage shows and how much content each page loads."
+        title={t('cmssettings.reading.title')}
+        description={t('cmssettings.reading.description')}
       />
 
       <div className="max-w-3xl space-y-6">
         <SettingsCard
-          title="Your homepage"
-          description="Choose between a live feed of your newest posts or a hand-picked page."
+          title={t('cmssettings.reading.cardTitle')}
+          description={t('cmssettings.reading.cardDescription')}
         >
           <SettingsForm
             fields={fields}
             initialValues={values}
             onSubmit={saveReadingSettings}
             columns={1}
+            saveLabel={t('cmssettings.common.saveChanges')}
           >
-            <SettingsSection title="Front page summary">
+            <SettingsSection title={t('cmssettings.reading.sectionTitle')}>
               <p className="text-xs text-zinc-500">
                 {values.reading_homepage_type === 'static'
-                  ? `The storefront homepage is a static page (${pageOptions.find((o) => o.value === String(values.reading_homepage_page_id))?.label || 'not selected yet'}).`
-                  : 'The storefront homepage lists your latest published posts.'}
+                  ? t('cmssettings.reading.summaryStatic', {
+                      page: selectedPageLabel || t('cmssettings.reading.summaryNotSelected'),
+                    })
+                  : t('cmssettings.reading.summaryLatest')}
               </p>
             </SettingsSection>
           </SettingsForm>

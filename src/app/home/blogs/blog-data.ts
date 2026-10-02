@@ -276,8 +276,12 @@ export const getStorefrontBlogPosts = cache(async (): Promise<BlogPost[]> => {
   try {
     const result: unknown = await getPublicBlogPostRecords();
     if (Array.isArray(result)) records = result;
-  } catch {
-    // The storefront should still render when the optional CMS is not ready.
+  } catch (error) {
+    // The storefront should still render when the optional CMS is not ready,
+    // but never hide the reason — silent failures show stale fallback posts.
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[blogs] public blog records unavailable:', error);
+    }
   }
 
   const bySlug = new Map<string, BlogPost>();

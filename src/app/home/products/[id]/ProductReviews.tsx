@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import { BadgeCheck, SlidersHorizontal } from 'lucide-react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import styles from './product-details.module.css';
 
 export type ReviewRating = 1 | 2 | 3 | 4 | 5;
@@ -69,11 +73,11 @@ export type ProductReviewsData = {
 };
 
 const REVIEW_RATINGS: readonly ReviewRating[] = [5, 4, 3, 2, 1];
-const SORT_OPTIONS: ReadonlyArray<{ value: ReviewSort; label: string }> = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
-  { value: 'highest', label: 'Highest rating' },
-  { value: 'lowest', label: 'Lowest rating' },
+const SORT_OPTIONS: ReadonlyArray<{ value: ReviewSort; labelKey: keyof Dictionary }> = [
+  { value: 'newest', labelKey: 'catalog.sort_newest' },
+  { value: 'oldest', labelKey: 'catalog.reviews_sort_oldest' },
+  { value: 'highest', labelKey: 'catalog.reviews_sort_highest' },
+  { value: 'lowest', labelKey: 'catalog.reviews_sort_lowest' },
 ];
 
 function safeCount(value: number | undefined): number {
@@ -124,7 +128,7 @@ function reviewHref(
   if (page > 1) params.set('reviewsPage', String(page));
 
   const queryString = params.toString();
-  return `/shop/products/${productId}${queryString ? `?${queryString}` : ''}`;
+  return `/home/products/${productId}${queryString ? `?${queryString}` : ''}`;
 }
 
 export function ReviewSummary({
@@ -132,6 +136,7 @@ export function ReviewSummary({
 }: {
   data?: ProductReviewsData;
 }) {
+  const { t } = useLocale();
   const approvedCount = resolveApprovedCount(data);
   const summary = data?.summary;
   const average = safeAverage(summary?.averageRating);
@@ -143,12 +148,9 @@ export function ReviewSummary({
   if (approvedCount === 0) {
     return (
       <div className={styles.reviewZeroState}>
-        <span className={styles.reviewZeroLabel}>Customer reviews</span>
-        <h3>No approved reviews yet</h3>
-        <p>
-          This product does not have an approved customer review. A rating will appear
-          here only after real review data is supplied and approved.
-        </p>
+        <span className={styles.reviewZeroLabel}>{t('catalog.reviews_zero_label')}</span>
+        <h3>{t('catalog.reviews_zero_title')}</h3>
+        <p>{t('catalog.reviews_zero_text')}</p>
       </div>
     );
   }
@@ -159,20 +161,27 @@ export function ReviewSummary({
         <span className={styles.reviewAverageValue}>
           {average === null ? '—' : average.toFixed(1)}
         </span>
-        <span className={styles.reviewAverageScale}>out of 5</span>
+        <span className={styles.reviewAverageScale}>{t('catalog.reviews_out_of_5')}</span>
         <span className={styles.reviewApprovedCount}>
-          {approvedCount} approved {approvedCount === 1 ? 'review' : 'reviews'}
+          {t(
+            approvedCount === 1
+              ? 'catalog.reviews_approved_one'
+              : 'catalog.reviews_approved_other',
+            { count: approvedCount },
+          )}
         </span>
         {summary?.verifiedPurchaseCount != null ? (
           <span className={styles.reviewVerifiedSummary}>
             <BadgeCheck size={15} aria-hidden="true" />
-            {safeCount(summary.verifiedPurchaseCount)} verified purchases
+            {t('catalog.reviews_verified_count', {
+              count: safeCount(summary.verifiedPurchaseCount),
+            })}
           </span>
         ) : null}
       </div>
 
       {distribution.length > 0 ? (
-        <div className={styles.ratingDistribution} aria-label="Approved rating distribution">
+        <div className={styles.ratingDistribution} aria-label={t('catalog.reviews_distribution_aria')}>
           {distribution.map((row) => {
             const count = safeCount(row.count);
             const percentage = approvedCount > 0
@@ -180,11 +189,18 @@ export function ReviewSummary({
               : 0;
             return (
               <div className={styles.distributionRow} key={row.rating}>
-                <span>{row.rating} point{row.rating === 1 ? '' : 's'}</span>
+                <span>
+                  {t(
+                    row.rating === 1
+                      ? 'catalog.reviews_points_one'
+                      : 'catalog.reviews_points_other',
+                    { rating: row.rating },
+                  )}
+                </span>
                 <div
                   className={styles.distributionTrack}
                   role="progressbar"
-                  aria-label={`${row.rating} point reviews`}
+                  aria-label={t('catalog.reviews_points_aria', { rating: row.rating })}
                   aria-valuemin={0}
                   aria-valuemax={approvedCount}
                   aria-valuenow={Math.min(count, approvedCount)}
@@ -197,7 +213,7 @@ export function ReviewSummary({
           })}
         </div>
       ) : (
-        <p className={styles.reviewDataNote}>The detailed rating distribution is not available.</p>
+        <p className={styles.reviewDataNote}>{t('catalog.reviews_distribution_unavailable')}</p>
       )}
     </div>
   );
@@ -212,6 +228,7 @@ export function ReviewList({
   data?: ProductReviewsData;
   approvedCount: number;
 }) {
+  const { t } = useLocale();
   const reviews = data?.reviews ?? [];
   const query = data?.query ?? {};
   const hasFilters = Boolean(query.rating || query.verifiedOnly);
@@ -219,14 +236,18 @@ export function ReviewList({
   if (reviews.length === 0) {
     return (
       <div className={styles.reviewListEmpty}>
-        <h3>{approvedCount > 0 && hasFilters ? 'No reviews match these filters' : 'No approved reviews to display'}</h3>
+        <h3>
+          {approvedCount > 0 && hasFilters
+            ? t('catalog.reviews_empty_filtered_title')
+            : t('catalog.reviews_empty_title')}
+        </h3>
         <p>
           {approvedCount > 0 && hasFilters
-            ? 'Try clearing the rating or verified-purchase filter.'
-            : 'Only approved customer reviews will be shown on this page.'}
+            ? t('catalog.reviews_empty_filtered_text')
+            : t('catalog.reviews_empty_text')}
         </p>
         {approvedCount > 0 && hasFilters ? (
-          <Link href={reviewHref(productId, {}, 1)}>Clear review filters</Link>
+          <Link href={reviewHref(productId, {}, 1)}>{t('catalog.reviews_clear_filters')}</Link>
         ) : null}
       </div>
     );
@@ -242,7 +263,7 @@ export function ReviewList({
             <article aria-labelledby={`review-author-${review.id}`}>
               <header className={styles.reviewItemHeader}>
                 <div>
-                  <h3 id={`review-author-${review.id}`}>{review.authorName.trim() || 'Customer'}</h3>
+                  <h3 id={`review-author-${review.id}`}>{review.authorName.trim() || t('catalog.reviews_customer')}</h3>
                   {date ? <time dateTime={review.createdAt}>{date}</time> : null}
                 </div>
                 <div className={styles.reviewItemMeta}>
@@ -250,14 +271,14 @@ export function ReviewList({
                   {review.verifiedPurchase ? (
                     <span className={styles.verifiedBadge}>
                       <BadgeCheck size={14} aria-hidden="true" />
-                      Verified purchase
+                      {t('catalog.reviews_verified')}
                     </span>
                   ) : null}
                 </div>
               </header>
               <p className={styles.reviewBody}>{review.body}</p>
               {helpfulCount > 0 ? (
-                <p className={styles.reviewHelpful}>{helpfulCount} found this helpful</p>
+                <p className={styles.reviewHelpful}>{t('catalog.reviews_helpful', { count: helpfulCount })}</p>
               ) : null}
             </article>
           </li>
@@ -276,6 +297,7 @@ function ReviewFilters({
   data?: ProductReviewsData;
   approvedCount: number;
 }) {
+  const { t } = useLocale();
   if (approvedCount === 0) return null;
 
   const query = data?.query ?? {};
@@ -290,20 +312,27 @@ function ReviewFilters({
     <form
       className={styles.reviewFilters}
       method="get"
-      action={`/shop/products/${productId}`}
-      aria-label="Filter product reviews"
+      action={`/home/products/${productId}`}
+      aria-label={t('catalog.reviews_filter_aria')}
     >
       <input type="hidden" name="tab" value="reviews" />
       <span className={styles.reviewFilterTitle}>
         <SlidersHorizontal size={16} aria-hidden="true" />
-        Filter reviews
+        {t('catalog.reviews_filter_title')}
       </span>
       <label>
-        <span>Rating</span>
+        <span>{t('catalog.rating')}</span>
         <select name="reviewsRating" defaultValue={query.rating ?? ''}>
-          <option value="">All ratings</option>
+          <option value="">{t('catalog.all_ratings')}</option>
           {REVIEW_RATINGS.map((rating) => (
-            <option value={rating} key={rating}>{rating} point{rating === 1 ? '' : 's'}</option>
+            <option value={rating} key={rating}>
+              {t(
+                rating === 1
+                  ? 'catalog.reviews_points_one'
+                  : 'catalog.reviews_points_other',
+                { rating },
+              )}
+            </option>
           ))}
         </select>
       </label>
@@ -314,23 +343,24 @@ function ReviewFilters({
           value="1"
           defaultChecked={Boolean(query.verifiedOnly)}
         />
-        <span>Verified purchases only</span>
+        <span>{t('catalog.reviews_verified_only')}</span>
       </label>
       <label>
-        <span>Sort</span>
+        <span>{t('catalog.sort_label')}</span>
         <select name="reviewsSort" defaultValue={currentSort}>
           {SORT_OPTIONS.map((option) => (
-            <option value={option.value} key={option.value}>{option.label}</option>
+            <option value={option.value} key={option.value}>{t(option.labelKey)}</option>
           ))}
         </select>
       </label>
-      <button type="submit">Apply</button>
-      {hasFilters ? <Link href={reviewHref(productId, {}, 1)}>Reset</Link> : null}
+      <button type="submit">{t('catalog.apply')}</button>
+      {hasFilters ? <Link href={reviewHref(productId, {}, 1)}>{t('catalog.reset')}</Link> : null}
     </form>
   );
 }
 
 function ReviewPagination({ productId, data }: { productId: number; data?: ProductReviewsData }) {
+  const { t } = useLocale();
   const pagination = data?.pagination;
   if (!pagination || pagination.totalPages <= 1) return null;
 
@@ -343,17 +373,17 @@ function ReviewPagination({ productId, data }: { productId: number; data?: Produ
   const hasNext = currentPage < pagination.totalPages;
 
   return (
-    <nav className={styles.reviewPagination} aria-label="Product review pagination">
+    <nav className={styles.reviewPagination} aria-label={t('catalog.reviews_pagination_aria')}>
       {hasPrevious ? (
-        <Link href={reviewHref(productId, query, currentPage - 1)} rel="prev">Previous</Link>
+        <Link href={reviewHref(productId, query, currentPage - 1)} rel="prev">{t('catalog.previous')}</Link>
       ) : (
-        <span aria-disabled="true">Previous</span>
+        <span aria-disabled="true">{t('catalog.previous')}</span>
       )}
-      <span>Page {currentPage} of {pagination.totalPages}</span>
+      <span>{t('catalog.page_of', { current: currentPage, total: pagination.totalPages })}</span>
       {hasNext ? (
-        <Link href={reviewHref(productId, query, currentPage + 1)} rel="next">Next</Link>
+        <Link href={reviewHref(productId, query, currentPage + 1)} rel="next">{t('catalog.next')}</Link>
       ) : (
-        <span aria-disabled="true">Next</span>
+        <span aria-disabled="true">{t('catalog.next')}</span>
       )}
     </nav>
   );
@@ -366,22 +396,23 @@ export function ReviewForm({
   productId: number;
   data?: ProductReviewsData;
 }) {
-  const returnTo = `/shop/products/${productId}`;
+  const { t } = useLocale();
+  const returnTo = `/home/products/${productId}`;
   const viewer = data?.viewer;
   const form = data?.form;
 
   if (!viewer?.isAuthenticated) {
     const signInHref = safeInternalHref(
       viewer?.signInHref,
-      `/shop/login?returnTo=${encodeURIComponent(returnTo)}`,
+      `/home/login?returnTo=${encodeURIComponent(returnTo)}`,
     );
     return (
       <aside className={styles.reviewFormCard} aria-labelledby="write-review-title">
-        <span className={styles.reviewFormEyebrow}>Share your experience</span>
-        <h3 id="write-review-title">Write a review</h3>
-        <p>Sign in to write a review. Only genuine, approved submissions are published.</p>
+        <span className={styles.reviewFormEyebrow}>{t('catalog.reviews_share')}</span>
+        <h3 id="write-review-title">{t('catalog.write_review')}</h3>
+        <p>{t('catalog.signin_review_text')}</p>
         <Link className={styles.reviewPrimaryAction} href={signInHref}>
-          Sign in to write a review
+          {t('catalog.signin_review_cta')}
         </Link>
       </aside>
     );
@@ -392,29 +423,31 @@ export function ReviewForm({
   const hasEndpoint = typeof form?.endpoint === 'string' && form.endpoint.length > 0;
   const isEnabled = hasEndpoint && form?.enabled !== false && !isPending;
   const unavailableMessage = form?.unavailableMessage
-    || 'Review submission is not connected yet. Please check back later.';
+    || t('catalog.review_unavailable');
 
   return (
     <aside className={styles.reviewFormCard} aria-labelledby="write-review-title">
-      <span className={styles.reviewFormEyebrow}>Share your experience</span>
-      <h3 id="write-review-title">Write a review</h3>
+      <span className={styles.reviewFormEyebrow}>{t('catalog.reviews_share')}</span>
+      <h3 id="write-review-title">{t('catalog.write_review')}</h3>
       <p>
-        Your review will be checked by a moderator before it appears publicly.
-        {viewer.displayName?.trim() ? ` You are signed in as ${viewer.displayName.trim()}.` : ''}
+        {t('catalog.reviews_published_text')}
+        {viewer.displayName?.trim()
+          ? ` ${t('catalog.signed_in_as', { name: viewer.displayName.trim() })}`
+          : ''}
       </p>
 
       {submission ? (
         <div className={styles.moderationMessage} role="status">
           <strong>
-            {submission.status === 'pending' && 'Review awaiting moderation'}
-            {submission.status === 'approved' && 'Review approved'}
-            {submission.status === 'rejected' && 'Review not approved'}
+            {submission.status === 'pending' && t('catalog.review_pending')}
+            {submission.status === 'approved' && t('catalog.review_approved')}
+            {submission.status === 'rejected' && t('catalog.review_rejected')}
           </strong>
           <span>
             {submission.message?.trim()
               || (submission.status === 'pending'
-                ? 'Your submitted review is pending moderation and is not visible in the public list yet.'
-                : 'The moderation status of your review has been updated.')}
+                ? t('catalog.review_pending_message')
+                : t('catalog.review_status_message'))}
           </span>
         </div>
       ) : null}
@@ -423,31 +456,31 @@ export function ReviewForm({
         <input type="hidden" name="productId" value={productId} />
         <input type="hidden" name="returnTo" value={returnTo} />
         <label>
-          <span>Rating</span>
+          <span>{t('catalog.rating')}</span>
           <select name="rating" required defaultValue="">
-            <option value="" disabled>Select a rating</option>
-            <option value="5">5 — Excellent</option>
-            <option value="4">4 — Good</option>
-            <option value="3">3 — Average</option>
-            <option value="2">2 — Poor</option>
-            <option value="1">1 — Very poor</option>
+            <option value="" disabled>{t('catalog.select_rating')}</option>
+            <option value="5">{t('catalog.rating_5')}</option>
+            <option value="4">{t('catalog.rating_4')}</option>
+            <option value="3">{t('catalog.rating_3')}</option>
+            <option value="2">{t('catalog.rating_2')}</option>
+            <option value="1">{t('catalog.rating_1')}</option>
           </select>
         </label>
         <label>
-          <span>Your review</span>
+          <span>{t('catalog.your_review')}</span>
           <textarea
             name="body"
             required
             minLength={10}
             maxLength={5000}
             rows={6}
-            placeholder="Share what you liked or what could be improved. Plain text only."
+            placeholder={t('catalog.review_placeholder')}
           />
         </label>
         <button type="submit" disabled={!isEnabled}>
-          {form?.submitLabel || 'Submit for moderation'}
+          {form?.submitLabel || t('catalog.submit_review')}
         </button>
-        {!isEnabled ? <small>{isPending ? 'You already have a review awaiting moderation.' : unavailableMessage}</small> : null}
+        {!isEnabled ? <small>{isPending ? t('catalog.review_awaiting_notice') : unavailableMessage}</small> : null}
       </form>
     </aside>
   );
@@ -460,17 +493,18 @@ export default function ProductReviews({
   productId: number;
   data?: ProductReviewsData;
 }) {
+  const { t } = useLocale();
   const approvedCount = resolveApprovedCount(data);
 
   return (
     <section className={styles.reviewsSection} aria-labelledby="product-reviews-title">
       <div className={styles.reviewsHeadingRow}>
         <div>
-          <span className={styles.sectionEyebrow}>Customer feedback</span>
-          <h2 id="product-reviews-title">Product reviews</h2>
+          <span className={styles.sectionEyebrow}>{t('catalog.reviews_eyebrow')}</span>
+          <h2 id="product-reviews-title">{t('catalog.reviews_title')}</h2>
         </div>
         {approvedCount > 0 ? (
-          <span>{approvedCount} approved</span>
+          <span>{t('catalog.reviews_approved_count', { count: approvedCount })}</span>
         ) : null}
       </div>
 

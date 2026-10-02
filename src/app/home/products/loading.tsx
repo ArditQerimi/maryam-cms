@@ -1,9 +1,12 @@
-import styles from './shop-products.module.css';
+import { getT } from '@/lib/i18n/server';
+import styles from './home-products.module.css';
 
-export default function ShopProductsLoading() {
+export default async function ShopProductsLoading() {
+  const t = await getT();
+
   return (
-    <div className={styles.loadingPage} aria-busy="true" aria-label="Loading products">
-      <span className={styles.visuallyHidden}>Loading products…</span>
+    <div className={styles.loadingPage} aria-busy="true" aria-label={t('catalog.loading_aria')}>
+      <span className={styles.visuallyHidden}>{t('catalog.loading_text')}</span>
       <div className={styles.loadingHero}>
         <span className={`${styles.skeletonBlock} ${styles.loadingTitle}`} />
       </div>

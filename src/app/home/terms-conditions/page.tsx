@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getContextCompany } from '@/lib/tenant';
+import { getT } from '@/lib/i18n/server';
 import styles from '../legal/legal.module.css';
 import PrintButton from './PrintButton';
 
@@ -14,38 +15,38 @@ export const metadata: Metadata = {
   title: 'Terms & Conditions',
   description,
   alternates: {
-    canonical: '/shop/terms-conditions',
+    canonical: '/home/terms-conditions',
   },
   openGraph: {
     title: 'Terms & Conditions',
     description,
-    url: '/shop/terms-conditions',
+    url: '/home/terms-conditions',
     type: 'website',
   },
 };
 
 const policyLinks = [
-  { href: '/shop/terms-conditions', label: 'Terms & Conditions' },
-  { href: '/shop/privacy-policy', label: 'Privacy Policy' },
-  { href: '/shop/refund-policy', label: 'Refund Policy' },
-  { href: '/shop/shipping-policy', label: 'Shipping Policy' },
-];
+  { href: '/home/terms-conditions', labelKey: 'pages.policy.linkTerms' },
+  { href: '/home/privacy-policy', labelKey: 'pages.policy.linkPrivacy' },
+  { href: '/home/refund-policy', labelKey: 'pages.policy.linkRefund' },
+  { href: '/home/shipping-policy', labelKey: 'pages.policy.linkShipping' },
+] as const;
 
 const tableOfContents = [
-  { href: '#merchant-details', label: 'Merchant details' },
-  { href: '#about-these-terms', label: 'About these terms' },
-  { href: '#orders', label: 'Orders and acceptance' },
-  { href: '#products-prices', label: 'Products, prices and payment' },
-  { href: '#delivery', label: 'Delivery' },
-  { href: '#returns', label: 'Returns and cancellation' },
-  { href: '#customer-responsibilities', label: 'Customer responsibilities' },
-  { href: '#intellectual-property', label: 'Intellectual property' },
-  { href: '#consumer-rights', label: 'Consumer rights' },
-  { href: '#liability', label: 'Liability' },
-  { href: '#changes', label: 'Changes to these terms' },
-  { href: '#governing-law', label: 'Governing law' },
-  { href: '#contact', label: 'Contact' },
-];
+  { href: '#merchant-details', labelKey: 'pages.policy.merchantDetails' },
+  { href: '#about-these-terms', labelKey: 'pages.terms.toc.about' },
+  { href: '#orders', labelKey: 'pages.terms.toc.orders' },
+  { href: '#products-prices', labelKey: 'pages.terms.toc.products' },
+  { href: '#delivery', labelKey: 'pages.terms.toc.delivery' },
+  { href: '#returns', labelKey: 'pages.terms.toc.returns' },
+  { href: '#customer-responsibilities', labelKey: 'pages.terms.toc.responsibilities' },
+  { href: '#intellectual-property', labelKey: 'pages.terms.toc.ip' },
+  { href: '#consumer-rights', labelKey: 'pages.terms.toc.consumerRights' },
+  { href: '#liability', labelKey: 'pages.terms.toc.liability' },
+  { href: '#changes', labelKey: 'pages.terms.toc.changes' },
+  { href: '#governing-law', labelKey: 'pages.terms.toc.governingLaw' },
+  { href: '#contact', labelKey: 'pages.terms.toc.contact' },
+] as const;
 
 async function getMerchantName() {
   try {
@@ -63,6 +64,7 @@ async function getMerchantName() {
 }
 
 export default async function TermsConditionsPage() {
+  const t = await getT();
   const merchantName = await getMerchantName();
   const legalEntityName = process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim();
   const registeredAddress = process.env.NEXT_PUBLIC_LEGAL_REGISTERED_ADDRESS?.trim();
@@ -72,12 +74,12 @@ export default async function TermsConditionsPage() {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <a className={styles.skipLink} href="#policy-content">Skip to policy content</a>
+        <a className={styles.skipLink} href="#policy-content">{t('pages.policy.skip')}</a>
 
         <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
           <ol className={styles.breadcrumbList}>
-            <li><Link className={styles.breadcrumbLink} href="/shop">Home</Link></li>
-            <li aria-current="page">Terms &amp; Conditions</li>
+            <li><Link className={styles.breadcrumbLink} href="/home">{t('pages.common.home')}</Link></li>
+            <li aria-current="page">{t('pages.policy.linkTerms')}</li>
           </ol>
         </nav>
 
@@ -91,22 +93,22 @@ export default async function TermsConditionsPage() {
               <path d="M8 21h8" />
             </svg>
           </div>
-          <p className={styles.eyebrow}>Customer information</p>
-          <h1 className={styles.heroTitle} id="terms-title">Terms &amp; Conditions</h1>
+          <p className={styles.eyebrow}>{t('pages.terms.eyebrow')}</p>
+          <h1 className={styles.heroTitle} id="terms-title">{t('pages.policy.linkTerms')}</h1>
           <p className={styles.lede}>
-            The ground rules for shopping with {merchantName}, from placing an order to receiving your products.
+            {t('pages.terms.lede', { merchantName })}
           </p>
           <div className={styles.heroMeta}>
-            <span className={styles.lastUpdated}>Last updated <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
+            <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
             <PrintButton />
           </div>
         </header>
 
-        <nav className={styles.policyNav} aria-label="Store policies">
-          <p className={styles.policyNavLabel} id="policy-navigation-label">Policies and practical information</p>
+        <nav className={styles.policyNav} aria-label={t('pages.policy.navAria')}>
+          <p className={styles.policyNavLabel} id="policy-navigation-label">{t('pages.policy.navLabel')}</p>
           <ul className={styles.policyNavList} aria-labelledby="policy-navigation-label">
             {policyLinks.map((policy) => {
-              const isCurrent = policy.href === '/shop/terms-conditions';
+              const isCurrent = policy.href === '/home/terms-conditions';
 
               return (
                 <li key={policy.href}>
@@ -115,7 +117,7 @@ export default async function TermsConditionsPage() {
                     href={policy.href}
                     aria-current={isCurrent ? 'page' : undefined}
                   >
-                    {policy.label}
+                    {t(policy.labelKey)}
                   </Link>
                 </li>
               );
@@ -124,53 +126,53 @@ export default async function TermsConditionsPage() {
         </nav>
 
         <details className={styles.mobileToc}>
-          <summary className={styles.mobileTocSummary}>On this page</summary>
-          <nav aria-label="On this page">
+          <summary className={styles.mobileTocSummary}>{t('pages.policy.onThisPage')}</summary>
+          <nav aria-label={t('pages.policy.onThisPage')}>
             <ol className={styles.mobileTocList}>
               {tableOfContents.map((item) => (
-                <li key={item.href}><a href={item.href}>{item.label}</a></li>
+                <li key={item.href}><a href={item.href}>{t(item.labelKey)}</a></li>
               ))}
             </ol>
           </nav>
         </details>
 
         <div className={styles.layout}>
-          <nav className={styles.toc} aria-label="On this page">
-            <p className={styles.tocTitle}>On this page</p>
+          <nav className={styles.toc} aria-label={t('pages.policy.onThisPage')}>
+            <p className={styles.tocTitle}>{t('pages.policy.onThisPage')}</p>
             <ol className={styles.tocList}>
               {tableOfContents.map((item) => (
-                <li key={item.href}><a className={styles.tocLink} href={item.href}>{item.label}</a></li>
+                <li key={item.href}><a className={styles.tocLink} href={item.href}>{t(item.labelKey)}</a></li>
               ))}
             </ol>
           </nav>
 
           <article className={styles.content} id="policy-content" aria-labelledby="terms-title">
             <aside className={styles.reviewNotice} role="note">
-              <strong className={styles.noticeTitle}>Merchant configuration required</strong>
-              Bracketed fields are deliberately unconfirmed placeholders. Complete and review them before treating this page as a final statement of the merchant’s legal obligations.
+              <strong className={styles.noticeTitle}>{t('pages.policy.merchantConfig')}</strong>
+              {t('pages.terms.noticeBody')}
             </aside>
 
             <section className={styles.merchantCard} id="merchant-details" aria-labelledby="merchant-details-title">
-              <h2 id="merchant-details-title">Merchant details</h2>
+              <h2 id="merchant-details-title">{t('pages.policy.merchantDetails')}</h2>
               <dl className={styles.merchantGrid}>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Store display name</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.policy.storeDisplayName')}</dt>
                   <dd className={styles.merchantValue}>{merchantName}</dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Registered legal entity</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.terms.registeredEntity')}</dt>
                   <dd className={styles.merchantValue}>
                     {legalEntityName || <span className={styles.placeholder}>[legal entity name to be confirmed]</span>}
                   </dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Registered address</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.policy.registeredAddress')}</dt>
                   <dd className={styles.merchantValue}>
                     {registeredAddress || <span className={styles.placeholder}>[registered business address to be added]</span>}
                   </dd>
                 </div>
                 <div className={styles.merchantItem}>
-                  <dt className={styles.merchantLabel}>Legal contact email</dt>
+                  <dt className={styles.merchantLabel}>{t('pages.terms.legalEmail')}</dt>
                   <dd className={styles.merchantValue}>
                     {contactEmail ? <a href={`mailto:${contactEmail}`}>{contactEmail}</a> : <span className={styles.placeholder}>[monitored legal contact email to be added]</span>}
                   </dd>
@@ -180,174 +182,174 @@ export default async function TermsConditionsPage() {
 
             <div className={styles.prose}>
               <section className={styles.section} id="about-these-terms" aria-labelledby="about-these-terms-title">
-                <h2 id="about-these-terms-title">1. About these terms</h2>
+                <h2 id="about-these-terms-title">{t('pages.terms.h2.about')}</h2>
                 <p>
-                  These Terms &amp; Conditions form part of your agreement with {merchantName} when you browse the storefront, create an account, contact us, place an order, or use another store function. They apply together with the checkout terms, order confirmation, and the policies linked on this page.
+                  {t('pages.terms.aboutP1', { merchantName })}
                 </p>
                 <p>
-                  If a product page, checkout field, or separate written term expressly says something different, that more specific term may apply to the relevant order. Mandatory consumer rights in your country of residence always remain unaffected.
+                  {t('pages.terms.aboutP2')}
                 </p>
               </section>
 
               <section className={styles.section} id="orders" aria-labelledby="orders-title">
-                <h2 id="orders-title">2. Orders and acceptance</h2>
+                <h2 id="orders-title">{t('pages.terms.h2.orders')}</h2>
                 <p>
-                  When you place an order, you make an offer to buy the selected products for the displayed price and delivery terms. A contract is formed only when {merchantName} accepts the order. Acceptance may be confirmed through an order acknowledgement, dispatch notice, or another clear communication.
+                  {t('pages.terms.ordersOffer', { merchantName })}
                 </p>
                 <p>
-                  We may decline or cancel an order before acceptance if, for example, an item is unavailable, an obvious pricing or listing error exists, the order cannot be fulfilled to the selected destination, or additional payment verification is required. If payment has already been taken, any amount that must be returned will be handled using the payment method used for the order, subject to the payment provider’s processing time.
+                  {t('pages.terms.ordersDecline')}
                 </p>
                 <p>
-                  Please provide accurate contact and delivery information. You are responsible for reviewing the order summary before submitting it.
+                  {t('pages.terms.ordersContact')}
                 </p>
               </section>
 
               <section className={styles.section} id="products-prices" aria-labelledby="products-prices-title">
-                <h2 id="products-prices-title">3. Products, prices and payment</h2>
-                <h3>Product information</h3>
+                <h2 id="products-prices-title">{t('pages.terms.h2.products')}</h2>
+                <h3>{t('pages.terms.h3.productInfo')}</h3>
                 <p>
-                  We aim to describe products accurately. Product images, measurements, weights, colours and materials may vary because of screen settings, production variation, or supplier updates. Always check the written specifications and any suitability requirements before ordering. Do not rely on a product being suitable for a particular purpose unless we have expressly confirmed that suitability in writing.
+                  {t('pages.terms.productInfoParagraph')}
                 </p>
 
-                <h3>Price and availability</h3>
+                <h3>{t('pages.terms.h3.price')}</h3>
                 <p>
-                  Prices, currency, available promotions, delivery charges, and any applicable taxes are shown during checkout or in the order summary. A product may become unavailable before acceptance. Prices may change without notice, but a change will not affect an order already accepted at the old price.
+                  {t('pages.terms.priceParagraph')}
                 </p>
 
-                <h3>Payment</h3>
+                <h3>{t('pages.terms.h3.payment')}</h3>
                 <p>
-                  Payment is made through the methods offered at checkout and is subject to their stated terms. We may verify a payment or request additional information where reasonably necessary to prevent fraud or comply with legal obligations. Full payment is not assumed where a different arrangement is expressly displayed at checkout.
+                  {t('pages.terms.paymentParagraph')}
                 </p>
               </section>
 
               <section className={styles.section} id="delivery" aria-labelledby="delivery-title">
-                <h2 id="delivery-title">4. Delivery</h2>
+                <h2 id="delivery-title">{t('pages.terms.h2.delivery')}</h2>
                 <p>
-                  Delivery is subject to the <Link href="/shop/shipping-policy">Shipping Policy</Link> and the destination, method, and estimate shown when the order is placed. Any delivery estimate is an estimate rather than a guaranteed date unless the order expressly states otherwise.
+                  {t('pages.terms.deliveryTermsIntro')} <Link href="/home/shipping-policy">{t('pages.policy.linkShipping')}</Link> {t('pages.terms.deliveryTermsRest')}
                 </p>
                 <p>
-                  Unless the law provides otherwise, responsibility for an undelivered product, risk of loss, and any delivery commitments will be handled according to the Shipping Policy and the agreed order terms. Please report delivery problems as soon as reasonably possible.
+                  {t('pages.terms.deliveryResponsibility')}
                 </p>
               </section>
 
               <section className={styles.section} id="returns" aria-labelledby="returns-title">
-                <h2 id="returns-title">5. Returns, refunds and cancellation</h2>
+                <h2 id="returns-title">{t('pages.terms.h2.returns')}</h2>
                 <p>
-                  Returns and refund requests are handled under the <Link href="/shop/refund-policy">Refund Policy</Link>. Any more generous cancellation or return right displayed for a particular order applies to that order. These Terms &amp; Conditions do not reduce rights that cannot lawfully be excluded.
+                  {t('pages.terms.returnsIntro')} <Link href="/home/refund-policy">{t('pages.policy.linkRefund')}</Link> {t('pages.terms.returnsRest')}
                 </p>
                 <p>
-                  To request cancellation before acceptance, contact us promptly using the details below. After acceptance, follow the refund process rather than sending an item without instructions.
+                  {t('pages.terms.returnsCancellation')}
                 </p>
               </section>
 
               <section className={styles.section} id="customer-responsibilities" aria-labelledby="customer-responsibilities-title">
-                <h2 id="customer-responsibilities-title">6. Customer responsibilities and acceptable use</h2>
-                <p>When using the storefront, you agree that you will:</p>
+                <h2 id="customer-responsibilities-title">{t('pages.terms.h2.responsibilities')}</h2>
+                <p>{t('pages.terms.responsibilitiesLead')}</p>
                 <ul className={styles.checklist}>
-                  <li>use the service lawfully and only for intended personal or authorised business use;</li>
-                  <li>provide accurate information and keep account credentials secure;</li>
-                  <li>not attempt to disrupt, overload, probe, or gain unauthorised access to the service;</li>
-                  <li>not introduce malicious code, scrape content in a way that violates applicable law or another party’s rights, or misuse reviews, support, or other communications; and</li>
-                  <li>not use the storefront to violate export, tax, product-safety, sanctions, or other applicable requirements.</li>
+                  <li>{t('pages.terms.responsibilitiesList1')}</li>
+                  <li>{t('pages.terms.responsibilitiesList2')}</li>
+                  <li>{t('pages.terms.responsibilitiesList3')}</li>
+                  <li>{t('pages.terms.responsibilitiesList4')}</li>
+                  <li>{t('pages.terms.responsibilitiesList5')}</li>
                 </ul>
                 <p>
-                  We may restrict access or cancel an order where we reasonably believe there is a security, fraud, legal, or safety risk, or where these rules have been materially breached.
+                  {t('pages.terms.responsibilitiesRestriction')}
                 </p>
               </section>
 
               <section className={styles.section} id="intellectual-property" aria-labelledby="intellectual-property-title">
-                <h2 id="intellectual-property-title">7. Intellectual property</h2>
+                <h2 id="intellectual-property-title">{t('pages.terms.h2.ip')}</h2>
                 <p>
-                  The storefront software, branding, page design, product content, photographs, and other materials owned or licensed by {merchantName} remain subject to their owner’s intellectual-property rights. You receive a limited, revocable, non-transferable right to use the storefront for its intended purpose. You may not reproduce, modify, publish, or commercially exploit those materials without permission, except as allowed by applicable law.
+                  {t('pages.terms.ipParagraph1', { merchantName })}
                 </p>
                 <p>
-                  Brand names and product content may belong to third parties. Nothing in these terms grants you a right to use them beyond normal use of the product or service.
+                  {t('pages.terms.ipParagraph2')}
                 </p>
               </section>
 
               <section className={styles.section} id="consumer-rights" aria-labelledby="consumer-rights-title">
-                <h2 id="consumer-rights-title">8. Consumer rights and product information</h2>
+                <h2 id="consumer-rights-title">{t('pages.terms.h2.consumerRights')}</h2>
                 <p>
-                  Nothing in these terms excludes or limits warranties, remedies, or other rights that cannot lawfully be excluded or limited. Product descriptions, care information, safety instructions, delivery commitments, and any specific warranty offered with an order form part of the information you may rely on when deciding to buy.
+                  {t('pages.terms.consumerRightsWarranties')}
                 </p>
                 <div className={styles.callout}>
                   <p>
-                    <strong>Merchant input required:</strong> <span className={styles.placeholder}>[add any product-specific warranty, expiry statement, care condition, or other condition of sale that is actually offered]</span>
+                    <strong>{t('pages.terms.merchantInput')}</strong> <span className={styles.placeholder}>[add any product-specific warranty, expiry statement, care condition, or other condition of sale that is actually offered]</span>
                   </p>
                 </div>
                 <p>
-                  If a product does not match its description or your statutory rights apply, statutory remedies may be available in addition to, or instead of, the returns process.
+                  {t('pages.terms.consumerRightsRemedies')}
                 </p>
               </section>
 
               <section className={styles.section} id="liability" aria-labelledby="liability-title">
-                <h2 id="liability-title">9. Liability</h2>
+                <h2 id="liability-title">{t('pages.terms.h2.liability')}</h2>
                 <p>
-                  To the fullest extent permitted by applicable law, {merchantName} is not responsible for losses that were not reasonably foreseeable when these terms were accepted, were caused by your own breach, or arose from a matter outside our reasonable control. Indirect or consequential loss is excluded only to the extent the law allows.
+                  {t('pages.terms.liabilityScope', { merchantName })}
                 </p>
                 <p>
-                  No exclusion in these terms limits liability for death or personal injury caused by negligence, fraud or fraudulent misrepresentation, deliberate misuse, payment obligations, or any other liability that cannot lawfully be limited. The merchant must confirm any store-specific cap, insurance statement, or mandatory local-law wording before publication.
+                  {t('pages.terms.liabilityExclusions')}
                 </p>
               </section>
 
               <section className={styles.section} id="changes" aria-labelledby="changes-title">
-                <h2 id="changes-title">10. Changes to these terms</h2>
+                <h2 id="changes-title">{t('pages.terms.h2.changes')}</h2>
                 <p>
-                  We may update these terms to reflect changes in the service, products, or law. The updated version applies from the date shown at the top of the page. If a change materially affects an order already accepted, the terms accepted for that order will continue to apply unless the law says otherwise.
+                  {t('pages.terms.changesUpdates')}
                 </p>
                 <p>
-                  Version history beyond the current effective date is not yet maintained. <span className={styles.placeholder}>[decide whether a public version history is required]</span>
+                  {t('pages.terms.changesHistory')} <span className={styles.placeholder}>[decide whether a public version history is required]</span>
                 </p>
               </section>
 
               <section className={styles.section} id="governing-law" aria-labelledby="governing-law-title">
-                <h2 id="governing-law-title">11. Governing law and disputes</h2>
+                <h2 id="governing-law-title">{t('pages.terms.h2.governingLaw')}</h2>
                 <p>
-                  The law and forum that apply to a dispute must reflect the mandatory consumer law of your place of residence and the merchant’s place of business. {governingLaw || <span className={styles.placeholder}>[insert governing law, jurisdiction, and any lawful dispute-resolution process only after legal review]</span>}
+                  {t('pages.terms.governingLawIntro')} {governingLaw || <span className={styles.placeholder}>[insert governing law, jurisdiction, and any lawful dispute-resolution process only after legal review]</span>}
                 </p>
                 <p>
-                  Nothing here prevents you from using a mandatory consumer ombudsman, small-claims process, or other remedy available under local law.
+                  {t('pages.terms.governingLawRemedies')}
                 </p>
               </section>
 
               <section className={styles.section} id="contact" aria-labelledby="contact-title">
-                <h2 id="contact-title">12. Contact us</h2>
+                <h2 id="contact-title">{t('pages.terms.h2.contact')}</h2>
                 <p>
-                  Questions about these terms, an accepted order, or a legal right should be sent to the verified legal contact below. Please do not include payment-card numbers, passwords, or unnecessary sensitive information.
+                  {t('pages.terms.contactIntro')}
                 </p>
                 <div className={styles.contactBlock}>
                   <p><strong>{merchantName}</strong></p>
                   {legalEntityName && <p>{legalEntityName}</p>}
                   {registeredAddress && <p>{registeredAddress}</p>}
                   {contactEmail ? (
-                    <p>Email: <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
+                    <p>{t('pages.policy.email')} <a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
                   ) : (
-                    <p>Email: <span className={styles.placeholder}>[monitored legal contact email to be added]</span></p>
+                    <p>{t('pages.policy.email')} <span className={styles.placeholder}>[monitored legal contact email to be added]</span></p>
                   )}
-                  <p>General store enquiries: <Link href="/shop/contact">Contact us</Link>.</p>
+                  <p>{t('pages.terms.generalEnquiries')} <Link href="/home/contact">{t('pages.policy.contactUs')}</Link>.</p>
                 </div>
               </section>
             </div>
 
-            <nav className={styles.related} aria-label="Related policies">
-              <h2 className={styles.relatedTitle}>Continue reading</h2>
+            <nav className={styles.related} aria-label={t('pages.policy.relatedAria')}>
+              <h2 className={styles.relatedTitle}>{t('pages.policy.continueReading')}</h2>
               <div className={styles.relatedGrid}>
-                <Link className={styles.relatedLink} href="/shop/privacy-policy">
-                  <span className={styles.relatedLabel}>Customer data</span>
-                  <span>How the storefront handles personal information</span>
+                <Link className={styles.relatedLink} href="/home/privacy-policy">
+                  <span className={styles.relatedLabel}>{t('pages.terms.relatedPrivacyLabel')}</span>
+                  <span>{t('pages.terms.relatedPrivacyText')}</span>
                 </Link>
-                <Link className={styles.relatedLink} href="/shop/refund-policy">
-                  <span className={styles.relatedLabel}>After purchase</span>
-                  <span>Return eligibility, refunds, and exclusions</span>
+                <Link className={styles.relatedLink} href="/home/refund-policy">
+                  <span className={styles.relatedLabel}>{t('pages.terms.relatedRefundLabel')}</span>
+                  <span>{t('pages.terms.relatedRefundText')}</span>
                 </Link>
-                <Link className={styles.relatedLink} href="/shop/shipping-policy">
-                  <span className={styles.relatedLabel}>Order fulfilment</span>
-                  <span>Processing, destinations, costs, and delivery issues</span>
+                <Link className={styles.relatedLink} href="/home/shipping-policy">
+                  <span className={styles.relatedLabel}>{t('pages.terms.relatedShippingLabel')}</span>
+                  <span>{t('pages.terms.relatedShippingText')}</span>
                 </Link>
               </div>
             </nav>
 
-            <p className={styles.policyFooter}>Please retain a copy of these terms and your order confirmation for your records.</p>
+            <p className={styles.policyFooter}>{t('pages.terms.footer')}</p>
           </article>
         </div>
       </div>

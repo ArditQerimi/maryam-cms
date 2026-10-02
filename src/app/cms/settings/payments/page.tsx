@@ -11,6 +11,7 @@ import {
   saveStripeSettings,
 } from '@/app/cms/actions/settings';
 import { withDefaults, type SettingField, type SettingsValues } from '@/components/settings/types';
+import { getT, type Translator } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,38 +40,39 @@ type Gateway = {
   save: typeof saveStripeSettings;
 };
 
-const GATEWAYS: Gateway[] = [
+function buildGateways(t: Translator): Gateway[] {
+  return [
   {
     id: 'stripe',
-    name: 'Stripe',
-    description: 'Cards, Apple Pay and Google Pay via Stripe.',
+    name: t('cmssettings.payments.stripeName'),
+    description: t('cmssettings.payments.stripeDescription'),
     icon: CreditCard,
     fields: [
       {
         kind: 'toggle',
         key: 'payment_stripe_enabled',
-        label: 'Enable Stripe',
-        hint: 'Shows card payment at checkout.',
+        label: t('cmssettings.payments.stripeEnableLabel'),
+        hint: t('cmssettings.payments.stripeEnableHint'),
       },
       {
         kind: 'radio',
         key: 'payment_stripe_mode',
-        label: 'Mode',
+        label: t('cmssettings.payments.modeLabel'),
         options: [
-          { value: 'test', label: 'Test mode (test keys)' },
-          { value: 'live', label: 'Live mode (real charges)' },
+          { value: 'test', label: t('cmssettings.payments.stripeModeTest') },
+          { value: 'live', label: t('cmssettings.payments.stripeModeLive') },
         ],
       },
       {
         kind: 'text',
         key: 'payment_stripe_publishable_key',
-        label: 'Publishable key',
+        label: t('cmssettings.payments.publishableKeyLabel'),
         placeholder: 'pk_test_…',
       },
       {
         kind: 'password',
         key: 'payment_stripe_secret_key',
-        label: 'Secret key',
+        label: t('cmssettings.payments.secretKeyLabel'),
         placeholder: 'sk_test_…',
       },
     ],
@@ -78,100 +80,107 @@ const GATEWAYS: Gateway[] = [
   },
   {
     id: 'paypal',
-    name: 'PayPal',
-    description: 'PayPal wallet and card payments through PayPal.',
+    name: t('cmssettings.payments.paypalName'),
+    description: t('cmssettings.payments.paypalDescription'),
     icon: Wallet,
     fields: [
       {
         kind: 'toggle',
         key: 'payment_paypal_enabled',
-        label: 'Enable PayPal',
-        hint: 'Shows the PayPal button at checkout.',
+        label: t('cmssettings.payments.paypalEnableLabel'),
+        hint: t('cmssettings.payments.paypalEnableHint'),
       },
       {
         kind: 'radio',
         key: 'payment_paypal_mode',
-        label: 'Mode',
+        label: t('cmssettings.payments.modeLabel'),
         options: [
-          { value: 'sandbox', label: 'Sandbox (buyer account)' },
-          { value: 'live', label: 'Live (real payments)' },
+          { value: 'sandbox', label: t('cmssettings.payments.paypalModeSandbox') },
+          { value: 'live', label: t('cmssettings.payments.paypalModeLive') },
         ],
       },
       {
         kind: 'text',
         key: 'payment_paypal_client_id',
-        label: 'Client ID',
+        label: t('cmssettings.payments.clientIdLabel'),
         placeholder: 'AX9…',
       },
-      { kind: 'password', key: 'payment_paypal_secret', label: 'Secret', placeholder: '••••••••' },
+      {
+        kind: 'password',
+        key: 'payment_paypal_secret',
+        label: t('cmssettings.payments.secretLabel'),
+        placeholder: '••••••••',
+      },
     ],
     save: savePaypalSettings,
   },
   {
     id: 'cod',
-    name: 'Cash on delivery',
-    description: 'Collect payment when the order is delivered.',
+    name: t('cmssettings.payments.codName'),
+    description: t('cmssettings.payments.codDescription'),
     icon: Banknote,
     fields: [
       {
         kind: 'toggle',
         key: 'payment_cod_enabled',
-        label: 'Enable cash on delivery',
-        hint: 'Available for shipping zones that allow it.',
+        label: t('cmssettings.payments.codEnableLabel'),
+        hint: t('cmssettings.payments.codEnableHint'),
       },
       {
         kind: 'textarea',
         key: 'payment_cod_instructions',
-        label: 'Instructions',
+        label: t('cmssettings.payments.instructionsLabel'),
         rows: 3,
-        placeholder: 'Pay with cash when your order is delivered.',
+        placeholder: t('cmssettings.payments.codInstructionsPlaceholder'),
       },
     ],
     save: saveCodSettings,
   },
   {
     id: 'bank',
-    name: 'Bank transfer',
-    description: 'Manual bank transfer with instructions for the customer.',
+    name: t('cmssettings.payments.bankName'),
+    description: t('cmssettings.payments.bankDescription'),
     icon: Landmark,
     fields: [
       {
         kind: 'toggle',
         key: 'payment_bank_enabled',
-        label: 'Enable bank transfer',
-        hint: 'Orders stay “pending” until the payment is confirmed.',
+        label: t('cmssettings.payments.bankEnableLabel'),
+        hint: t('cmssettings.payments.bankEnableHint'),
       },
       {
         kind: 'textarea',
         key: 'payment_bank_instructions',
-        label: 'Instructions',
+        label: t('cmssettings.payments.instructionsLabel'),
         rows: 3,
-        placeholder: 'Transfer to the store account…',
+        placeholder: t('cmssettings.payments.bankInstructionsPlaceholder'),
       },
       {
         kind: 'text',
         key: 'payment_bank_iban',
-        label: 'Account number / IBAN',
+        label: t('cmssettings.payments.ibanLabel'),
         placeholder: 'AL60 2121 1000 0000 0000 1234 5678',
       },
     ],
     save: saveBankSettings,
   },
-];
+  ];
+}
 
 export default async function PaymentsSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
   const values = withDefaults(DEFAULTS, await loadSettingsByPrefix('payment_'));
 
   return (
     <div>
       <PageHeader
-        title="Payments"
-        description="Enable the gateways you accept and configure their credentials."
+        title={t('cmssettings.payments.title')}
+        description={t('cmssettings.payments.description')}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {GATEWAYS.map((gateway) => {
+        {buildGateways(t).map((gateway) => {
           const enabled = values[`payment_${gateway.id}_enabled`] === true;
           const Icon = gateway.icon;
           return (
@@ -182,10 +191,12 @@ export default async function PaymentsSettingsPage() {
               footer={
                 <div className="flex items-center justify-between gap-3">
                   <Badge tone={enabled ? 'success' : 'neutral'}>
-                    {enabled ? 'Enabled' : 'Disabled'}
+                    {enabled
+                      ? t('cmssettings.payments.enabled')
+                      : t('cmssettings.payments.disabled')}
                   </Badge>
                   <span className="text-xs text-zinc-400">
-                    Keys are stored server-side and never exposed to the storefront.
+                    {t('cmssettings.payments.keysFooter')}
                   </span>
                 </div>
               }
@@ -193,14 +204,14 @@ export default async function PaymentsSettingsPage() {
               <div className="mb-4 flex items-center gap-2 text-[#5b59d6]">
                 <Icon size={16} />
                 <span className="text-xs font-semibold uppercase tracking-wide">
-                  {gateway.name} settings
+                  {t('cmssettings.payments.gatewaySettings', { name: gateway.name })}
                 </span>
               </div>
               <SettingsForm
                 fields={gateway.fields}
                 initialValues={values}
                 onSubmit={gateway.save}
-                saveLabel={`Save ${gateway.name}`}
+                saveLabel={t('cmssettings.payments.saveGateway', { name: gateway.name })}
               />
             </SettingsCard>
           );

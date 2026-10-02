@@ -3,6 +3,7 @@ import { RefreshCw, UserPlus, Users } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
 import { customers, sales } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { formatDate, formatMoney } from '@/lib/cms/format';
 import {
   Badge,
@@ -69,6 +70,7 @@ async function getTopCustomers() {
 
 export default async function CustomersReportPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [stats, topCustomers] = await Promise.all([
     getCustomerStats(),
@@ -78,41 +80,41 @@ export default async function CustomersReportPage() {
   return (
     <div>
       <PageHeader
-        title="Customers report"
-        description="Customer growth and the shoppers who spend the most."
+        title={t('cmsdash.customers.title')}
+        description={t('cmsdash.customers.description')}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          hint="Registered customer records"
+          hint={t('cmsdash.customers.totalHint')}
           icon={Users}
-          label="Total customers"
+          label={t('cmsdash.customers.total')}
           value={stats.total.toLocaleString()}
         />
         <StatCard
-          hint="Joined this month"
+          hint={t('cmsdash.customers.newHint')}
           icon={UserPlus}
-          label="New this month"
+          label={t('cmsdash.customers.new')}
           value={stats.newThisMonth.toLocaleString()}
         />
         <StatCard
-          hint="Placed an order before this month"
+          hint={t('cmsdash.customers.returningHint')}
           icon={RefreshCw}
-          label="Returning customers"
+          label={t('cmsdash.customers.returning')}
           value={stats.returning.toLocaleString()}
         />
       </div>
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Top 10 customers by total spent</CardTitle>
+          <CardTitle>{t('cmsdash.customers.topTitle')}</CardTitle>
         </CardHeader>
         {topCustomers.length === 0 ? (
           <CardContent>
             <EmptyState
-              description="No customers have completed an online order yet."
+              description={t('cmsdash.customers.emptyDescription')}
               icon={<Users size={28} />}
-              title="No customer orders yet"
+              title={t('cmsdash.customers.emptyTitle')}
             />
           </CardContent>
         ) : (
@@ -121,10 +123,10 @@ export default async function CustomersReportPage() {
               <thead>
                 <tr>
                   <Th>#</Th>
-                  <Th>Customer</Th>
-                  <Th>Joined</Th>
-                  <Th className="text-right">Orders</Th>
-                  <Th className="text-right">Total spent</Th>
+                  <Th>{t('cmsdash.th.customer')}</Th>
+                  <Th>{t('cmsdash.customers.joined')}</Th>
+                  <Th className="text-right">{t('cmsdash.th.orders')}</Th>
+                  <Th className="text-right">{t('cmsdash.customers.totalSpent')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -138,7 +140,7 @@ export default async function CustomersReportPage() {
                         {customer.name}
                       </span>
                       <span className="block truncate text-xs text-zinc-400">
-                        {customer.email || 'No email'}
+                        {customer.email || t('cmsdash.customers.noEmail')}
                       </span>
                     </Td>
                     <Td className="whitespace-nowrap text-zinc-500">

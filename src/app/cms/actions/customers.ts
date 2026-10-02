@@ -3,9 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
-import { getContextDb } from '@/lib/tenant';
+import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { customerNotes, customers, sales, users } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getRequestOrigin } from '@/lib/email/origin';
+import { sendEmail } from '@/lib/email/send';
+import { passwordChangedMessage } from '@/lib/email/auth-templates';
 
 export type CustomerActionResult = {
   ok: boolean;
@@ -171,6 +174,39 @@ export async function resetCustomerPassword(
     .update(users)
     .set({ passwordHash: hash, updatedAt: new Date() })
     .where(eq(users.id, userId));
+
+  // Security notice — informational only. The temporary password itself is
+  // never emailed; it is shown once in the toast to the staff member.
+  try {
+    const [user] = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (user) {
+      const [origin, company] = await Promise.all([
+        getRequestOrigin(),
+        getContextCompany().catch(() => null),
+      ]);
+      const storeName = company?.name?.trim() || 'the store';
+      const recipientName = user.name.split(' ')[0] || user.name;
+
+      await sendEmail({
+        to: user.email,
+        subject: storeName
+          ? `Your password was changed — ${storeName}`
+          : 'Your password was changed',
+        text: `The password for ${user.email} was just changed by the store team. If this wasn't you, reset it right away at ${origin}/home/forgot-password.`,
+        react: passwordChangedMessage({
+          name: recipientName,
+          email: user.email,
+          forgotUrl: `${origin}/home/forgot-password`,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error('[customers] password-changed notice failed', error);
+  }
 
   revalidatePath(`/cms/customers/${customerId}`);
   // The temporary password is returned once so it can be shown in a toast and

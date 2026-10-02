@@ -26,6 +26,8 @@ export type ProductFormValues = {
   saleFrom: string;
   /** yyyy-mm-dd */
   saleTo: string;
+  /** Store rating 1–5 rendered as stars under the title ('' = no stars). */
+  rating: string;
   sku: string;
   barcode: string;
   stockQuantity: string;
@@ -64,6 +66,8 @@ export type ProductConfig = {
   saleFrom: string;
   saleTo: string;
   backorder: BackorderPolicy;
+  /** Store rating 1–5 shown as card stars; '' when the admin set none. */
+  rating: string;
 };
 
 export const EMPTY_PRODUCT_CONFIG: ProductConfig = {
@@ -71,6 +75,7 @@ export const EMPTY_PRODUCT_CONFIG: ProductConfig = {
   saleFrom: '',
   saleTo: '',
   backorder: 'deny',
+  rating: '',
 };
 
 export const PRODUCT_STATUSES: Array<{ value: ProductStatusOption; label: string }> = [

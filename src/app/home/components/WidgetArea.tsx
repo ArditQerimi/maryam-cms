@@ -18,15 +18,28 @@ import { getContextDb } from '@/lib/tenant';
 import * as t from '@/db/schema-tenant';
 // The blog pages read their posts through `getStorefrontBlogPosts`, which wraps
 // `getPublicBlogPostRecords` from `@/lib/storefront/blogs` — reuse it so the
-// widget always lists exactly what /shop/blogs lists.
+// widget always lists exactly what /home/blogs lists.
 import { getStorefrontBlogPosts, type BlogPost } from '../blogs/blog-data';
 import NewsletterForm from './NewsletterForm';
 import { getStorefrontWidgets } from '@/lib/theme/storefront-widgets';
 import {
-  WIDGET_LABELS,
   type WidgetAreaKey,
   type WidgetInstance,
+  type WidgetType,
 } from '@/lib/theme/types';
+import { getT, type Dictionary, type Translator } from '@/lib/i18n/server';
+
+type DictKey = keyof Dictionary;
+
+/** i18n keys for the `WIDGET_LABELS` fallback headings (admin-entered titles win). */
+const WIDGET_LABEL_KEYS: Record<WidgetType, DictKey> = {
+  'recent-posts': 'home.widget.type.recent_posts',
+  'recent-products': 'home.widget.type.recent_products',
+  categories: 'home.widget.type.categories',
+  text: 'home.widget.type.text',
+  newsletter: 'home.widget.type.newsletter',
+  social: 'home.widget.type.social',
+};
 
 type WidgetAreaProps = {
   area: WidgetAreaKey;
@@ -52,10 +65,11 @@ function isPublishedPost(post: BlogPost): boolean {
 }
 
 export default async function WidgetArea({ area }: WidgetAreaProps) {
+  const t = await getT();
   const widgets = await getStorefrontWidgets(area);
   if (widgets.length === 0) return null;
 
-  const rendered = await Promise.all(widgets.map((widget) => renderWidget(widget)));
+  const rendered = await Promise.all(widgets.map((widget) => renderWidget(widget, t)));
   const blocks = rendered.filter((node): node is ReactElement => node !== null);
   if (blocks.length === 0) return null;
 
@@ -118,10 +132,10 @@ function linkList(
 /* Per-type renderers (each one is failure-tolerant)                           */
 /* -------------------------------------------------------------------------- */
 
-async function renderWidget(widget: WidgetInstance): Promise<ReactElement | null> {
+async function renderWidget(widget: WidgetInstance, tr: Translator): Promise<ReactElement | null> {
   const { settings, type } = widget;
   const limit = Number.isFinite(settings.limit) && settings.limit > 0 ? settings.limit : 5;
-  const heading = settings.title.trim() || (type === 'text' ? '' : WIDGET_LABELS[type]);
+  const heading = settings.title.trim() || (type === 'text' ? '' : tr(WIDGET_LABEL_KEYS[type]));
 
   switch (type) {
     case 'text': {
@@ -176,7 +190,7 @@ async function renderWidget(widget: WidgetInstance): Promise<ReactElement | null
               key: String(row.id),
               label: row.name.trim(),
               // The shop filters by numeric category id (`ShopProductsClient`).
-              href: `/shop/products?category=${row.id}`,
+              href: `/home/products?category=${row.id}`,
             })),
         ),
       );
@@ -189,8 +203,8 @@ async function renderWidget(widget: WidgetInstance): Promise<ReactElement | null
         .slice(0, limit)
         .map((post) => ({
           key: post.slug,
-          label: post.title.trim() || 'Untitled post',
-          href: `/shop/blogs/${post.slug}`,
+          label: post.title.trim() || tr('home.widget.untitled_post'),
+          href: `/home/blogs/${post.slug}`,
         }));
 
       if (rows.length === 0) return null;
@@ -228,7 +242,7 @@ async function renderWidget(widget: WidgetInstance): Promise<ReactElement | null
               return {
                 key: String(row.id),
                 label: row.name.trim(),
-                href: `/shop/products/${row.id}`,
+                href: `/home/products/${row.id}`,
                 meta: Number.isFinite(price) ? priceFormatter.format(price) : undefined,
               };
             }),

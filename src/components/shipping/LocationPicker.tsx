@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Globe, MapPin, Plus, X } from 'lucide-react';
 import { Input, cn } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { CountryOption, LocationChoice, StateOption } from './types';
 
 type LocationPickerProps = {
@@ -32,6 +33,7 @@ export default function LocationPicker({
 }: LocationPickerProps) {
   const [tab, setTab] = useState<'country' | 'state'>('country');
   const [query, setQuery] = useState('');
+  const { t } = useLocale();
 
   const selectedKeys = useMemo(
     () => new Set(selected.map(choiceKey)),
@@ -105,7 +107,7 @@ export default function LocationPicker({
           type="button"
         >
           <Globe size={14} />
-          Countries
+          {t('cmsshared.shipping.location_picker.tab_countries')}
         </button>
         <button
           className={cn(
@@ -118,14 +120,18 @@ export default function LocationPicker({
           type="button"
         >
           <MapPin size={14} />
-          States / regions
+          {t('cmsshared.shipping.location_picker.tab_states')}
         </button>
         <div className="ml-auto w-full max-w-xs sm:w-56">
           <Input
-            aria-label="Search locations"
+            aria-label={t('cmsshared.shipping.location_picker.search_aria')}
             className="h-8 py-1.5 text-xs"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={tab === 'country' ? 'Search countries…' : 'Search states…'}
+            placeholder={
+              tab === 'country'
+                ? t('cmsshared.shipping.location_picker.search_countries')
+                : t('cmsshared.shipping.location_picker.search_states')
+            }
             value={query}
           />
         </div>
@@ -140,7 +146,9 @@ export default function LocationPicker({
             >
               {choice.label}
               <button
-                aria-label={`Remove ${choice.label}`}
+                aria-label={t('cmsshared.shipping.location_picker.remove_aria', {
+                  label: choice.label,
+                })}
                 className="rounded-full text-[#4f4dd6]/70 transition hover:bg-[#6d6be8]/20 hover:text-[#3b39b5]"
                 onClick={() => remove(choice)}
                 type="button"
@@ -155,7 +163,9 @@ export default function LocationPicker({
       <div className={cn('overflow-y-auto px-1.5 py-1.5', compact ? 'max-h-48' : 'max-h-64')}>
         {options.length === 0 ? (
           <p className="px-2 py-6 text-center text-xs text-zinc-500">
-            No {tab === 'country' ? 'countries' : 'states'} match “{query}”.
+            {tab === 'country'
+              ? t('cmsshared.shipping.location_picker.no_countries', { query })
+              : t('cmsshared.shipping.location_picker.no_states', { query })}
           </p>
         ) : (
           <ul>
@@ -194,8 +204,10 @@ export default function LocationPicker({
 
       <div className="border-t border-zinc-100 px-3 py-2 text-xs text-zinc-500">
         {selected.length === 0
-          ? 'No locations selected — the zone will not cover any orders.'
-          : `${selected.length} location${selected.length === 1 ? '' : 's'} selected.`}
+          ? t('cmsshared.shipping.location_picker.none_selected')
+          : selected.length === 1
+            ? t('cmsshared.shipping.location_picker.selected_one', { count: selected.length })
+            : t('cmsshared.shipping.location_picker.selected_many', { count: selected.length })}
       </div>
     </div>
   );

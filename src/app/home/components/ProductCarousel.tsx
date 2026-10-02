@@ -1,32 +1,23 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
 import { useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from '../bookstore.module.css';
-import ProductActionBar, { ProductAddToCartButton } from './ProductActionBar';
+import ProductCard from './ProductCard';
 import type { QvProduct } from './QuickViewModal';
 
 export type CarouselProduct = QvProduct;
 
 type Props = {
   products: CarouselProduct[];
+  /** `carousel` scrolls sideways; `grid` wraps into rows — same card either way. */
+  layout?: 'carousel' | 'grid';
 };
 
-const priceFormatter = new Intl.NumberFormat('en-IE', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function formatPrice(value: number): string {
-  return Number.isFinite(value) ? priceFormatter.format(value) : 'Price unavailable';
-}
-
-export default function ProductCarousel({ products }: Props) {
+export default function ProductCarousel({ products, layout = 'carousel' }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const { t } = useLocale();
 
   const scrollOneCard = useCallback((direction: 'prev' | 'next') => {
     const element = trackRef.current;
@@ -53,6 +44,23 @@ export default function ProductCarousel({ products }: Props) {
 
   if (products.length === 0) return null;
 
+  /* Same shared card as /home/products — only the wrapper changes. */
+  const cardFor = (product: CarouselProduct, index: number) => (
+    <ProductCard
+      key={product.id}
+      product={product}
+      quickViewProducts={products}
+      quickViewIndex={index}
+      headingLevel="h3"
+      className={layout === 'grid' ? undefined : styles.carouselCard}
+    />
+  );
+
+  /* Grid layout: the same card, wrapped into responsive rows. */
+  if (layout === 'grid') {
+    return <div className={styles.productsGrid}>{products.map(cardFor)}</div>;
+  }
+
   return (
     <div className={styles.carouselContainer}>
       {products.length > 1 ? (
@@ -61,7 +69,7 @@ export default function ProductCarousel({ products }: Props) {
             type="button"
             className={`${styles.carouselNavBtn} ${styles.carouselNavPrev}`}
             onClick={() => scrollOneCard('prev')}
-            aria-label="Previous products"
+            aria-label={t('catalog.prev_products_aria')}
           >
             <ChevronLeft size={27} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -69,7 +77,7 @@ export default function ProductCarousel({ products }: Props) {
             type="button"
             className={`${styles.carouselNavBtn} ${styles.carouselNavNext}`}
             onClick={() => scrollOneCard('next')}
-            aria-label="Next products"
+            aria-label={t('catalog.next_products_aria')}
           >
             <ChevronRight size={27} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -77,40 +85,7 @@ export default function ProductCarousel({ products }: Props) {
       ) : null}
 
       <div className={styles.carouselTrack} ref={trackRef}>
-        {products.map((product) => (
-          <article className={`${styles.productCard} ${styles.carouselCard}`} key={product.id}>
-            <Link href={`/shop/products/${product.id}`} className={styles.productMedia} aria-label={`View ${product.name}`}>
-              {product.imageUrl ? (
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  fill
-                  unoptimized
-                  sizes="(max-width: 600px) 82vw, (max-width: 1000px) 38vw, 310px"
-                />
-              ) : (
-                <span className={styles.productVariantBadge} role="img" aria-label="Product image unavailable">
-                  <ImageOff size={28} aria-hidden="true" />
-                </span>
-              )}
-              {product.stockQuantity === 0 ? (
-                <span className={styles.productBadgeSale}>OUT OF STOCK</span>
-              ) : null}
-            </Link>
-            <ProductActionBar
-              product={product}
-              products={products}
-              initialIndex={products.findIndex((item) => item.id === product.id)}
-            />
-            <Link href={`/shop/products/${product.id}`} className={styles.productTitleLink}>
-              <h3 className={styles.productTitle}>{product.name}</h3>
-            </Link>
-            <div className={styles.productPriceRow}>
-              <span className={styles.productPrice}>{formatPrice(product.price)}</span>
-            </div>
-            <ProductAddToCartButton product={product} />
-          </article>
-        ))}
+        {products.map(cardFor)}
       </div>
     </div>
   );

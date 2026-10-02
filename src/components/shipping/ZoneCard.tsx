@@ -38,8 +38,9 @@ import {
   updateZone,
 } from '@/app/cms/actions/shipping';
 import LocationPicker from './LocationPicker';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import {
-  METHOD_TYPE_LABELS,
+  METHOD_TYPE_KEYS,
   type CountryOption,
   type LocationChoice,
   type StateOption,
@@ -53,10 +54,14 @@ type ZoneCardProps = {
   states: StateOption[];
 };
 
-function methodCostCell(method: ZoneMethodView): string {
+type TFunction = ReturnType<typeof useLocale>['t'];
+
+function methodCostCell(method: ZoneMethodView, t: TFunction): string {
   if (method.type === 'free_shipping') {
     const min = Number(method.minOrderAmount);
-    return min > 0 ? `Free over ${formatMoney(min)}` : 'Free';
+    return min > 0
+      ? t('cmsshared.shipping.free_over', { amount: formatMoney(min) })
+      : t('cmsshared.shipping.free');
   }
   if (method.type === 'local_pickup') return '—';
   return formatMoney(method.cost);
@@ -93,10 +98,11 @@ function MethodForm({
   const [sortOrder, setSortOrder] = useState(String(method?.sortOrder ?? 0));
   const [enabled, setEnabled] = useState(method?.enabled ?? true);
   const [pending, setPending] = useState(false);
+  const { t } = useLocale();
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      toast.error('Enter a method title.');
+      toast.error(t('cmsshared.shipping.title_required'));
       return;
     }
     setPending(true);
@@ -115,13 +121,15 @@ function MethodForm({
         : await createShippingMethod(zoneId, formData);
 
       if (!result.ok) {
-        toast.error(result.error || 'Could not save the shipping method.');
+        toast.error(result.error || t('cmsshared.shipping.save_method_error'));
         return;
       }
-      toast.success(method ? 'Shipping method updated.' : 'Shipping method added.');
+      toast.success(
+        method ? t('cmsshared.shipping.method_updated') : t('cmsshared.shipping.method_added'),
+      );
       onSaved();
     } catch {
-      toast.error('Could not save the shipping method.');
+      toast.error(t('cmsshared.shipping.save_method_error'));
     } finally {
       setPending(false);
     }
@@ -130,28 +138,28 @@ function MethodForm({
   return (
     <div className="rounded-lg border border-[#6d6be8]/30 bg-[#6d6be8]/[0.04] p-4">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#5b59d6]">
-        {method ? 'Edit shipping method' : 'Add shipping method'}
+        {method ? t('cmsshared.shipping.edit_method') : t('cmsshared.shipping.add_method_form')}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field htmlFor={`method-type-${zoneId}`} label="Method type">
+        <Field htmlFor={`method-type-${zoneId}`} label={t('cmsshared.shipping.method_type')}>
           <Select
             disabled={Boolean(method)}
             id={`method-type-${zoneId}`}
             onChange={(event) => setType(event.target.value)}
             value={type}
           >
-            <option value="flat_rate">Flat Rate</option>
-            <option value="free_shipping">Free Shipping</option>
-            <option value="local_pickup">Local Pickup</option>
+            <option value="flat_rate">{t('cmsshared.shipping.method_flat_rate')}</option>
+            <option value="free_shipping">{t('cmsshared.shipping.method_free_shipping')}</option>
+            <option value="local_pickup">{t('cmsshared.shipping.method_local_pickup')}</option>
           </Select>
         </Field>
 
-        <Field htmlFor={`method-title-${zoneId}`} label="Title">
+        <Field htmlFor={`method-title-${zoneId}`} label={t('cmsshared.field.title')}>
           <Input
             id={`method-title-${zoneId}`}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="e.g. Standard delivery"
+            placeholder={t('cmsshared.shipping.title_ph')}
             value={title}
           />
         </Field>
@@ -159,8 +167,8 @@ function MethodForm({
         {type === 'flat_rate' ? (
           <Field
             htmlFor={`method-cost-${zoneId}`}
-            label="Cost"
-            hint="Fixed amount charged for this method."
+            label={t('cmsshared.shipping.cost')}
+            hint={t('cmsshared.shipping.cost_hint')}
           >
             <Input
               id={`method-cost-${zoneId}`}
@@ -175,8 +183,8 @@ function MethodForm({
         {type === 'free_shipping' ? (
           <Field
             htmlFor={`method-min-${zoneId}`}
-            label="Minimum order amount"
-            hint="Order subtotal required for free shipping. Use 0 to always be free."
+            label={t('cmsshared.shipping.min_order_amount')}
+            hint={t('cmsshared.shipping.min_order_hint')}
           >
             <Input
               id={`method-min-${zoneId}`}
@@ -190,18 +198,18 @@ function MethodForm({
 
         {type === 'local_pickup' ? (
           <div className="sm:col-span-2">
-            <Field htmlFor={`method-instructions-${zoneId}`} label="Pickup instructions">
+            <Field htmlFor={`method-instructions-${zoneId}`} label={t('cmsshared.shipping.pickup_instructions')}>
               <Textarea
                 id={`method-instructions-${zoneId}`}
                 onChange={(event) => setInstructions(event.target.value)}
-                placeholder="e.g. Collect from Market Street 12, Mon–Sat 09:00–17:00."
+                placeholder={t('cmsshared.shipping.pickup_ph')}
                 value={instructions}
               />
             </Field>
           </div>
         ) : null}
 
-        <Field htmlFor={`method-sort-${zoneId}`} label="Sort order">
+        <Field htmlFor={`method-sort-${zoneId}`} label={t('cmsshared.shipping.sort_order')}>
           <Input
             id={`method-sort-${zoneId}`}
             inputMode="numeric"
@@ -218,16 +226,20 @@ function MethodForm({
           onChange={(event) => setEnabled(event.target.checked)}
           type="checkbox"
         />
-        Enabled — customers can choose this method
+        {t('cmsshared.shipping.enabled_label')}
       </label>
 
       <div className="mt-4 flex items-center justify-end gap-2">
         <Button onClick={onCancel} size="sm" variant="outline">
-          Cancel
+          {t('cmsshared.action.cancel')}
         </Button>
         <Button disabled={pending} onClick={handleSubmit} size="sm">
           <Save size={14} />
-          {pending ? 'Saving…' : method ? 'Save changes' : 'Add method'}
+          {pending
+            ? t('cmsshared.menu_builder.saving')
+            : method
+              ? t('cmsshared.action.save_changes')
+              : t('cmsshared.shipping.add_method')}
         </Button>
       </div>
     </div>
@@ -247,6 +259,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
   const [editingMethodId, setEditingMethodId] = useState<number | null>(null);
   const [editingLocations, setEditingLocations] = useState(false);
   const [locationDraft, setLocationDraft] = useState<LocationChoice[]>([]);
+  const { t } = useLocale();
 
   const openLocationEditor = () => {
     setLocationDraft(
@@ -262,7 +275,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
   const saveName = async () => {
     const nextName = nameDraft.trim();
     if (!nextName) {
-      toast.error('Enter a zone name.');
+      toast.error(t('cmsshared.shipping.zone_name_required'));
       return;
     }
     setPending(true);
@@ -271,32 +284,32 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
       formData.set('name', nextName);
       const result = await updateZone(zone.id, formData);
       if (!result.ok) {
-        toast.error(result.error || 'Could not rename the zone.');
+        toast.error(result.error || t('cmsshared.shipping.rename_error'));
         return;
       }
-      toast.success('Zone renamed.');
+      toast.success(t('cmsshared.shipping.renamed'));
       setEditingName(false);
     } catch {
-      toast.error('Could not rename the zone.');
+      toast.error(t('cmsshared.shipping.rename_error'));
     } finally {
       setPending(false);
     }
   };
 
   const handleDeleteZone = async () => {
-    if (!window.confirm(`Delete the zone “${zone.name}”? Its locations and shipping methods will be removed too.`)) {
+    if (!window.confirm(t('cmsshared.shipping.delete_zone_confirm', { name: zone.name }))) {
       return;
     }
     setPending(true);
     try {
       const result = await deleteZone(zone.id);
       if (!result.ok) {
-        toast.error(result.error || 'Could not delete the zone.');
+        toast.error(result.error || t('cmsshared.shipping.delete_zone_error'));
         return;
       }
-      toast.success('Shipping zone deleted.');
+      toast.success(t('cmsshared.shipping.zone_deleted'));
     } catch {
-      toast.error('Could not delete the zone.');
+      toast.error(t('cmsshared.shipping.delete_zone_error'));
     } finally {
       setPending(false);
     }
@@ -315,7 +328,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
         if (!existing.has(key)) {
           const result = await addZoneLocation(zone.id, choice.type, choice.code);
           if (!result.ok) {
-            toast.error(result.error || 'Could not add a location.');
+            toast.error(result.error || t('cmsshared.shipping.add_location_error'));
             return;
           }
         }
@@ -325,32 +338,33 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
         if (!keep.has(key)) {
           const result = await removeZoneLocation(location.id);
           if (!result.ok) {
-            toast.error(result.error || 'Could not remove a location.');
+            toast.error(result.error || t('cmsshared.shipping.remove_location_error'));
             return;
           }
         }
       }
-      toast.success('Zone locations updated.');
+      toast.success(t('cmsshared.shipping.locations_updated'));
       setEditingLocations(false);
     } catch {
-      toast.error('Could not update the zone locations.');
+      toast.error(t('cmsshared.shipping.locations_update_error'));
     } finally {
       setPending(false);
     }
   };
 
   const handleDeleteMethod = async (method: ZoneMethodView) => {
-    if (!window.confirm(`Delete the shipping method “${method.title}”?`)) return;
+    if (!window.confirm(t('cmsshared.shipping.delete_method_confirm', { title: method.title })))
+      return;
     try {
       const result = await deleteShippingMethod(method.id);
       if (!result.ok) {
-        toast.error(result.error || 'Could not delete the shipping method.');
+        toast.error(result.error || t('cmsshared.shipping.delete_method_error'));
         return;
       }
-      toast.success('Shipping method deleted.');
+      toast.success(t('cmsshared.shipping.method_deleted'));
       if (editingMethodId === method.id) setEditingMethodId(null);
     } catch {
-      toast.error('Could not delete the shipping method.');
+      toast.error(t('cmsshared.shipping.delete_method_error'));
     }
   };
 
@@ -390,7 +404,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
               />
               <Button disabled={pending} onClick={() => void saveName()} size="sm">
                 <Save size={14} />
-                Save
+                {t('cmsshared.action.save')}
               </Button>
               <Button
                 onClick={() => {
@@ -400,17 +414,21 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                 size="sm"
                 variant="ghost"
               >
-                Cancel
+                {t('cmsshared.action.cancel')}
               </Button>
             </span>
           ) : (
             <>
               <CardTitle className="truncate">{zone.name}</CardTitle>
               <Badge tone="brand">
-                {zone.locations.length} location{zone.locations.length === 1 ? '' : 's'}
+                {zone.locations.length === 1
+                  ? t('cmsshared.shipping.locations_badge_one', { count: zone.locations.length })
+                  : t('cmsshared.shipping.locations_badge_many', { count: zone.locations.length })}
               </Badge>
               <Badge tone="neutral">
-                {zone.methods.length} method{zone.methods.length === 1 ? '' : 's'}
+                {zone.methods.length === 1
+                  ? t('cmsshared.shipping.methods_badge_one', { count: zone.methods.length })
+                  : t('cmsshared.shipping.methods_badge_many', { count: zone.methods.length })}
               </Badge>
             </>
           )}
@@ -419,7 +437,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
         <div className="flex shrink-0 items-center gap-1">
           {!editingName ? (
             <Button
-              aria-label={`Rename ${zone.name}`}
+              aria-label={t('cmsshared.shipping.rename_aria', { name: zone.name })}
               onClick={() => setEditingName(true)}
               size="sm"
               variant="ghost"
@@ -428,7 +446,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
             </Button>
           ) : null}
           <Button
-            aria-label={`Delete ${zone.name}`}
+            aria-label={t('cmsshared.shipping.delete_aria', { name: zone.name })}
             disabled={pending}
             onClick={() => void handleDeleteZone()}
             size="sm"
@@ -446,11 +464,11 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 <MapPin size={13} />
-                Covered locations
+                {t('cmsshared.shipping.covered_locations')}
               </p>
               {!editingLocations ? (
                 <Button onClick={openLocationEditor} size="sm" variant="outline">
-                  Edit locations
+                  {t('cmsshared.shipping.edit_locations')}
                 </Button>
               ) : null}
             </div>
@@ -458,7 +476,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
             {!editingLocations ? (
               zone.locations.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  No locations yet — this zone will not match any checkout address.
+                  {t('cmsshared.shipping.no_locations')}
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
@@ -472,7 +490,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                   ))}
                   {hiddenLocationCount > 0 ? (
                     <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-zinc-500 ring-1 ring-inset ring-zinc-200">
-                      +{hiddenLocationCount} more
+                      {t('cmsshared.shipping.more', { count: hiddenLocationCount })}
                     </span>
                   ) : null}
                 </div>
@@ -488,11 +506,13 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                 />
                 <div className="flex items-center justify-end gap-2">
                   <Button onClick={() => setEditingLocations(false)} size="sm" variant="outline">
-                    Cancel
+                    {t('cmsshared.action.cancel')}
                   </Button>
                   <Button disabled={pending} onClick={() => void saveLocations()} size="sm">
                     <Save size={14} />
-                    {pending ? 'Saving…' : 'Save locations'}
+                    {pending
+                      ? t('cmsshared.menu_builder.saving')
+                      : t('cmsshared.shipping.save_locations')}
                   </Button>
                 </div>
               </div>
@@ -504,7 +524,7 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 <Truck size={13} />
-                Shipping methods
+                {t('cmsshared.shipping.shipping_methods')}
               </p>
               <Button
                 onClick={() => {
@@ -515,31 +535,35 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                 variant="outline"
               >
                 <Plus size={14} />
-                Add method
+                {t('cmsshared.shipping.add_method')}
               </Button>
             </div>
 
             {zone.methods.length === 0 ? (
               <p className="rounded-lg border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500">
-                No shipping methods yet. Add Flat Rate, Free Shipping, or Local Pickup below.
+                {t('cmsshared.shipping.no_methods')}
               </p>
             ) : (
               <Table bare>
                 <thead>
                   <tr>
-                    <Th>Method</Th>
-                    <Th>Title</Th>
-                    <Th>Cost</Th>
-                    <Th>Min order</Th>
-                    <Th>Enabled</Th>
-                    <Th className="text-right">Actions</Th>
+                    <Th>{t('cmsshared.shipping.th_method')}</Th>
+                    <Th>{t('cmsshared.field.title')}</Th>
+                    <Th>{t('cmsshared.shipping.cost')}</Th>
+                    <Th>{t('cmsshared.shipping.th_min_order')}</Th>
+                    <Th>{t('cmsshared.shipping.th_enabled')}</Th>
+                    <Th className="text-right">{t('cmsshared.shipping.th_actions')}</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {zone.methods.map((method) => (
                     <tr key={method.id} className="transition hover:bg-zinc-50">
                       <Td>
-                        <Badge tone="brand">{METHOD_TYPE_LABELS[method.type] || method.type}</Badge>
+                        <Badge tone="brand">
+                          {METHOD_TYPE_KEYS[method.type]
+                            ? t(METHOD_TYPE_KEYS[method.type])
+                            : method.type}
+                        </Badge>
                       </Td>
                       <Td className="max-w-[240px]">
                         <span className="block truncate font-medium text-zinc-900">
@@ -551,17 +575,21 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                           </span>
                         ) : null}
                       </Td>
-                      <Td className="whitespace-nowrap">{methodCostCell(method)}</Td>
+                      <Td className="whitespace-nowrap">{methodCostCell(method, t)}</Td>
                       <Td className="whitespace-nowrap">{minOrderCell(method)}</Td>
                       <Td>
                         <Badge tone={method.enabled ? 'success' : 'danger'}>
-                          {method.enabled ? 'Enabled' : 'Disabled'}
+                          {method.enabled
+                            ? t('cmsshared.shipping.enabled')
+                            : t('cmsshared.shipping.disabled')}
                         </Badge>
                       </Td>
                       <Td className="text-right">
                         <span className="inline-flex items-center gap-1">
                           <Button
-                            aria-label={`Edit ${method.title}`}
+                            aria-label={t('cmsshared.shipping.edit_method_aria', {
+                              title: method.title,
+                            })}
                             onClick={() => {
                               setAddingMethod(false);
                               setEditingMethodId((current) =>
@@ -574,7 +602,9 @@ export default function ZoneCard({ zone, countries, states }: ZoneCardProps) {
                             <Pencil size={14} />
                           </Button>
                           <Button
-                            aria-label={`Delete ${method.title}`}
+                            aria-label={t('cmsshared.shipping.delete_method_aria', {
+                              title: method.title,
+                            })}
                             onClick={() => void handleDeleteMethod(method)}
                             size="sm"
                             variant="ghost"

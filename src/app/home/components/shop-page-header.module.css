@@ -1,0 +1,85 @@
+/* Shared storefront page banner: breadcrumb + title on a cream band. */
+
+.band {
+  background: var(--shop-section-cream, #f1efec);
+  padding: clamp(2.25rem, 5vw, 3.5rem) 0;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.band[data-align='center'] .inner {
+  align-items: center;
+  text-align: center;
+}
+
+.band[data-align='start'] .inner {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  color: #6b6355;
+}
+
+.crumbLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.crumbLink:hover {
+  color: #1a1611;
+}
+
+.separator {
+  color: #b5ac9c;
+}
+
+.current {
+  color: #1a1611;
+  font-weight: 600;
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6b5e2b;
+}
+
+.title {
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #1a1611;
+  margin: 0;
+}
+
+/* buildThemeCss injects `.shopWrapper h1..h6 { color: var(--cms-text) }` at
+   specificity (0,2,1); under a dark theme (e.g. Dark Pro, cream text) it
+   washes the banner title out on the cream band, so re-assert the ink above
+   it (same pattern as bookstore.module.css / home-products.module.css). */
+.band .inner .title {
+  color: #1a1611;
+}
+
+.lead {
+  max-width: 54ch;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: #6b6355;
+  margin: 0;
+}

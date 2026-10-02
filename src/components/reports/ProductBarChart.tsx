@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type ProductDatum = {
   name: string;
@@ -21,8 +22,13 @@ function truncateLabel(value: string): string {
 
 /** Horizontal bar chart of units sold per product (top N). */
 export default function ProductBarChart({ data }: { data: ProductDatum[] }) {
+  const { t } = useLocale();
   if (!data.length) {
-    return <p className="py-10 text-center text-sm text-zinc-500">No product sales in this period.</p>;
+    return (
+      <p className="py-10 text-center text-sm text-zinc-500">
+        {t('cmsshared.reports.no_product_sales')}
+      </p>
+    );
   }
 
   return (
@@ -54,7 +60,9 @@ export default function ProductBarChart({ data }: { data: ProductDatum[] }) {
               fontSize: 12,
               boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             }}
-            formatter={(value) => [String(value ?? 0), 'Units sold'] as [string, string]}
+            formatter={(value) =>
+              [String(value ?? 0), t('cmsshared.reports.units_sold')] as [string, string]
+            }
             labelFormatter={(label) => String(label)}
           />
           <Bar barSize={16} dataKey="quantity" fill="#6d6be8" radius={[0, 6, 6, 0]} />

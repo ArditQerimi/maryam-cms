@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import type { CheckoutAddress } from './checkout-contract';
 import styles from './checkout.module.css';
 
@@ -8,12 +9,13 @@ export type AddressErrors = Partial<Record<keyof CheckoutAddress, string>>;
 
 type AddressFieldConfig = {
   key: keyof CheckoutAddress;
-  label: string;
+  label: Parameters<Translator>[0];
   autoComplete: string;
   optional?: boolean;
   wide?: boolean;
   type?: 'text' | 'tel';
   inputMode?: 'text' | 'numeric' | 'tel';
+  placeholder?: Parameters<Translator>[0];
 };
 
 type AddressFieldsProps = {
@@ -24,31 +26,33 @@ type AddressFieldsProps = {
   onFieldChange: (key: keyof CheckoutAddress, value: string) => void;
 };
 
+/* WooCommerce billing order: name pair, company, country, street, town, region, ZIP. */
 const FIELD_CONFIG: readonly AddressFieldConfig[] = [
-  { key: 'firstName', label: 'First name', autoComplete: 'given-name' },
-  { key: 'lastName', label: 'Last name', autoComplete: 'family-name' },
-  { key: 'company', label: 'Company', autoComplete: 'organization', optional: true, wide: true },
-  { key: 'address1', label: 'Address', autoComplete: 'address-line1', wide: true },
-  { key: 'address2', label: 'Apartment, suite, etc.', autoComplete: 'address-line2', optional: true, wide: true },
-  { key: 'country', label: 'Country / region', autoComplete: 'country' },
-  { key: 'city', label: 'City', autoComplete: 'address-level2' },
-  { key: 'region', label: 'State / province', autoComplete: 'address-level1' },
-  { key: 'postalCode', label: 'Postal code', autoComplete: 'postal-code', inputMode: 'text' },
+  { key: 'firstName', label: 'checkout.address.firstName', autoComplete: 'given-name' },
+  { key: 'lastName', label: 'checkout.address.lastName', autoComplete: 'family-name' },
+  { key: 'company', label: 'checkout.address.company', autoComplete: 'organization', optional: true, wide: true },
+  { key: 'country', label: 'checkout.address.country', autoComplete: 'country-name', wide: true },
+  { key: 'address1', label: 'checkout.address.address1', autoComplete: 'address-line1', wide: true, placeholder: 'checkout.address.address1Placeholder' },
+  { key: 'address2', label: 'checkout.address.address2', autoComplete: 'address-line2', optional: true, wide: true },
+  { key: 'city', label: 'checkout.address.city', autoComplete: 'address-level2', wide: true },
+  { key: 'region', label: 'checkout.address.region', autoComplete: 'address-level1' },
+  { key: 'postalCode', label: 'checkout.address.postalCode', autoComplete: 'postal-code', inputMode: 'text' },
 ];
 
-const COUNTRIES = [
-  ['AL', 'Albania'],
-  ['AT', 'Austria'],
-  ['BE', 'Belgium'],
-  ['FR', 'France'],
-  ['DE', 'Germany'],
-  ['IT', 'Italy'],
-  ['XK', 'Kosovo'],
-  ['NL', 'Netherlands'],
-  ['ES', 'Spain'],
-  ['GB', 'United Kingdom'],
-  ['US', 'United States'],
-] as const;
+/** ISO code → dictionary key; the visible label translates, the value never does. */
+const COUNTRIES: ReadonlyArray<readonly [string, Parameters<Translator>[0]]> = [
+  ['AL', 'checkout.country.AL'],
+  ['AT', 'checkout.country.AT'],
+  ['BE', 'checkout.country.BE'],
+  ['FR', 'checkout.country.FR'],
+  ['DE', 'checkout.country.DE'],
+  ['IT', 'checkout.country.IT'],
+  ['XK', 'checkout.country.XK'],
+  ['NL', 'checkout.country.NL'],
+  ['ES', 'checkout.country.ES'],
+  ['GB', 'checkout.country.GB'],
+  ['US', 'checkout.country.US'],
+];
 
 export function addressInputId(prefix: AddressPrefix, key: keyof CheckoutAddress) {
   return `${prefix}-${key}`;
@@ -61,6 +65,8 @@ export default function AddressFields({
   disabled = false,
   onFieldChange,
 }: AddressFieldsProps) {
+  const { t } = useLocale();
+
   return (
     <div className={styles.addressGrid}>
       {FIELD_CONFIG.map((field) => {
@@ -78,9 +84,9 @@ export default function AddressFields({
         return (
           <div className={className} key={field.key}>
             <label className={styles.label} htmlFor={id}>
-              {field.label}
+              {t(field.label)}
               {field.optional ? (
-                <span className={styles.optional}>Optional</span>
+                <span className={styles.optional}>{t('checkout.address.optional')}</span>
               ) : (
                 <span className={styles.requiredMark} aria-hidden="true">*</span>
               )}
@@ -99,9 +105,9 @@ export default function AddressFields({
                 required
                 value={value[field.key]}
               >
-                <option value="">Select a country</option>
+                <option value="">{t('checkout.address.selectCountry')}</option>
                 {COUNTRIES.map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
+                  <option key={code} value={code}>{t(label)}</option>
                 ))}
               </select>
             ) : (
@@ -116,6 +122,7 @@ export default function AddressFields({
                 inputMode={field.inputMode}
                 name={`${prefix}.${field.key}`}
                 onChange={(event) => onFieldChange(field.key, event.target.value)}
+                placeholder={field.placeholder ? t(field.placeholder) : undefined}
                 required={!field.optional}
                 spellCheck={field.key === 'company' ? false : true}
                 type={field.type ?? 'text'}

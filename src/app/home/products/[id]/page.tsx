@@ -6,31 +6,22 @@ import * as schema from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
 import { getProductById, getProducts } from '@/lib/actions';
 import ProductDetailsClient, {
+  type DetailPromo,
   type DetailProduct,
   type DetailVariantOption,
   type RelatedProduct,
 } from './ProductDetailsClient';
+import type { ProductReviewQuery } from './ProductReviews';
+import { loadProductReviews, type ReviewNotice } from '@/lib/storefront/reviews';
 import {
-  EMPTY_DISCOUNTS,
-  loadActiveDiscounts,
   priceProduct,
   type ActiveDiscounts,
   type PricedProduct,
 } from '@/lib/storefront/pricing';
+import { loadSectionProductData } from '@/lib/storefront/section-data';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Currently-valid product/category discounts. A failure must never break the
- * product page: we simply fall back to list prices.
- */
-async function loadStorefrontDiscounts(): Promise<ActiveDiscounts> {
-  try {
-    return await loadActiveDiscounts(await getContextDb());
-  } catch {
-    return EMPTY_DISCOUNTS;
-  }
-}
 
 /** List price → `{ salePrice, compareAtPrice }` for one product. */
 function priceForProduct(
@@ -71,6 +62,8 @@ type RawProduct = {
   status: string;
   categoryId?: number | null;
   brandId?: number | null;
+  /** Powers the 🆕 recency half of the related-products ranking. */
+  createdAt?: Date | string | null;
   category?: { id: number; name: string; status?: string } | null;
   brand?: { id: number; name: string; status?: string } | null;
   variants?: RawVariant[] | null;
@@ -228,6 +221,43 @@ function metadataImageUrl(imageUrl: string): string | undefined {
   }
 }
 
+/**
+ * Optional merchandising banner from tenant settings (`pdp_banner_*` keys the
+ * admin fills under Settings). Hidden entirely until both image and title
+ * exist so the page never shows placeholder marketing copy.
+ */
+async function loadPromoSettings(): Promise<DetailPromo | null> {
+  try {
+    const db = await getContextDb();
+    const rows = await db
+      .select({ key: schema.settingsStore.key, value: schema.settingsStore.value })
+      .from(schema.settingsStore)
+      .where(inArray(schema.settingsStore.key, [
+        'pdp_banner_image',
+        'pdp_banner_title',
+        'pdp_banner_text',
+        'pdp_banner_cta_label',
+        'pdp_banner_cta_href',
+      ]));
+    const values = Object.fromEntries(
+      rows.map((row) => [row.key, (row.value ?? '').trim()]),
+    );
+    const image = values.pdp_banner_image ?? '';
+    const title = values.pdp_banner_title ?? '';
+    if (!image || !title) return null;
+    return {
+      image,
+      title,
+      text: values.pdp_banner_text || null,
+      ctaLabel: values.pdp_banner_cta_label || null,
+      ctaHref: values.pdp_banner_cta_href || null,
+    };
+  } catch (error) {
+    console.error('[Product page] Promo settings load failed', error);
+    return null;
+  }
+}
+
 async function getVariantOptionRows(variantIds: number[]): Promise<VariantOptionRow[]> {
   if (variantIds.length === 0) return [];
 
@@ -363,9 +393,37 @@ function relatedScore(candidate: RawProduct, current: RawProduct): number {
   return score;
 }
 
-function metadataForMissingProduct(): Metadata {
+/** Epoch milliseconds for the 🆕 recency tie-break; 0 when unknown. */
+function candidateTime(value: Date | string | null | undefined): number {
+  if (!value) return 0;
+  const time = value instanceof Date ? value.getTime() : Date.parse(value);
+  return Number.isFinite(time) ? time : 0;
+}
+
+/**
+ * Related-products order — the storefront's automatic logic:
+ * relatedness first (same category ≫ same brand, in-stock/with-image bonus),
+ * then 🔥 best sellers by units sold, then 🆕 newest. Equal items fall back
+ * to newest-first so the row never looks stale.
+ */
+function rankRelated(
+  candidates: RawProduct[],
+  current: RawProduct,
+  soldCounts: Map<number, number>,
+): RawProduct[] {
+  return [...candidates].sort(
+    (left, right) =>
+      relatedScore(right, current) - relatedScore(left, current) ||
+      (soldCounts.get(right.id) ?? 0) - (soldCounts.get(left.id) ?? 0) ||
+      candidateTime(right.createdAt) - candidateTime(left.createdAt) ||
+      right.id - left.id,
+  );
+}
+
+async function metadataForMissingProduct(): Promise<Metadata> {
+  const t = await getT();
   return {
-    title: 'Product not found',
+    title: t('catalog.meta.product_not_found'),
     robots: { index: false, follow: false },
   };
 }
@@ -382,7 +440,7 @@ export async function generateMetadata(
 
   const description = normalizeDescription(product.description) || undefined;
   const image = metadataImageUrl(parseGallery(product.imageUrl)[0] ?? '');
-  const canonical = `/shop/products/${product.id}`;
+  const canonical = `/home/products/${product.id}`;
 
   return {
     title: product.name.trim(),
@@ -423,7 +481,7 @@ export default async function ShopProductDetailsPage({
     .filter((variant) => variant.status === 'Active')
     .map((variant) => variant.id);
 
-  const [optionRows, sameCategory, sameBrand, discounts] = await Promise.all([
+  const [optionRows, sameCategory, sameBrand, sectionData] = await Promise.all([
     getVariantOptionRows(activeVariantIds),
     product.categoryId
       ? getProducts({ categoryId: product.categoryId, limit: 50 }).catch(() => [])
@@ -431,8 +489,12 @@ export default async function ShopProductDetailsPage({
     product.brandId
       ? getProducts({ brandId: product.brandId, limit: 50 }).catch(() => [])
       : Promise.resolve([]),
-    loadStorefrontDiscounts(),
+    // Discount rules + per-product sales totals in one go: the rules price
+    // everything below, the totals rank the 🔥 related-products logic.
+    loadSectionProductData(),
   ]);
+  const discounts = sectionData.discounts;
+  const soldCounts = sectionData.soldCounts;
 
   const variantData = normalizeVariants(product, optionRows);
   const gallery = parseGallery(product.imageUrl);
@@ -476,7 +538,11 @@ export default async function ShopProductDetailsPage({
     brandName,
     variants: pricedVariants,
     defaultVariantId: variantData.defaultVariantId,
+    rating: sectionData.ratings.get(product.id) ?? 0,
   };
+
+  /** How many related items the row should try to fill. */
+  const RELATED_LIMIT = 4;
 
   const candidates = new Map<number, RawProduct>();
   for (const candidate of [...sameCategory, ...sameBrand]) {
@@ -489,12 +555,28 @@ export default async function ShopProductDetailsPage({
     }
   }
 
-  const related: RelatedProduct[] = Array.from(candidates.values())
-    .sort((left, right) =>
-      relatedScore(right, product) - relatedScore(left, product)
-      || left.id - right.id,
-    )
-    .slice(0, 4)
+  // A product with no category/brand (or a thin pool) still deserves a full
+  // row: widen to the whole catalogue — ranking keeps real relatives on top
+  // and fills the gaps with 🔥 best sellers / 🆕 newest products.
+  if (candidates.size < RELATED_LIMIT) {
+    const wide = await getProducts({ limit: 500 }).catch(() => []);
+    for (const candidate of wide) {
+      if (
+        candidate.status === 'Active'
+        && candidate.id !== product.id
+        && !candidates.has(candidate.id)
+      ) {
+        candidates.set(candidate.id, candidate);
+      }
+    }
+  }
+
+  const related: RelatedProduct[] = rankRelated(
+    Array.from(candidates.values()),
+    product,
+    soldCounts,
+  )
+    .slice(0, RELATED_LIMIT)
     .map((candidate) => {
       const normalized = normalizeRelatedProduct(candidate);
       const priced = priceForProduct(
@@ -510,24 +592,65 @@ export default async function ShopProductDetailsPage({
       };
     });
 
-  const requestedTab = Array.isArray(query.tab) ? query.tab[0] : query.tab;
+  const queryValue = (key: string): string | undefined => {
+    const raw = query[key];
+    return Array.isArray(raw) ? raw[0] : raw;
+  };
+
+  const requestedTab = queryValue('tab');
   const hasReviewQuery = [
     'reviewsPage',
     'reviewsRating',
     'reviewsSort',
     'reviewsVerified',
-  ].some((key) => query[key] !== undefined);
+  ].some((key) => queryValue(key) !== undefined);
   const initialTab = requestedTab === 'reviews' || hasReviewQuery
     ? 'reviews'
     : requestedTab === 'details'
       ? 'details'
       : 'description';
 
+  // Review filters arrive as plain GET params from the reviews tab controls.
+  const reviewsPageRaw = Number(queryValue('reviewsPage') ?? '1');
+  const reviewsRatingRaw = Number(queryValue('reviewsRating'));
+  const reviewsSortRaw = queryValue('reviewsSort');
+  const reviewsQuery: ProductReviewQuery = {
+    page: Number.isInteger(reviewsPageRaw) && reviewsPageRaw > 0
+      ? reviewsPageRaw
+      : undefined,
+    rating: Number.isInteger(reviewsRatingRaw)
+      && reviewsRatingRaw >= 1
+      && reviewsRatingRaw <= 5
+      ? (reviewsRatingRaw as ProductReviewQuery['rating'] & number)
+      : null,
+    verifiedOnly: queryValue('reviewsVerified') === '1',
+    sort: reviewsSortRaw === 'oldest'
+      || reviewsSortRaw === 'highest'
+      || reviewsSortRaw === 'lowest'
+      ? reviewsSortRaw
+      : 'newest',
+  };
+  const reviewStatusRaw = queryValue('reviewStatus');
+  const reviewNotice: ReviewNotice | null =
+    reviewStatusRaw === 'created'
+    || reviewStatusRaw === 'rate-limited'
+    || reviewStatusRaw === 'invalid'
+    || reviewStatusRaw === 'denied'
+      ? reviewStatusRaw
+      : null;
+
+  const [promo, reviews] = await Promise.all([
+    loadPromoSettings(),
+    loadProductReviews(detail.id, reviewsQuery, reviewNotice),
+  ]);
+
   return (
     <ProductDetailsClient
       key={detail.id}
       product={detail}
       related={related}
+      reviews={reviews}
+      promo={promo}
       initialTab={initialTab}
     />
   );

@@ -117,7 +117,7 @@ export async function saveBuilderBlocks(input: {
 
     revalidatePath('/cms/pages');
     revalidatePath(`/cms/pages/${input.pageId}/edit`);
-    revalidatePath('/shop');
+    revalidatePath('/home');
     return { ok: true, id: input.pageId };
   }
 
@@ -145,7 +145,7 @@ export async function saveBuilderBlocks(input: {
     .returning({ id: cmsPages.id });
 
   revalidatePath('/cms/pages');
-  revalidatePath('/shop');
+  revalidatePath('/home');
   return { ok: true, id: row.id };
 }
 

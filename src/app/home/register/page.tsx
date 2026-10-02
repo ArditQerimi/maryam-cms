@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { getContextCompany } from '@/lib/tenant';
+import { getT } from '@/lib/i18n/server';
 import { getSafeReturnTo, withSafeReturnTo } from '../login/safe-return-to';
 import RegisterForm from './RegisterForm';
 import styles from './register.module.css';
@@ -41,11 +42,12 @@ function firstValue(value: SearchParamValue) {
 }
 
 export default async function ShopRegisterPage({ searchParams }: RegisterPageProps) {
-  const [params, company] = await Promise.all([
+  const [params, company, t] = await Promise.all([
     searchParams,
     getContextCompany().catch(() => null),
+    getT(),
   ]);
-  const storeName = company?.name?.trim() || 'the store';
+  const storeName = company?.name?.trim() || t('auth.store.unnamed');
   const errorCode = firstValue(params?.error);
   const returnTo = getSafeReturnTo(firstValue(params?.returnTo));
   const successRequested = firstValue(params?.success) === 'account-created';
@@ -60,9 +62,11 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
     }
   }
 
-  const loginHref = withSafeReturnTo('/shop/login', returnTo);
+  const loginHref = withSafeReturnTo('/home/login', returnTo);
   const primarySuccessLabel =
-    returnTo === '/customer/orders' ? 'View your orders' : 'Continue shopping';
+    returnTo === '/customer/orders'
+      ? t('auth.register.success.viewOrders')
+      : t('auth.register.success.continue');
 
   return (
     <div className={styles.page}>
@@ -70,10 +74,10 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
         <nav className={styles.breadcrumbNav} aria-label="Breadcrumb">
           <ol>
             <li>
-              <Link href="/shop">Home</Link>
+              <Link href="/home">{t('auth.crumb.home')}</Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page">Create account</li>
+            <li aria-current="page">{t('auth.crumb.createAccount')}</li>
           </ol>
         </nav>
       </div>
@@ -85,11 +89,9 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
               <span className={styles.successIcon} aria-hidden="true">
                 <Check size={30} strokeWidth={2.2} />
               </span>
-              <p className={styles.eyebrow}>Account created</p>
-              <h1 id="registration-success-title">You&apos;re all set.</h1>
-              <p className={styles.successCopy}>
-                Your customer account has been created and you are now signed in.
-              </p>
+              <p className={styles.eyebrow}>{t('auth.register.success.eyebrow')}</p>
+              <h1 id="registration-success-title">{t('auth.register.success.title')}</h1>
+              <p className={styles.successCopy}>{t('auth.register.success.copy')}</p>
 
               <div className={styles.successActions}>
                 <Link className={styles.successPrimary} href={returnTo}>
@@ -98,34 +100,33 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
                 </Link>
                 {returnTo !== '/customer/orders' ? (
                   <Link className={styles.successSecondary} href="/customer/orders">
-                    View your orders
+                    {t('auth.register.success.viewOrders')}
                   </Link>
                 ) : null}
               </div>
 
               <p className={styles.successNote}>
                 <ShieldCheck size={17} aria-hidden="true" />
-                Your session is secured with an HTTP-only cookie.
+                {t('auth.register.success.note')}
               </p>
             </section>
           ) : (
             <>
               <section className={styles.intro} aria-labelledby="register-page-title">
-                <p className={styles.eyebrow}>Join {storeName}</p>
-                <h1 id="register-page-title">A faster way to shop.</h1>
-                <p className={styles.introCopy}>
-                  Create your customer account for secure access to order history
-                  and your account whenever you return to the store.
+                <p className={styles.eyebrow}>
+                  {t('auth.register.eyebrow.join', { store: storeName })}
                 </p>
+                <h1 id="register-page-title">{t('auth.register.title')}</h1>
+                <p className={styles.introCopy}>{t('auth.register.intro')}</p>
 
-                <ul className={styles.benefitList} aria-label="Shopping account benefits">
+                <ul className={styles.benefitList} aria-label={t('auth.register.benefits.aria')}>
                   <li>
                     <span className={styles.benefitIcon}>
                       <Sparkles size={19} aria-hidden="true" />
                     </span>
                     <span>
-                      <strong>Quick access</strong>
-                      <small>Return to your account in a few steps</small>
+                      <strong>{t('auth.register.benefit.quick.title')}</strong>
+                      <small>{t('auth.register.benefit.quick.text')}</small>
                     </span>
                   </li>
                   <li>
@@ -133,8 +134,8 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
                       <PackageCheck size={19} aria-hidden="true" />
                     </span>
                     <span>
-                      <strong>Purchase history</strong>
-                      <small>Review previous orders in one place</small>
+                      <strong>{t('auth.register.benefit.history.title')}</strong>
+                      <small>{t('auth.register.benefit.history.text')}</small>
                     </span>
                   </li>
                   <li>
@@ -142,26 +143,23 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
                       <Heart size={19} aria-hidden="true" />
                     </span>
                     <span>
-                      <strong>One customer account</strong>
-                      <small>Use the same credentials for future visits</small>
+                      <strong>{t('auth.register.benefit.account.title')}</strong>
+                      <small>{t('auth.register.benefit.account.text')}</small>
                     </span>
                   </li>
                 </ul>
 
                 <div className={styles.assuranceNote}>
                   <ShieldCheck size={19} aria-hidden="true" />
-                  <span>
-                    Your account is created against this store only. Passwords are hashed
-                    before they are stored.
-                  </span>
+                  <span>{t('auth.register.assurance')}</span>
                 </div>
               </section>
 
               <section className={styles.card} aria-labelledby="register-card-title">
                 <div className={styles.cardHeader}>
-                  <p className={styles.cardKicker}>Customer registration</p>
-                  <h2 id="register-card-title">Create your account</h2>
-                  <p>All fields marked with an asterisk are required.</p>
+                  <p className={styles.cardKicker}>{t('auth.register.card.kicker')}</p>
+                  <h2 id="register-card-title">{t('auth.register.card.title')}</h2>
+                  <p>{t('auth.register.card.copy')}</p>
                 </div>
 
                 <RegisterForm

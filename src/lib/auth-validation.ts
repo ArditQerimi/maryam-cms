@@ -22,11 +22,11 @@ const CUSTOMER_RETURN_MAX_LENGTH = 2048;
 const CUSTOMER_RETURN_UNSAFE = /[\u0000-\u001f\u007f\\]/i;
 const CUSTOMER_RETURN_ENCODED_SEPARATOR = /%(?:2f|5c|00|0d|0a)/i;
 const CUSTOMER_RETURN_PATHS = [
-  '/shop/cart',
-  '/shop/checkout',
-  '/shop/wishlist',
-  '/shop/compare',
-  '/shop/account',
+  '/home/cart',
+  '/home/checkout',
+  '/home/wishlist',
+  '/home/compare',
+  '/home/account',
   '/customer',
 ] as const;
 
@@ -78,7 +78,7 @@ export function isRoleAllowedForAudience(roleName: unknown, audience: LoginAudie
 
 function isAllowedCustomerReturnPath(pathname: string) {
   const normalizedPath = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  if (normalizedPath === '/shop') return true;
+  if (normalizedPath === '/home') return true;
   return CUSTOMER_RETURN_PATHS.some(
     (allowedPath) => normalizedPath === allowedPath || normalizedPath.startsWith(`${allowedPath}/`)
   );
@@ -128,7 +128,7 @@ export function getSafeCustomerReturnTo(
 
 export function normalizeReturnTo(value: string | FormDataEntryValue | null | undefined, fallback: string) {
   const normalized = typeof value === 'string' ? value.trim() : '';
-  const allowed = new Set(['/login', '/shop/login']);
+  const allowed = new Set(['/login', '/home/login']);
   return allowed.has(normalized) ? normalized : fallback;
 }
 

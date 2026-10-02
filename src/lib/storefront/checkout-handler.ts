@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import type {
   CheckoutFieldErrors,
   CheckoutSubmitResult,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import { getCartCookie } from './cookies';
 import {
   getStorefrontContext,
@@ -172,9 +172,17 @@ export function checkoutErrorResponse(error: unknown) {
   }
 
   const diagnosticCode = (error as { code?: unknown } | null)?.code;
+  const cause = (error as { cause?: unknown } | null)?.cause;
   console.error('[Storefront checkout] Unexpected failure', {
     name: error instanceof Error ? error.name : 'UnknownError',
     code: typeof diagnosticCode === 'string' ? diagnosticCode : undefined,
+    message: error instanceof Error ? error.message : String(error),
+    cause: cause instanceof Error
+      ? { name: cause.name, message: cause.message, code: (cause as { code?: unknown }).code }
+      : cause !== undefined
+        ? String(cause)
+        : undefined,
+    stack: error instanceof Error ? error.stack?.split('\n').slice(0, 6).join('\n') : undefined,
   });
   return noStoreJson(
     failure(
@@ -188,7 +196,9 @@ export function checkoutErrorResponse(error: unknown) {
 
 export async function handleStorefrontCheckout(request: NextRequest) {
   try {
-    const context = await getStorefrontContext(request);
+    // Orders are for registered customers only: guests get a 401 before any
+    // cart mutation or order row exists (visitors can browse, not order).
+    const context = await getStorefrontContext(request, { allowGuest: false });
     assertMutationOrigin(request, context);
     const config = loadCheckoutRuntimeConfig(process.env, context.company.subdomain);
     const idempotencyKey = parseIdempotencyKey(request.headers.get('idempotency-key'));

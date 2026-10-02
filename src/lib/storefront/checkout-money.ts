@@ -1,4 +1,4 @@
-import type { CheckoutCurrency } from '@/app/shop/checkout/checkout-contract';
+import type { CheckoutCurrency } from '@/app/home/checkout/checkout-contract';
 
 const CENTS_PER_UNIT = BigInt(100);
 const MAX_MONEY_CENTS = BigInt('999999999999');

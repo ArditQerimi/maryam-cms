@@ -20,6 +20,7 @@ import {
   users,
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { formatDate, formatMoney } from '@/lib/cms/format';
 import {
   Badge,
@@ -175,6 +176,7 @@ function StatCard({
 
 export default async function DashboardPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [stats, recentOrders, series, topProducts] = await Promise.all([
     getStats(),
@@ -184,25 +186,25 @@ export default async function DashboardPage() {
   ]);
 
   const quickLinks = [
-    { label: 'New Page', href: '/cms/pages/new', icon: FilePlus2 },
-    { label: 'New Post', href: '/cms/posts/new', icon: FilePlus2 },
-    { label: 'New Product', href: '/cms/products/new', icon: Plus },
-    { label: 'Theme Customizer', href: '/cms/appearance/customize', icon: Palette },
+    { label: t('cmsdash.quick.newPage'), href: '/cms/pages/new', icon: FilePlus2 },
+    { label: t('cmsdash.quick.newPost'), href: '/cms/posts/new', icon: FilePlus2 },
+    { label: t('cmsdash.quick.newProduct'), href: '/cms/products/new', icon: Plus },
+    { label: t('cmsdash.quick.customizer'), href: '/cms/appearance/customize', icon: Palette },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description="An overview of your storefront, content and orders."
+        title={t('cmsdash.title')}
+        description={t('cmsdash.description')}
         actions={
           <a
-            href="/shop"
+            href="/home"
             target="_blank"
             rel="noreferrer"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            View shop <ArrowRight size={14} />
+            {t('cmsdash.viewShop')} <ArrowRight size={14} />
           </a>
         }
       />
@@ -210,30 +212,30 @@ export default async function DashboardPage() {
       {/* Row 1 — stats */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Products"
+          label={t('cmsdash.stat.products')}
           value={stats.products.toLocaleString()}
-          hint={`${stats.lowStock} low on stock`}
+          hint={t('cmsdash.stat.productsHint', { count: stats.lowStock })}
           icon={Package}
           href="/cms/products"
         />
         <StatCard
-          label="Orders"
+          label={t('cmsdash.stat.orders')}
           value={stats.orders.toLocaleString()}
-          hint="All online orders"
+          hint={t('cmsdash.stat.ordersHint')}
           icon={Receipt}
           href="/cms/orders"
         />
         <StatCard
-          label="Customers"
+          label={t('cmsdash.stat.customers')}
           value={stats.customers.toLocaleString()}
-          hint="Registered accounts"
+          hint={t('cmsdash.stat.customersHint')}
           icon={Users}
           href="/cms/customers"
         />
         <StatCard
-          label="Revenue this month"
+          label={t('cmsdash.stat.revenue')}
           value={formatMoney(stats.revenue)}
-          hint="Online orders"
+          hint={t('cmsdash.stat.revenueHint')}
           icon={ShoppingBag}
           href="/cms/reports/sales"
         />
@@ -243,16 +245,16 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex items-center justify-between">
-            <CardTitle>Recent orders</CardTitle>
+            <CardTitle>{t('cmsdash.recentOrders')}</CardTitle>
             <Link href="/cms/orders" className="text-xs font-medium text-[#5b59d6] hover:underline">
-              View all
+              {t('cmsdash.viewAll')}
             </Link>
           </CardHeader>
           {recentOrders.length === 0 ? (
             <CardContent>
               <EmptyState
-                title="No online orders yet"
-                description="Orders placed through the storefront will show up here."
+                title={t('cmsdash.recentOrders.emptyTitle')}
+                description={t('cmsdash.recentOrders.emptyDescription')}
                 icon={<Receipt size={28} />}
               />
             </CardContent>
@@ -261,11 +263,11 @@ export default async function DashboardPage() {
               <Table bare>
                 <thead>
                   <tr>
-                    <Th>Order</Th>
-                    <Th>Customer</Th>
-                    <Th>Date</Th>
-                    <Th className="text-right">Total</Th>
-                    <Th>Status</Th>
+                    <Th>{t('cmsdash.th.order')}</Th>
+                    <Th>{t('cmsdash.th.customer')}</Th>
+                    <Th>{t('cmsdash.th.date')}</Th>
+                    <Th className="text-right">{t('cmsdash.th.total')}</Th>
+                    <Th>{t('cmsdash.th.status')}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,7 +283,7 @@ export default async function DashboardPage() {
                         <span className="ml-2 text-xs text-zinc-400">{order.reference}</span>
                       </Td>
                       <Td className="max-w-[220px] truncate">
-                        {order.customerName || order.userName || 'Guest'}
+                        {order.customerName || order.userName || t('cmsdash.guest')}
                       </Td>
                       <Td className="whitespace-nowrap text-zinc-500">
                         {formatDate(order.createdAt)}
@@ -303,7 +305,7 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Quick actions</CardTitle>
+              <CardTitle>{t('cmsdash.quickActions')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {quickLinks.map((link) => (
@@ -324,17 +326,17 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Top selling products</CardTitle>
+              <CardTitle>{t('cmsdash.topProducts')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {topProducts.length === 0 ? (
-                <p className="text-sm text-zinc-500">No sales recorded yet.</p>
+                <p className="text-sm text-zinc-500">{t('cmsdash.topProducts.empty')}</p>
               ) : (
                 topProducts.map((product, index) => (
                   <div key={product.name || index} className="flex items-center justify-between gap-3">
                     <span className="flex min-w-0 items-center gap-2.5">
                       <Badge tone="brand">{index + 1}</Badge>
-                      <span className="truncate text-sm text-zinc-700">{product.name || 'Deleted product'}</span>
+                      <span className="truncate text-sm text-zinc-700">{product.name || t('cmsdash.deletedProduct')}</span>
                     </span>
                     <span className="shrink-0 text-sm font-medium text-zinc-900">
                       {formatMoney(product.revenue)}
@@ -350,7 +352,7 @@ export default async function DashboardPage() {
       {/* Row 3 — chart */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Sales — last 30 days</CardTitle>
+          <CardTitle>{t('cmsdash.chart.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <SalesChart data={series} />

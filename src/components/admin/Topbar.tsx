@@ -5,27 +5,32 @@ import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { Bell, ExternalLink, LogOut, UserRound } from 'lucide-react';
 import { cmsLogout } from '@/app/login/actions';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import LanguageSwitcher from '@/app/home/components/LanguageSwitcher';
 
-const TITLES: Array<[string, string]> = [
-  ['/cms/dashboard', 'Dashboard'],
-  ['/cms/pages', 'Pages'],
-  ['/cms/posts', 'Posts'],
-  ['/cms/media', 'Media'],
-  ['/cms/products', 'Products'],
-  ['/cms/orders', 'Orders'],
-  ['/cms/customers', 'Customers'],
-  ['/cms/coupons', 'Coupons'],
-  ['/cms/discounts', 'Discounts'],
-  ['/cms/shipping', 'Shipping'],
-  ['/cms/reports', 'Reports'],
-  ['/cms/appearance', 'Appearance'],
-  ['/cms/settings', 'Settings'],
-  ['/cms/builder', 'Page builder'],
+// Prefix → dictionary key (the breadcrumb tail below the section stays
+// URL-derived, e.g. `/cms/settings/reading` → "Reading").
+const TITLES: Array<[string, keyof Dictionary]> = [
+  ['/cms/dashboard', 'cmsnav.item.dashboard'],
+  ['/cms/pages', 'cmsnav.item.pages'],
+  ['/cms/posts', 'cmsnav.item.posts'],
+  ['/cms/media', 'cmsnav.item.media'],
+  ['/cms/products', 'cmsnav.item.products'],
+  ['/cms/orders', 'cmsnav.item.orders'],
+  ['/cms/customers', 'cmsnav.item.customers'],
+  ['/cms/coupons', 'cmsnav.item.coupons'],
+  ['/cms/discounts', 'cmsnav.item.discounts'],
+  ['/cms/shipping', 'cmsnav.item.shipping'],
+  ['/cms/reports', 'cmsnav.section.reports'],
+  ['/cms/appearance', 'cmsnav.section.appearance'],
+  ['/cms/settings', 'cmsnav.section.settings'],
+  ['/cms/builder', 'cmsnav.item.builder'],
 ];
 
-function breadcrumb(pathname: string) {
+function breadcrumb(pathname: string, t: (key: keyof Dictionary) => string) {
   const match = TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-  const root = match?.[1] || 'CMS';
+  const root = match ? t(match[1]) : 'CMS';
   const tail = pathname
     .replace(match?.[0] || '', '')
     .split('/')
@@ -37,9 +42,10 @@ function breadcrumb(pathname: string) {
 
 export default function Topbar({ name, email }: { name: string; email: string }) {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const parts = breadcrumb(pathname);
+  const parts = breadcrumb(pathname, t);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -76,18 +82,20 @@ export default function Topbar({ name, email }: { name: string; email: string })
       </nav>
 
       <div className="flex items-center gap-2">
+        <LanguageSwitcher variant="admin" />
+
         <a
-          href="/shop"
+          href="/home"
           target="_blank"
           rel="noreferrer"
           className="hidden items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 sm:inline-flex"
         >
-          View shop <ExternalLink size={13} />
+          {t('cmsnav.view_shop')} <ExternalLink size={13} />
         </a>
 
         <button
           type="button"
-          aria-label="Notifications"
+          aria-label={t('cmsnav.notifications')}
           className="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
         >
           <Bell size={17} />
@@ -124,15 +132,15 @@ export default function Topbar({ name, email }: { name: string; email: string })
                 onClick={() => setOpen(false)}
                 className="block px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50"
               >
-                Settings
+                {t('cmsnav.settings')}
               </Link>
               <Link
-                href="/shop"
+                href="/home"
                 target="_blank"
                 onClick={() => setOpen(false)}
                 className="block px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50"
               >
-                View shop
+                {t('cmsnav.view_shop')}
               </Link>
               <div className="my-1 h-px bg-zinc-100" />
               <form action={cmsLogout}>
@@ -140,7 +148,7 @@ export default function Topbar({ name, email }: { name: string; email: string })
                   type="submit"
                   className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50"
                 >
-                  <LogOut size={14} /> Sign out
+                  <LogOut size={14} /> {t('cmsnav.sign_out')}
                 </button>
               </form>
             </div>

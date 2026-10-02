@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import type {
   CheckoutCapabilities,
   CheckoutCapabilitiesResult,
-} from '@/app/shop/checkout/checkout-contract';
+} from '@/app/home/checkout/checkout-contract';
 import { getStorefrontContext } from './context';
 import { getCartCookie } from './cookies';
 import { noStoreJson } from './http';
@@ -23,7 +23,9 @@ export function checkoutCapabilitiesSuccessResponse(capabilities: CheckoutCapabi
 
 export async function handleStorefrontCheckoutCapabilities(request: NextRequest) {
   try {
-    const context = await getStorefrontContext(request);
+    // Quote data backs a checkout attempt — same audience rule as the POST:
+    // registered customers only, never guests.
+    const context = await getStorefrontContext(request, { allowGuest: false });
     assertCheckoutCapabilitiesSameOrigin(request, context);
     assertNoCheckoutQuoteInput(request);
     const config = loadCheckoutRuntimeConfig(process.env, context.company.subdomain);

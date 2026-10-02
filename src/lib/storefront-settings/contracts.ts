@@ -140,7 +140,7 @@ export const STOREFRONT_SETTINGS_FORM_FIELDS = {
 } as const satisfies Record<StorefrontSettingsField, string>;
 
 export const STOREFRONT_SETTINGS_ROUTES_TO_REVALIDATE = [
-  '/shop/products',
-  '/shop/collections/[slug]',
-  '/shop/blogs',
+  '/home/products',
+  '/home/collections/[slug]',
+  '/home/blogs',
 ] as const;

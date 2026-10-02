@@ -1,19 +1,24 @@
 import { PageHeader } from '@/components/admin/ui';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
+import { getBuilderPreviewTheme } from '@/lib/theme/builder-preview-theme';
 import PageForm from '@/components/content/PageForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewPagePage() {
   await requireCmsSession();
+  const t = await getT();
+  const previewTheme = await getBuilderPreviewTheme();
 
   return (
     <div>
       <PageHeader
-        title="New page"
-        description="Write it with the classic editor or compose it with the page builder."
+        title={t('cmscontent.pages.new')}
+        description={t('cmscontent.pages.newDescription')}
       />
       <PageForm
+        previewTheme={previewTheme}
         initial={{
           id: null,
           title: '',

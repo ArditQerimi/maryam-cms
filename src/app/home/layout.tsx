@@ -8,7 +8,7 @@ import { getContextCompany } from '@/lib/tenant';
 import { getPublicEcommerceStorefrontPresentation } from '@/lib/storefront-settings/reader';
 import './base-theme.css';
 import './base-globals.css';
-import styles from './shop.module.css';
+import styles from './home.module.css';
 import ShopHeader from './components/ShopHeader';
 import ShopFooter from './components/ShopFooter';
 import ShopProviders from './components/ShopProviders';
@@ -16,6 +16,8 @@ import PreviewBridge from '@/components/appearance/PreviewBridge';
 import { buildThemeCss, getStorefrontTheme } from '@/lib/theme/apply-theme';
 import { EMPTY_ACTIVE_NAV_MENU, getActiveNavMenu } from '@/lib/theme/storefront-nav';
 import { DEFAULT_FOOTER, DEFAULT_HEADER } from '@/lib/theme/types';
+import { getDictionary, getLocale } from '@/lib/i18n/server';
+import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 
 function getSiteUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL
@@ -49,13 +51,13 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
     alternates: {
-      canonical: '/shop',
+      canonical: '/home',
     },
     openGraph: {
       type: 'website',
       title,
       description,
-      url: new URL('/shop', siteUrl).toString(),
+      url: new URL('/home', siteUrl).toString(),
       siteName: title,
     },
     twitter: {
@@ -96,45 +98,52 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
     .map((category) => ({
       id: category.value,
       name: category.label,
-      href: `/shop/blogs?category=${encodeURIComponent(category.value)}`,
+      href: `/home/blogs?category=${encodeURIComponent(category.value)}`,
     }));
   const accountHref = session?.platformRole === 'customer'
-    ? '/shop/account'
+    ? '/home/account'
     : session?.platformRole === 'admin' || session?.platformRole === 'super_admin'
       ? '/'
-      : '/shop/login';
+      : '/home/login';
+
+  // Cookie-resolved storefront locale (sq default) + its dictionary for the
+  // client tree — see src/lib/i18n.
+  const locale = await getLocale();
+  const dict = getDictionary(locale);
 
   return (
-    <ShopProviders>
-      <PreviewBridge />
-      <div
-        className={`${styles.shopWrapper} shopWrapper`}
-        style={{
-          fontFamily:
-            'var(--cms-body-font), var(--font-spectral), "Spectral", Georgia, serif',
-        }}
-      >
-        <style dangerouslySetInnerHTML={{ __html: themeCss }} />
-        <ShopHeader
-          accountHref={accountHref}
-          blogCategories={blogCategories}
-          navItems={activeNav.items}
-          brandName={brandName}
-          brandTagline={brandTagline}
-          brandLogo={headerCustomizations.logo}
-          navStyle={headerCustomizations.navStyle}
-          showSearch={headerCustomizations.showSearch}
-          showCart={headerCustomizations.showCart}
-          headerBgMode={headerCustomizations.headerBgMode}
-          headerBgColor={headerCustomizations.headerBgColor}
-        />
-        <main className={`${styles.mainContent} content-area`}>{children}</main>
-        <ShopFooter
-          presentation={presentation || undefined}
-          customizations={footerCustomizations}
-        />
-      </div>
-    </ShopProviders>
+    <LocaleProvider locale={locale} dict={dict}>
+      <ShopProviders>
+        <PreviewBridge />
+        <div
+          className={`${styles.shopWrapper} shopWrapper`}
+          style={{
+            fontFamily:
+              'var(--cms-body-font), var(--font-spectral), "Spectral", Georgia, serif',
+          }}
+        >
+          <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+          <ShopHeader
+            accountHref={accountHref}
+            blogCategories={blogCategories}
+            navItems={activeNav.items}
+            brandName={brandName}
+            brandTagline={brandTagline}
+            brandLogo={headerCustomizations.logo}
+            navStyle={headerCustomizations.navStyle}
+            showSearch={headerCustomizations.showSearch}
+            showCart={headerCustomizations.showCart}
+            headerBgMode={headerCustomizations.headerBgMode}
+            headerBgColor={headerCustomizations.headerBgColor}
+          />
+          <main className={`${styles.mainContent} content-area`}>{children}</main>
+          <ShopFooter
+            presentation={presentation || undefined}
+            customizations={footerCustomizations}
+          />
+        </div>
+      </ShopProviders>
+    </LocaleProvider>
   );
 }
 

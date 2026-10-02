@@ -5,6 +5,7 @@ import { getContextDb } from '@/lib/tenant';
 import { blogCategories, blogPosts } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate } from '@/lib/cms/format';
+import { getT } from '@/lib/i18n/server';
 import {
   Card,
   CardHeader,
@@ -40,6 +41,7 @@ export default async function PostsListPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireCmsSession();
+  const t = await getT();
 
   const sp = await searchParams;
   const q = first(sp.q).trim().slice(0, 120);
@@ -90,21 +92,21 @@ export default async function PostsListPage({
   return (
     <div>
       <PageHeader
-        title="Posts"
-        description="Blog articles shown in the storefront's news section."
+        title={t('cmscontent.posts.title')}
+        description={t('cmscontent.posts.description')}
         actions={
           <Link
             href="/cms/posts/new"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-transparent bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
           >
-            <Plus size={15} /> New post
+            <Plus size={15} /> {t('cmscontent.posts.new')}
           </Link>
         }
       />
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>All posts</CardTitle>
+          <CardTitle>{t('cmscontent.posts.all')}</CardTitle>
           <ListFilters
             basePath="/cms/posts"
             initialQuery={q}
@@ -116,18 +118,22 @@ export default async function PostsListPage({
         {rows.length === 0 ? (
           <div className="p-5">
             <EmptyState
-              title={filtered ? 'No posts match your filters' : 'No posts yet'}
+              title={
+                filtered
+                  ? t('cmscontent.posts.emptyFilteredTitle')
+                  : t('cmscontent.posts.emptyTitle')
+              }
               description={
                 filtered
-                  ? 'Try a different search term or clear the status filter.'
-                  : 'Write your first article and publish it to the storefront blog.'
+                  ? t('cmscontent.posts.emptyFilteredDescription')
+                  : t('cmscontent.posts.emptyDescription')
               }
               action={
                 <Link
                   href="/cms/posts/new"
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
                 >
-                  <Plus size={14} /> New post
+                  <Plus size={14} /> {t('cmscontent.posts.new')}
                 </Link>
               }
               icon={<PenLine size={28} />}
@@ -137,11 +143,11 @@ export default async function PostsListPage({
           <Table bare>
             <thead>
               <tr>
-                <Th>Title</Th>
-                <Th>Category</Th>
-                <Th>Status</Th>
-                <Th>Published</Th>
-                <Th className="text-right">Actions</Th>
+                <Th>{t('cmscontent.posts.colTitle')}</Th>
+                <Th>{t('cmscontent.posts.colCategory')}</Th>
+                <Th>{t('cmscontent.posts.colStatus')}</Th>
+                <Th>{t('cmscontent.posts.colPublished')}</Th>
+                <Th className="text-right">{t('cmscontent.posts.colActions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -156,7 +162,7 @@ export default async function PostsListPage({
                     </Link>
                     <span className="mt-0.5 block truncate text-xs text-zinc-400">/{row.slug}</span>
                   </Td>
-                  <Td className="text-zinc-500">{row.categoryName || 'Uncategorized'}</Td>
+                  <Td className="text-zinc-500">{row.categoryName || t('cmscontent.posts.uncategorized')}</Td>
                   <Td>
                     <ContentStatusBadge status={row.status} />
                   </Td>

@@ -5,6 +5,7 @@ import { ImageOff, Loader2, Search, UploadCloud, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadMedia } from '@/app/cms/actions/media';
 import { Button, cn, inputClass } from '@/components/admin/ui';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type PickedMedia = { url: string; alt?: string; id?: number };
 
@@ -39,6 +40,7 @@ export default function MediaPickerModal({
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useLocale();
 
   const load = useCallback(async (q: string) => {
     setLoading(true);
@@ -84,9 +86,13 @@ export default function MediaPickerModal({
     setUploading(true);
     try {
       const result = await uploadMedia(formData);
-      if (!result.ok) toast.error(result.error || 'Upload failed');
+      if (!result.ok) toast.error(result.error || t('cmscommon.media.uploadFailed'));
       else {
-        toast.success(`Uploaded ${result.uploaded} file${result.uploaded === 1 ? '' : 's'}`);
+        toast.success(
+          t(result.uploaded === 1 ? 'cmscommon.media.uploadedOne' : 'cmscommon.media.uploadedMany', {
+            count: result.uploaded ?? 0,
+          }),
+        );
         await load(query);
       }
     } finally {
@@ -120,16 +126,16 @@ export default function MediaPickerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Close media library"
+        aria-label={t('cmscommon.media.closeAria')}
         onClick={onClose}
         className="absolute inset-0 bg-zinc-950/50 backdrop-blur-sm"
       />
       <div className="relative flex h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">Media library</h2>
+            <h2 className="text-sm font-semibold text-zinc-900">{t('cmscommon.media.title')}</h2>
             <p className="text-xs text-zinc-500">
-              {mode === 'single' ? 'Pick one image' : 'Pick one or more images'}
+              {mode === 'single' ? t('cmscommon.media.pickOne') : t('cmscommon.media.pickMany')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -138,18 +144,18 @@ export default function MediaPickerModal({
               <input
                 value={query}
                 onChange={(event) => onSearch(event.target.value)}
-                placeholder="Search files…"
+                placeholder={t('cmscommon.media.search')}
                 className={cn(inputClass, 'w-52 pl-9')}
               />
             </div>
             <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
-              Upload
+              {t('cmscommon.media.upload')}
             </Button>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t('cmscommon.close')}
               className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
             >
               <X size={17} />
@@ -167,8 +173,8 @@ export default function MediaPickerModal({
           ) : items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <ImageOff size={30} className="mb-3 text-zinc-300" />
-              <p className="text-sm font-medium text-zinc-700">No images yet</p>
-              <p className="mt-1 text-xs text-zinc-500">Upload an image to use it in your pages.</p>
+              <p className="text-sm font-medium text-zinc-700">{t('cmscommon.media.emptyTitle')}</p>
+              <p className="mt-1 text-xs text-zinc-500">{t('cmscommon.media.emptyHint')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -198,14 +204,16 @@ export default function MediaPickerModal({
 
         <div className="flex items-center justify-between border-t border-zinc-200 px-5 py-3.5">
           <p className="text-xs text-zinc-500">
-            {selected.length ? `${selected.length} selected` : 'Nothing selected'}
+            {selected.length
+              ? t('cmscommon.media.selected', { count: selected.length })
+              : t('cmscommon.media.nothingSelected')}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>
-              Cancel
+              {t('cmscommon.cancel')}
             </Button>
             <Button size="sm" onClick={confirm} disabled={!selected.length}>
-              Insert
+              {t('cmscommon.media.insert')}
             </Button>
           </div>
         </div>

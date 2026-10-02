@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { CheckoutRequest } from '@/app/shop/checkout/checkout-contract';
+import type { CheckoutRequest } from '@/app/home/checkout/checkout-contract';
 import {
   CheckoutConfigurationError,
   loadCheckoutRuntimeConfig,

@@ -3,9 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
-import styles from '../commerce-pages.module.css';
+import ShopPageHeader from '../components/ShopPageHeader';
+import styles from './cart.module.css';
 import { useCart, type CartItem, type CartItemSelector } from '@/context/CartContext';
+import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import {
   clearStoredCoupon,
   readStoredCoupon,
@@ -15,13 +16,13 @@ import { getCartPricing, validateCartCoupon } from './actions';
 import type { CartPricedLine } from './pricing-types';
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'EUR',
+    currency: 'USD',
   }).format(Number.isFinite(value) ? value : 0);
 }
 
-/** Integer cents → formatted money (the only conversion used by the cart). */
+/** Integer cents → formatted money */
 function formatCents(cents: number): string {
   return formatMoney(cents / 100);
 }
@@ -38,161 +39,116 @@ function itemKey(item: CartItem): string {
   return `${typeof item.productId}:${String(item.productId)}|${typeof item.variantId}:${String(item.variantId)}`;
 }
 
-function storageLabel(scope: string): string {
-  if (scope === 'local') return 'Saved in this browser';
-  if (scope === 'memory') return 'Available for this tab only';
-  if (scope === 'unavailable') return 'Browser storage unavailable';
-  return 'Local cart';
-}
-
-function cartStatusLabel({
-  syncStatus,
-  isServerSynced,
-  isLocalOnly,
-  hasLocalDraft,
-  scope,
-  serverOwner,
-}: {
-  syncStatus: string;
-  isServerSynced: boolean;
-  isLocalOnly: boolean;
-  hasLocalDraft: boolean;
-  scope: string;
-  serverOwner: 'guest' | 'customer' | null;
-}): string {
-  if (syncStatus === 'syncing') return 'Syncing cart with the server…';
-  if (isServerSynced && !hasLocalDraft) {
-    return serverOwner === 'customer' ? 'Synced to your account cart' : 'Synced to the server cart';
-  }
-  if (hasLocalDraft) {
-    return syncStatus === 'error' ? 'Local draft — sync needs attention' : 'Local draft — waiting to sync';
-  }
-  if (isLocalOnly) return 'Local-only cart';
-  return storageLabel(scope);
-}
-
 function canRenderImage(value: string): boolean {
   return value.startsWith('/') || value.startsWith('data:image/') || /^https?:\/\//i.test(value);
 }
 
-function QuantityControl({
-  item,
-  maxQuantity,
-  disabled,
-  onUpdate,
-}: {
-  item: CartItem;
-  maxQuantity: number;
-  disabled: boolean;
-  onUpdate: (item: CartItem, quantity: number) => void;
-}) {
-  const [draft, setDraft] = useState(String(item.quantity));
-
-  const commitDraft = () => {
-    const parsed = Number(draft);
-    if (!draft.trim()) {
-      setDraft(String(item.quantity));
-      return;
-    }
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      onUpdate(item, parsed);
-      setDraft(String(item.quantity));
-      return;
-    }
-    onUpdate(item, parsed);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitDraft();
-    }
-  };
-
-  return (
-    <div className={styles.quantityControl}>
-      <button
-        type="button"
-        className={styles.quantityButton}
-        onClick={() => onUpdate(item, item.quantity - 1)}
-        disabled={disabled || item.quantity <= 1}
-        aria-label={`Decrease quantity for ${item.name}`}
-      >
-        <Minus size={15} aria-hidden="true" />
-      </button>
-      <input
-        className={styles.quantityInput}
-        type="number"
-        inputMode="numeric"
-        min={1}
-        max={maxQuantity}
-        step={1}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commitDraft}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        aria-label={`Quantity for ${item.name}`}
-      />
-      <button
-        type="button"
-        className={styles.quantityButton}
-        onClick={() => onUpdate(item, item.quantity + 1)}
-        disabled={disabled || item.quantity >= maxQuantity}
-        aria-label={`Increase quantity for ${item.name}`}
-      >
-        <Plus size={15} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className={styles.loadingState} role="status" aria-live="polite" aria-busy="true">
-      <span className={styles.spinner} aria-hidden="true" />
-      <strong>Loading your cart…</strong>
-      <span>Checking local and server cart state.</span>
-    </div>
-  );
-}
+type CouponMessage =
+  | { text: string }
+  | { key: Parameters<Translator>[0]; params?: Record<string, string | number> };
 
 export default function ShopCartPage() {
   const {
     cart,
     removeFromCart,
     updateQty,
-    clearCart,
-    totalItems,
     maxQuantity,
     isHydrated,
     isHydrating,
     isPending,
     error,
     serverError,
-    storageScope,
     syncStatus,
-    isServerSynced,
-    isLocalOnly,
-    serverOwner,
-    hasLocalDraft,
     retryHydration,
     retrySync,
   } = useCart();
+  const { t } = useLocale();
+
+  // Local draft quantities map: itemKey -> string draft
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [coupon, setCoupon] = useState('');
-  const [couponMessage, setCouponMessage] = useState('');
+  const [couponMessage, setCouponMessage] = useState<CouponMessage | null>(null);
   const [couponPending, setCouponPending] = useState(false);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [appliedLabel, setAppliedLabel] = useState<string | null>(null);
   const [couponDiscountCents, setCouponDiscountCents] = useState(0);
   const [pricing, setPricing] = useState<CartPricedLine[] | null>(null);
+
+  // Address simulation for "Shipping to CA."
+  const [shippingDestination, setShippingDestination] = useState('CA');
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [tempDestination, setTempDestination] = useState('CA');
+
   const visibleError = serverError ?? error;
   const handleRetry = () => {
     if (serverError || syncStatus === 'error') retrySync();
     else retryHydration();
   };
 
-  /* Which lines are being priced: identity + list price, not quantities. */
+  // Keep drafts synced with cart when not modified
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next: Record<string, string> = {};
+      for (const item of cart) {
+        const key = itemKey(item);
+        next[key] = prev[key] !== undefined ? prev[key] : String(item.quantity);
+      }
+      return next;
+    });
+  }, [cart]);
+
+  // Check if any draft quantity differs from current cart
+  const hasDraftChanges = cart.some((item) => {
+    const key = itemKey(item);
+    const draftVal = drafts[key];
+    if (draftVal === undefined) return false;
+    const parsed = Number(draftVal);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed !== item.quantity;
+  });
+
+  const handleDraftChange = (key: string, val: string) => {
+    setDrafts((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleStep = (item: CartItem, delta: number) => {
+    const key = itemKey(item);
+    const currentVal = Number(drafts[key] ?? item.quantity);
+    const target = Math.max(1, Math.min(maxQuantity, (Number.isInteger(currentVal) ? currentVal : item.quantity) + delta));
+    setDrafts((prev) => ({ ...prev, [key]: String(target) }));
+    updateQty(itemSelector(item), target);
+  };
+
+  const commitAllDrafts = () => {
+    for (const item of cart) {
+      const key = itemKey(item);
+      const draftVal = drafts[key];
+      if (draftVal !== undefined) {
+        const parsed = Number(draftVal);
+        if (Number.isInteger(parsed) && parsed >= 1 && parsed <= maxQuantity) {
+          if (parsed !== item.quantity) {
+            updateQty(itemSelector(item), parsed);
+          }
+        } else {
+          setDrafts((prev) => ({ ...prev, [key]: String(item.quantity) }));
+        }
+      }
+    }
+  };
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>, item: CartItem) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const key = itemKey(item);
+      const parsed = Number(drafts[key]);
+      if (Number.isInteger(parsed) && parsed >= 1 && parsed <= maxQuantity) {
+        updateQty(itemSelector(item), parsed);
+      } else {
+        setDrafts((prev) => ({ ...prev, [key]: String(item.quantity) }));
+      }
+    }
+  };
+
+  /* Which lines are being priced: identity + list price */
   const pricingSignature = cart
     .map((item) => `${String(item.productId)}:${String(item.variantId)}:${item.price}`)
     .join('|');
@@ -221,14 +177,13 @@ export default function ShopCartPage() {
     return () => {
       cancelled = true;
     };
-    // `pricingSignature` already captures every cart field that affects pricing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated, pricingSignature]);
+  }, [isHydrated, pricingSignature, cart]);
 
   const priceCentsFor = (index: number): number => {
     const line = pricing?.[index];
     return line ? toCents(line.salePrice) : toCents(cart[index]?.price ?? 0);
   };
+
   const originalPriceFor = (index: number): number | null => {
     const line = pricing?.[index];
     return line && line.discounted ? toCents(line.originalPrice) : null;
@@ -241,7 +196,7 @@ export default function ShopCartPage() {
   const discountCents = Math.min(couponDiscountCents, subtotalCents);
   const totalCents = Math.max(0, subtotalCents - discountCents);
 
-  /* Re-validate a remembered (or just-applied) code against the server. */
+  /* Re-validate coupon against server */
   useEffect(() => {
     if (!isHydrated || !appliedCode) return;
     let cancelled = false;
@@ -253,14 +208,14 @@ export default function ShopCartPage() {
           setAppliedCode(null);
           setAppliedLabel(null);
           setCouponDiscountCents(0);
-          setCouponMessage(result.message);
+          setCouponMessage({ text: result.message });
           clearStoredCoupon();
           return;
         }
         setAppliedLabel(result.label);
         setCouponDiscountCents(result.discountCents);
       } catch {
-        if (!cancelled) setCouponMessage('Coupons are temporarily unavailable. Try again.');
+        if (!cancelled) setCouponMessage({ key: 'cart.coupon.unavailable' });
       }
     })();
     return () => {
@@ -268,7 +223,7 @@ export default function ShopCartPage() {
     };
   }, [isHydrated, appliedCode, subtotalCents]);
 
-  /* Bring the coupon chosen last time back into this cart. */
+  /* Restore coupon on hydration */
   useEffect(() => {
     if (!isHydrated) return;
     const stored = readStoredCoupon();
@@ -276,21 +231,15 @@ export default function ShopCartPage() {
     setAppliedCode(stored.code);
     setAppliedLabel(stored.label);
     setCoupon(stored.code);
-    setCouponMessage(`${stored.label} restored from your last visit.`);
-    // Only on hydration.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCouponMessage({ key: 'cart.coupon.restored', params: { label: stored.label } });
   }, [isHydrated]);
-
-  const handleUpdate = (item: CartItem, quantity: number) => {
-    updateQty(itemSelector(item), quantity);
-  };
 
   const removeCoupon = () => {
     setAppliedCode(null);
     setAppliedLabel(null);
     setCouponDiscountCents(0);
     setCoupon('');
-    setCouponMessage('Coupon removed. Your cart is unchanged.');
+    setCouponMessage({ key: 'cart.coupon.removed' });
     clearStoredCoupon();
   };
 
@@ -298,7 +247,7 @@ export default function ShopCartPage() {
     event.preventDefault();
     const code = coupon.trim();
     if (!code) {
-      setCouponMessage('Enter a coupon code.');
+      setCouponMessage({ key: 'cart.coupon.empty' });
       return;
     }
     setCouponPending(true);
@@ -308,247 +257,359 @@ export default function ShopCartPage() {
         setAppliedCode(null);
         setAppliedLabel(null);
         setCouponDiscountCents(0);
-        setCouponMessage(result.message);
+        setCouponMessage({ text: result.message });
         clearStoredCoupon();
         return;
       }
       setAppliedCode(code);
       setAppliedLabel(result.label);
       setCouponDiscountCents(result.discountCents);
-      setCouponMessage(
-        `${result.label} applied — you save ${formatCents(result.discountCents)}.`,
-      );
+      setCouponMessage({
+        key: 'cart.coupon.applied',
+        params: {
+          label: result.label,
+          amount: formatCents(result.discountCents),
+        },
+      });
       writeStoredCoupon({ code, label: result.label });
     } catch {
-      setCouponMessage('Coupons are temporarily unavailable. Try again.');
+      setCouponMessage({ key: 'cart.coupon.unavailable' });
     } finally {
       setCouponPending(false);
     }
   };
 
+  // Most recent or primary item for notice banner
+  const latestItem = cart.length > 0 ? cart[cart.length - 1] : null;
+
   return (
     <div className={styles.page}>
-      <header className={styles.pageHeader}>
-        <div className={styles.container}>
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/shop">Home</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">Cart</span>
-          </nav>
-          <div className={styles.titleRow}>
-            <div>
-              <p className={styles.eyebrow}>Your selection</p>
-              <h1 className={styles.title}>Shopping cart</h1>
-              <p className={styles.subtitle}>
-                Review quantities and variants before continuing to checkout.
-              </p>
-            </div>
-            {!isHydrating && cart.length > 0 ? (
-              <span className={styles.countPill} aria-label={`${totalItems} items in cart`}>
-                {totalItems} {totalItems === 1 ? 'item' : 'items'}
-              </span>
+      <ShopPageHeader
+        title={t('cart.header.crumb') || 'Cart'}
+        crumbs={[{ label: t('cart.header.crumb') || 'Cart' }]}
+        align="center"
+      />
+
+      <main className={styles.container}>
+        {/* Error notification if sync or operation failed */}
+        {visibleError ? (
+          <div className={styles.statusBar} data-state="error" role="alert">
+            <span>{visibleError}</span>
+            <button
+              type="button"
+              className={styles.statusRetryBtn}
+              onClick={handleRetry}
+              disabled={isPending}
+            >
+              {t('cart.error.retry') || 'Retry'}
+            </button>
+          </div>
+        ) : null}
+
+        {isHydrating || !isHydrated ? (
+          <div className={styles.loadingState}>
+            <div className={styles.spinner} aria-hidden="true" />
+            <p>{t('cart.loading.title') || 'Loading your cart…'}</p>
+          </div>
+        ) : cart.length === 0 ? (
+          <section className={styles.emptyState}>
+            <h2 className={styles.emptyTitle}>
+              {t('cart.empty.title') || 'Your cart is currently empty.'}
+            </h2>
+            <p className={styles.emptyText}>
+              {t('cart.empty.text') || 'Before proceed to checkout you must add some products to your shopping cart.'}
+            </p>
+            <Link href="/home/products" className={styles.emptyAction}>
+              {t('cart.empty.action') || 'RETURN TO SHOP'}
+            </Link>
+          </section>
+        ) : (
+          <>
+            {/* Added to Cart Banner matching reference */}
+            {latestItem ? (
+              <aside className={styles.noticeBanner} aria-label="Cart notification">
+                <p className={styles.noticeText}>
+                  “{latestItem.name}” has been added to your cart.
+                </p>
+                <Link href="/home/products" className={styles.noticeButton}>
+                  CONTINUE SHOPPING
+                </Link>
+              </aside>
             ) : null}
-          </div>
-        </div>
-      </header>
 
-      <section className={styles.content} aria-label="Shopping cart contents">
-        <div className={styles.container}>
-          <div className={styles.statusBar} data-state={visibleError ? 'error' : 'ready'}>
-            <span className={styles.statusDot} aria-hidden="true" />
-            <span>
-              {cartStatusLabel({ syncStatus, isServerSynced, isLocalOnly, hasLocalDraft, scope: storageScope, serverOwner })}
-              {visibleError ? '' : isServerSynced && !hasLocalDraft ? ' · server quantities and prices are authoritative' : ' · this browser is the source of truth until sync succeeds'}
-            </span>
-            {isPending && !isHydrating ? <span className={styles.statusBusy}>{syncStatus === 'syncing' ? 'Syncing…' : 'Saving…'}</span> : null}
-          </div>
-
-          {visibleError ? (
-            <div className={styles.alert} data-tone="error" role="alert">
-              <div>
-                <strong className={styles.alertTitle}>We could not complete that cart change</strong>
-                <p className={styles.alertText}>{visibleError}</p>
-              </div>
-              <button type="button" className={styles.buttonSecondary} onClick={handleRetry} disabled={isPending}>
-                Try again
-              </button>
-            </div>
-          ) : null}
-
-          {isHydrating || !isHydrated ? (
-            <LoadingState />
-          ) : cart.length === 0 ? (
-            <section className={styles.emptyState} aria-labelledby="empty-cart-title">
-              <div className={styles.emptyIcon} aria-hidden="true">
-                <ShoppingBag size={28} strokeWidth={1.5} />
-              </div>
-              <h2 id="empty-cart-title" className={styles.emptyTitle}>Your cart is empty</h2>
-              <p className={styles.emptyText}>
-                Save a book or product here and it will stay available while you keep shopping.
-              </p>
-              <Link href="/shop/products" className={styles.buttonPrimary}>
-                Continue shopping
-              </Link>
-            </section>
-          ) : (
+            {/* Cart Grid Layout */}
             <div className={styles.cartLayout}>
+              {/* Left Column: Items Table & Actions */}
               <div className={styles.cartMain}>
                 <div className={styles.tableWrap}>
                   <table className={styles.table}>
-                    <caption className={styles.tableCaption}>
-                      Items currently in your cart
-                    </caption>
                     <thead>
                       <tr>
-                        <th scope="col">Product</th>
-                        <th scope="col">Price</th>
-                        <th scope="col">Quantity</th>
-                        <th scope="col">Subtotal</th>
+                        <th scope="col">{t('cart.table.product') || 'Product'}</th>
+                        <th scope="col">{t('cart.table.price') || 'Price'}</th>
+                        <th scope="col">{t('cart.table.quantity') || 'Quantity'}</th>
+                        <th scope="col">{t('cart.table.subtotal') || 'Subtotal'}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {cart.map((item, index) => (
-                        <tr key={`${itemKey(item)}-${item.quantity}`}>
-                          <td data-label="Product">
-                            <div className={styles.productCell}>
-                              <Link href={`/shop/products/${encodeURIComponent(String(item.productId))}`} className={styles.productImageLink}>
-                                {canRenderImage(item.imageUrl) ? (
-                                  <Image
-                                    src={item.imageUrl}
-                                    alt=""
-                                    width={72}
-                                    height={86}
-                                    unoptimized
-                                    className={styles.productImage}
-                                  />
-                                ) : (
-                                  <span className={styles.imageFallback} aria-hidden="true" />
-                                )}
-                              </Link>
-                              <div className={styles.productDetails}>
-                                <Link href={`/shop/products/${encodeURIComponent(String(item.productId))}`} className={styles.productName}>
-                                  {item.name}
-                                </Link>
-                                {item.variantId !== null ? (
-                                  <span className={styles.variantLabel}>Variant {String(item.variantId)}</span>
-                                ) : null}
-                                {item.available === false ? (
-                                  <span className={styles.stockMuted}>Currently unavailable</span>
-                                ) : null}
+                      {cart.map((item, index) => {
+                        const key = itemKey(item);
+                        const draftQty = drafts[key] ?? String(item.quantity);
+                        const isUnavailable = item.available === false;
+
+                        return (
+                          <tr key={`${key}-${item.quantity}`}>
+                            {/* Product Cell */}
+                            <td>
+                              <div className={styles.productCell}>
                                 <button
                                   type="button"
                                   className={styles.removeButton}
                                   onClick={() => removeFromCart(itemSelector(item))}
                                   disabled={isPending}
-                                  aria-label={`Remove ${item.name} from cart`}
+                                  aria-label={t('cart.item.removeAria', { name: item.name }) || `Remove ${item.name}`}
+                                  title="Remove this item"
                                 >
-                                  <Trash2 size={14} aria-hidden="true" />
-                                  <span>Remove</span>
+                                  ×
                                 </button>
+                                <Link
+                                  href={`/home/products/${encodeURIComponent(String(item.productId))}`}
+                                  className={styles.productImageLink}
+                                >
+                                  {canRenderImage(item.imageUrl) ? (
+                                    <Image
+                                      src={item.imageUrl}
+                                      alt={item.name}
+                                      width={68}
+                                      height={82}
+                                      unoptimized
+                                      className={styles.productImage}
+                                    />
+                                  ) : (
+                                    <span className={styles.imageFallback} aria-hidden="true" />
+                                  )}
+                                </Link>
+                                <div className={styles.productNameWrapper}>
+                                  <Link
+                                    href={`/home/products/${encodeURIComponent(String(item.productId))}`}
+                                    className={styles.productName}
+                                  >
+                                    {item.name}
+                                  </Link>
+                                  {item.variantId !== null ? (
+                                    <span className={styles.variantLabel}>
+                                      {t('cart.item.variant', { id: String(item.variantId) }) || `Variant ${String(item.variantId)}`}
+                                    </span>
+                                  ) : null}
+                                  {isUnavailable ? (
+                                    <span className={styles.unavailableLabel}>
+                                      {t('cart.item.unavailable') || 'Currently unavailable'}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td data-label="Price" className={styles.priceCell}>
-                            <span className={styles.priceStack}>
-                              <strong>{formatCents(priceCentsFor(index))}</strong>
+                            </td>
+
+                            {/* Price Cell */}
+                            <td className={styles.priceCell}>
+                              <span>{formatCents(priceCentsFor(index))}</span>
                               {originalPriceFor(index) !== null ? (
                                 <span className={styles.oldPrice}>
                                   {formatCents(originalPriceFor(index)!)}
                                 </span>
                               ) : null}
-                            </span>
-                          </td>
-                          <td data-label="Quantity">
-                            <QuantityControl
-                              item={item}
-                              maxQuantity={maxQuantity}
-                              disabled={isPending || item.available === false}
-                              onUpdate={handleUpdate}
-                            />
-                          </td>
-                          <td data-label="Subtotal" className={styles.subtotalCell}>
-                            {formatCents(priceCentsFor(index) * item.quantity)}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+
+                            {/* Quantity Cell: - 1 + */}
+                            <td className={styles.quantityCell}>
+                              <div className={styles.quantityControl}>
+                                <button
+                                  type="button"
+                                  className={styles.quantityButton}
+                                  onClick={() => handleStep(item, -1)}
+                                  disabled={isPending || isUnavailable || item.quantity <= 1}
+                                  aria-label="Decrease quantity"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  className={styles.quantityInput}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={1}
+                                  max={maxQuantity}
+                                  value={draftQty}
+                                  onChange={(e) => handleDraftChange(key, e.target.value)}
+                                  onKeyDown={(e) => handleInputKeyDown(e, item)}
+                                  disabled={isPending || isUnavailable}
+                                  aria-label="Item quantity"
+                                />
+                                <button
+                                  type="button"
+                                  className={styles.quantityButton}
+                                  onClick={() => handleStep(item, 1)}
+                                  disabled={isPending || isUnavailable || item.quantity >= maxQuantity}
+                                  aria-label="Increase quantity"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Subtotal Cell */}
+                            <td className={styles.subtotalCell}>
+                              {formatCents(priceCentsFor(index) * item.quantity)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
-                <div className={styles.cartFooter}>
+                {/* Footer Actions: Coupon on Left, Update Cart on Right */}
+                <div className={styles.cartActionsRow}>
                   <form className={styles.couponForm} onSubmit={handleCoupon}>
-                    <label htmlFor="cart-coupon">Coupon code</label>
-                    <div className={styles.couponControls}>
+                    <div className={styles.couponInputs}>
                       <input
                         id="cart-coupon"
                         className={styles.couponInput}
                         value={coupon}
-                        onChange={(event) => setCoupon(event.target.value)}
-                        placeholder="Enter code"
+                        onChange={(e) => setCoupon(e.target.value)}
+                        placeholder={t('cart.coupon.label') || 'Coupon code'}
                         autoComplete="off"
                         maxLength={64}
                       />
                       <button
                         type="submit"
-                        className={styles.buttonSecondary}
+                        className={styles.couponApplyBtn}
                         disabled={couponPending}
                       >
-                        {couponPending ? 'Checking…' : 'Apply'}
+                        {couponPending
+                          ? (t('cart.coupon.checking') || 'APPLYING…')
+                          : (t('cart.coupon.apply') ? t('cart.coupon.apply').toUpperCase() : 'APPLY COUPON')}
                       </button>
-                      {appliedCode ? (
+                    </div>
+
+                    {appliedCode ? (
+                      <div>
                         <button
                           type="button"
-                          className={styles.buttonQuiet}
+                          className={styles.couponRemoveBtn}
                           onClick={removeCoupon}
                           disabled={couponPending}
                         >
-                          <X size={14} aria-hidden="true" />
-                          <span>Remove coupon</span>
+                          {t('cart.coupon.remove') || 'Remove coupon'} ({appliedCode})
                         </button>
-                      ) : null}
-                    </div>
-                    <p className={styles.couponMessage} aria-live="polite">{couponMessage}</p>
+                      </div>
+                    ) : null}
+
+                    {couponMessage ? (
+                      <p className={styles.couponFeedback} aria-live="polite">
+                        {'text' in couponMessage
+                          ? couponMessage.text
+                          : t(couponMessage.key, couponMessage.params)}
+                      </p>
+                    ) : null}
                   </form>
-                  <button type="button" className={styles.buttonQuiet} onClick={clearCart} disabled={isPending}>
-                    Clear cart
+
+                  <button
+                    type="button"
+                    className={styles.updateCartBtn}
+                    data-active={hasDraftChanges}
+                    onClick={commitAllDrafts}
+                    disabled={!hasDraftChanges || isPending}
+                  >
+                    UPDATE CART
                   </button>
                 </div>
               </div>
 
-              <aside className={styles.summary} aria-labelledby="cart-summary-title">
-                <h2 id="cart-summary-title" className={styles.summaryTitle}>Order summary</h2>
-                <div className={styles.summaryRow}>
-                  <span>Subtotal</span>
-                  <strong>{formatCents(subtotalCents)}</strong>
+              {/* Right Column: Cart totals Sidebar Card */}
+              <aside className={styles.totalsCard} aria-labelledby="cart-totals-title">
+                <h2 id="cart-totals-title" className={styles.totalsTitle}>
+                  Cart totals
+                </h2>
+
+                <div className={styles.totalsRow}>
+                  <span className={styles.rowLabel}>
+                    {t('cart.summary.subtotal') || 'Subtotal'}
+                  </span>
+                  <span className={styles.rowValue}>
+                    {formatCents(subtotalCents)}
+                  </span>
                 </div>
+
                 {appliedCode && discountCents > 0 ? (
-                  <div className={styles.summaryRow}>
-                    <span>{appliedLabel ?? 'Coupon'}</span>
-                    <strong>-{formatCents(discountCents)}</strong>
+                  <div className={styles.totalsRow}>
+                    <span className={styles.rowLabel}>
+                      {appliedLabel ?? (t('cart.summary.coupon') || 'Coupon')}
+                    </span>
+                    <span className={styles.rowValue}>
+                      -{formatCents(discountCents)}
+                    </span>
                   </div>
                 ) : null}
-                <div className={styles.summaryRow}>
-                  <span>Shipping</span>
-                  <span>Calculated at checkout</span>
+
+                <div className={styles.totalsRow} data-align="top">
+                  <span className={styles.rowLabel}>
+                    {t('cart.summary.shipping') || 'Shipping'}
+                  </span>
+                  <div className={styles.shippingBlock}>
+                    <span className={styles.shippingRate}>Flat rate</span>
+                    <span className={styles.shippingDestination}>
+                      Shipping to {shippingDestination}.
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.shippingChangeBtn}
+                      onClick={() => setShowAddressForm((prev) => !prev)}
+                    >
+                      Change address
+                    </button>
+                    {showAddressForm ? (
+                      <div className={styles.shippingAddressForm}>
+                        <input
+                          type="text"
+                          className={styles.shippingAddressInput}
+                          value={tempDestination}
+                          onChange={(e) => setTempDestination(e.target.value)}
+                          placeholder="e.g. CA or NY"
+                        />
+                        <button
+                          type="button"
+                          className={styles.shippingAddressUpdateBtn}
+                          onClick={() => {
+                            if (tempDestination.trim()) {
+                              setShippingDestination(tempDestination.trim());
+                            }
+                            setShowAddressForm(false);
+                          }}
+                        >
+                          Update
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <div className={styles.summaryDivider} />
-                <div className={styles.summaryRow + ' ' + styles.summaryTotal}>
-                  <span>Total</span>
-                  <strong>{formatCents(totalCents)}</strong>
+
+                <div className={styles.totalRow}>
+                  <span className={styles.totalLabel}>
+                    {t('cart.summary.total') || 'Total'}
+                  </span>
+                  <span className={styles.totalValue}>
+                    {formatCents(totalCents)}
+                  </span>
                 </div>
-                <Link href="/shop/checkout" className={styles.checkoutButton}>
-                  Proceed to checkout
+
+                <Link href="/home/checkout" className={styles.checkoutBtn}>
+                  PROCEED TO CHECKOUT
                 </Link>
-                <p className={styles.finePrint}>
-                  {isServerSynced
-                    ? 'Taxes and shipping are confirmed at checkout. Server cart totals are authoritative.'
-                    : 'Taxes and shipping are confirmed at checkout. Local changes remain recoverable if sync fails.'}
-                </p>
               </aside>
             </div>
-          )}
-        </div>
-      </section>
+          </>
+        )}
+      </main>
     </div>
   );
 }

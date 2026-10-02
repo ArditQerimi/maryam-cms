@@ -4,6 +4,7 @@ import { Package, Plus, Search } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
 import { categories, products } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { formatMoney } from '@/lib/cms/format';
 import { parseImageUrl } from '@/lib/image-url';
 import {
@@ -42,6 +43,7 @@ export default async function ProductsPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const params = await searchParams;
 
   const q = (params.q || '').trim().slice(0, 120);
@@ -106,10 +108,10 @@ export default async function ProductsPage({
   const stat = stats[0] ?? { total: 0, active: 0, outOfStock: 0, lowStock: 0 };
 
   const statCards = [
-    { label: 'Total products', value: stat.total, href: '/cms/products' },
-    { label: 'Active', value: stat.active, href: '/cms/products?status=Active' },
-    { label: 'Out of stock', value: stat.outOfStock, href: '/cms/products' },
-    { label: 'Low stock', value: stat.lowStock, href: '/cms/products' },
+    { label: t('cmscatalog.stat.total'), value: stat.total, href: '/cms/products' },
+    { label: t('cmscatalog.stat.active'), value: stat.active, href: '/cms/products?status=Active' },
+    { label: t('cmscatalog.stat.out_of_stock'), value: stat.outOfStock, href: '/cms/products' },
+    { label: t('cmscatalog.stat.low_stock'), value: stat.lowStock, href: '/cms/products' },
   ];
 
   const paginationParams: Record<string, string | undefined> = {};
@@ -120,14 +122,14 @@ export default async function ProductsPage({
   return (
     <div>
       <PageHeader
-        title="Products"
-        description="Manage your catalogue, pricing, stock and variants."
+        title={t('cmscatalog.title')}
+        description={t('cmscatalog.description')}
         actions={
           <Link
             href="/cms/products/new"
             className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
           >
-            <Plus size={15} /> New product
+            <Plus size={15} /> {t('cmscatalog.new')}
           </Link>
         }
       />
@@ -158,7 +160,7 @@ export default async function ProductsPage({
             htmlFor="q"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Search
+            {t('cmscatalog.filter.search')}
           </label>
           <div className="relative">
             <Search
@@ -169,7 +171,7 @@ export default async function ProductsPage({
               id="q"
               name="q"
               defaultValue={q}
-              placeholder="Name or SKU…"
+              placeholder={t('cmscatalog.filter.search_placeholder')}
               className="pl-9"
             />
           </div>
@@ -179,10 +181,10 @@ export default async function ProductsPage({
             htmlFor="category"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Category
+            {t('cmscatalog.filter.category')}
           </label>
           <Select id="category" name="category" defaultValue={categoryId ? String(categoryId) : ''}>
-            <option value="">All categories</option>
+            <option value="">{t('cmscatalog.filter.all_categories')}</option>
             {allCategories.map((category) => (
               <option key={category.id} value={String(category.id)}>
                 {category.name}
@@ -195,11 +197,13 @@ export default async function ProductsPage({
             htmlFor="status"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
           >
-            Status
+            {t('cmscatalog.filter.status')}
           </label>
           <Select id="status" name="status" defaultValue={status}>
-            <option value="">All statuses</option>
+            <option value="">{t('cmscatalog.filter.all_statuses')}</option>
             {STATUS_OPTIONS.map((option) => (
+              // Stored pgEnum values: the value AND the visible label stay as-is
+              // (mirrors <StatusBadge>, which renders the raw status).
               <option key={option} value={option}>
                 {option}
               </option>
@@ -208,24 +212,28 @@ export default async function ProductsPage({
         </div>
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="md">
-            Filter
+            {t('cmscatalog.filter.submit')}
           </Button>
           <Link
             href="/cms/products"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Clear
+            {t('cmscatalog.filter.clear')}
           </Link>
         </div>
       </form>
 
       {rows.length === 0 ? (
         <EmptyState
-          title={q || categoryId || status ? 'No products match these filters' : 'No products yet'}
+          title={
+            q || categoryId || status
+              ? t('cmscatalog.empty.filtered_title')
+              : t('cmscatalog.empty.title')
+          }
           description={
             q || categoryId || status
-              ? 'Try a different search term or clear the filters.'
-              : 'Create your first product to start selling.'
+              ? t('cmscatalog.empty.filtered_description')
+              : t('cmscatalog.empty.description')
           }
           icon={<Package size={28} />}
           action={
@@ -233,7 +241,7 @@ export default async function ProductsPage({
               href="/cms/products/new"
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6d6be8] px-4 text-sm font-medium text-white transition hover:bg-[#5b59d6]"
             >
-              <Plus size={15} /> New product
+              <Plus size={15} /> {t('cmscatalog.new')}
             </Link>
           }
         />
@@ -241,14 +249,14 @@ export default async function ProductsPage({
         <Table>
           <thead>
             <tr>
-              <Th className="w-14">Image</Th>
-              <Th>Name</Th>
-              <Th>SKU</Th>
-              <Th>Category</Th>
-              <Th className="text-right">Price</Th>
-              <Th className="text-right">Stock</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
+              <Th className="w-14">{t('cmscatalog.th.image')}</Th>
+              <Th>{t('cmscatalog.th.name')}</Th>
+              <Th>{t('cmscatalog.th.sku')}</Th>
+              <Th>{t('cmscatalog.th.category')}</Th>
+              <Th className="text-right">{t('cmscatalog.th.price')}</Th>
+              <Th className="text-right">{t('cmscatalog.th.stock')}</Th>
+              <Th>{t('cmscatalog.th.status')}</Th>
+              <Th className="text-right">{t('cmscatalog.th.actions')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -290,9 +298,9 @@ export default async function ProductsPage({
                   </Td>
                   <Td className="text-right">
                     {stock <= 0 ? (
-                      <Badge tone="danger">Out</Badge>
+                      <Badge tone="danger">{t('cmscatalog.stock.out')}</Badge>
                     ) : stock <= low ? (
-                      <Badge tone="warning">{stock} low</Badge>
+                      <Badge tone="warning">{t('cmscatalog.stock.low', { stock })}</Badge>
                     ) : (
                       <span className="text-zinc-700">{stock}</span>
                     )}
@@ -306,33 +314,33 @@ export default async function ProductsPage({
                         href={`/cms/products/${product.id}/edit`}
                         className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        Edit
+                        {t('cmscatalog.action.edit')}
                       </Link>
                       <Link
-                        href={`/shop/products/${product.id}`}
+                        href={`/home/products/${product.id}`}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        View in shop
+                        {t('cmscatalog.action.view')}
                       </Link>
                       <ConfirmActionButton
                         action={duplicateProduct}
                         args={[product.id]}
-                        successMessage="Product duplicated."
+                        successMessage={t('cmscatalog.toast.duplicated')}
                         variant="ghost"
                       >
-                        Duplicate
+                        {t('cmscatalog.action.duplicate')}
                       </ConfirmActionButton>
                       <ConfirmActionButton
                         action={deleteProduct}
                         args={[product.id]}
-                        confirmMessage={`Delete "${product.name}"? This cannot be undone.`}
-                        successMessage="Product deleted."
+                        confirmMessage={t('cmscatalog.confirm.delete', { name: product.name })}
+                        successMessage={t('cmscatalog.toast.deleted')}
                         variant="ghost"
                         className="text-red-600 hover:bg-red-50"
                       >
-                        Delete
+                        {t('cmscatalog.action.delete')}
                       </ConfirmActionButton>
                     </div>
                   </Td>

@@ -4,6 +4,7 @@ import { requireCmsSession } from '@/lib/cms/session';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { themeSettings } from '@/db/schema-tenant';
 import { DEFAULT_THEME_ID, getAvailableThemes } from '@/lib/theme/themes';
+import { getT } from '@/lib/i18n/server';
 import { EmptyState, PageHeader } from '@/components/admin/ui';
 import ThemeGrid from '@/components/appearance/ThemeGrid';
 
@@ -26,20 +27,21 @@ async function getActiveThemeId(): Promise<string> {
 
 export default async function ThemesPage() {
   await requireCmsSession();
+  const t = await getT();
 
   const [themes, activeId] = await Promise.all([getAvailableThemes(), getActiveThemeId()]);
 
   return (
     <div>
       <PageHeader
-        title="Themes"
-        description="Pick the look of your storefront. Switching is instant — content stays untouched."
+        title={t('cmsappearance.themes.title')}
+        description={t('cmsappearance.themes.description')}
       />
 
       {themes.length === 0 ? (
         <EmptyState
-          title="No themes found"
-          description="Add a folder with a theme.json under src/themes to make it available here."
+          title={t('cmsappearance.themes.emptyTitle')}
+          description={t('cmsappearance.themes.emptyDescription')}
           icon={<Palette size={28} />}
         />
       ) : (

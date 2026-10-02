@@ -50,6 +50,6 @@ test('guest confirmation cookie is host-only, HttpOnly, scoped, and Secure when 
   assert.match(cookie, /HttpOnly/i);
   assert.match(cookie, /Secure/i);
   assert.match(cookie, /SameSite=Lax/i);
-  assert.match(cookie, /Path=\/shop\/order-confirmation/i);
+  assert.match(cookie, /Path=\/home\/order-confirmation/i);
   assert.doesNotMatch(cookie, /Domain=/i);
 });

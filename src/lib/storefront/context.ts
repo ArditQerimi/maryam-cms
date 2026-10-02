@@ -92,7 +92,19 @@ export async function getStorefrontContext(
   if (isAdminHost(hostname)) {
     throw new StorefrontError(404, 'storefront-host-required', 'A tenant storefront host is required.');
   }
-  const subdomain = extractStorefrontSubdomain(hostname, baseDomain);
+  let subdomain = extractStorefrontSubdomain(hostname, baseDomain);
+  if (!subdomain && process.env.NODE_ENV !== 'production') {
+    // Development-only convenience: plain `localhost`/`127.0.0.1` carry no
+    // `<tenant>.` prefix, so every strict storefront API (cart, wishlist,
+    // checkout) would be unreachable while developing. Map local dev hosts to
+    // DEFAULT_TENANT_SUBDOMAIN. Production keeps the strict requirement above,
+    // and extractStorefrontSubdomain itself is untouched (host.test.ts).
+    const hostNoPort = authority.replace(/:\d+$/, '');
+    if (hostNoPort === 'localhost' || hostNoPort === '127.0.0.1' || hostNoPort === '[::1]') {
+      const devTenant = (process.env.DEFAULT_TENANT_SUBDOMAIN || '').trim();
+      if (devTenant) subdomain = devTenant;
+    }
+  }
   if (!subdomain) {
     throw new StorefrontError(404, 'storefront-host-required', 'A tenant storefront host is required.');
   }

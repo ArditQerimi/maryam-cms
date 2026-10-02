@@ -39,6 +39,17 @@ function normalizeLocation(value: unknown): NavMenuLocation {
   return value === 'footer' || value === 'mobile' ? value : 'primary';
 }
 
+/**
+ * The pre-CMS storefront lived at `/shop`; menus saved back then still hold
+ * those paths, which 404 on this storefront (`/home`). Rewrite them onto the
+ * live routes so legacy menu rows keep navigating instead of dying.
+ */
+function normalizeLegacyUrl(url: string): string {
+  if (url === '/shop') return '/home';
+  if (url.startsWith('/shop/')) return `/home${url.slice('/shop'.length)}`;
+  return url;
+}
+
 /** Coerce `theme_settings.nav_menu` (jsonb array of the active menu items). */
 function normalizeMenuItems(value: unknown): NavMenuItem[] {
   if (!Array.isArray(value)) return [];
@@ -51,7 +62,7 @@ function normalizeMenuItems(value: unknown): NavMenuItem[] {
     .map((entry, index) => ({
       id: typeof entry.id === 'string' && entry.id ? entry.id : `restored-${index}`,
       label: typeof entry.label === 'string' ? entry.label : 'Untitled',
-      url: typeof entry.url === 'string' ? entry.url : '#',
+      url: normalizeLegacyUrl(typeof entry.url === 'string' ? entry.url : '#'),
       depth: entry.depth === 1 ? 1 : 0,
     }));
 }

@@ -40,28 +40,32 @@ import {
   type WidgetLayout,
   type WidgetType,
 } from '@/lib/theme/types';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
-const AREA_LABELS: Record<WidgetAreaKey, string> = {
-  sidebar: 'Sidebar',
-  homepage: 'Homepage',
-  footer: 'Footer',
+const AREA_LABEL_KEYS: Record<WidgetAreaKey, keyof Dictionary> = {
+  sidebar: 'cmsshared.widgets.sidebar',
+  homepage: 'cmsshared.widgets.homepage',
+  footer: 'cmsshared.widgets.footer',
 };
 
 type CatalogueEntry = {
   type: WidgetType;
-  label: string;
-  description: string;
+  labelKey: keyof Dictionary;
+  descriptionKey: keyof Dictionary;
+  /** English default persisted into `settings.title` when an instance is created. */
+  defaultTitle: string;
   icon: React.ComponentType<{ size?: number }>;
   withLimit?: boolean;
 };
 
 const CATALOGUE: CatalogueEntry[] = [
-  { type: 'recent-posts', label: 'Recent posts', description: 'Latest published blog posts', icon: Clock, withLimit: true },
-  { type: 'recent-products', label: 'Recent products', description: 'Newest products in the catalogue', icon: Package, withLimit: true },
-  { type: 'categories', label: 'Categories', description: 'Product category links', icon: LayoutTemplate, withLimit: true },
-  { type: 'text', label: 'Text/HTML', description: 'Free-form text or embedded HTML', icon: FileText },
-  { type: 'newsletter', label: 'Newsletter signup', description: 'Email capture form', icon: Mail },
-  { type: 'social', label: 'Social links', description: 'Links to your social profiles', icon: Share2 },
+  { type: 'recent-posts', labelKey: 'cmsshared.widgets.type_recent_posts', descriptionKey: 'cmsshared.widgets.desc_recent_posts', defaultTitle: 'Recent posts', icon: Clock, withLimit: true },
+  { type: 'recent-products', labelKey: 'cmsshared.widgets.type_recent_products', descriptionKey: 'cmsshared.widgets.desc_recent_products', defaultTitle: 'Recent products', icon: Package, withLimit: true },
+  { type: 'categories', labelKey: 'cmsshared.widgets.type_categories', descriptionKey: 'cmsshared.widgets.desc_categories', defaultTitle: 'Categories', icon: LayoutTemplate, withLimit: true },
+  { type: 'text', labelKey: 'cmsshared.widgets.type_text', descriptionKey: 'cmsshared.widgets.desc_text', defaultTitle: 'Text/HTML', icon: FileText },
+  { type: 'newsletter', labelKey: 'cmsshared.widgets.type_newsletter', descriptionKey: 'cmsshared.widgets.desc_newsletter', defaultTitle: 'Newsletter signup', icon: Mail },
+  { type: 'social', labelKey: 'cmsshared.widgets.type_social', descriptionKey: 'cmsshared.widgets.desc_social', defaultTitle: 'Social links', icon: Share2 },
 ];
 
 const CATALOGUE_BY_TYPE = new Map(CATALOGUE.map((entry) => [entry.type, entry]));
@@ -76,7 +80,7 @@ function createInstance(type: WidgetType): WidgetInstance {
     id: makeId(),
     type,
     settings: {
-      title: entry?.label ?? 'Widget',
+      title: entry?.defaultTitle ?? 'Widget',
       limit: entry?.withLimit ? 5 : 0,
       html: '',
       links: type === 'social' ? [{ label: 'Instagram', url: 'https://instagram.com' }] : [],
@@ -98,6 +102,7 @@ function SortableWidget({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: widget.id,
   });
+  const { t } = useLocale();
   const entry = CATALOGUE_BY_TYPE.get(widget.type);
   const Icon = entry?.icon ?? LayoutTemplate;
 
@@ -112,18 +117,18 @@ function SortableWidget({
           type="button"
           {...attributes}
           {...listeners}
-          aria-label="Drag to reorder"
+          aria-label={t('cmsshared.widgets.drag_aria')}
           className="cursor-grab touch-none text-zinc-400 transition hover:text-zinc-600 active:cursor-grabbing"
         >
           <GripVertical size={14} />
         </button>
         <Icon size={13} className="shrink-0 text-[#5b59d6]" />
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-700">
-          {widget.settings.title || entry?.label || widget.type}
+          {widget.settings.title || (entry ? t(entry.labelKey) : widget.type)}
         </span>
         <button
           type="button"
-          aria-label="Remove widget"
+          aria-label={t('cmsshared.widgets.remove_aria')}
           onClick={onDelete}
           className="rounded p-1 text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
         >
@@ -133,7 +138,9 @@ function SortableWidget({
 
       <div className="space-y-2 p-3">
         <label className="block">
-          <span className="mb-1 block text-[11px] font-medium text-zinc-500">Title</span>
+          <span className="mb-1 block text-[11px] font-medium text-zinc-500">
+            {t('cmsshared.field.title')}
+          </span>
           <input
             className={cn(inputClass, 'px-2 py-1.5 text-xs')}
             value={widget.settings.title ?? ''}
@@ -143,7 +150,9 @@ function SortableWidget({
 
         {entry?.withLimit ? (
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-zinc-500">Limit</span>
+            <span className="mb-1 block text-[11px] font-medium text-zinc-500">
+              {t('cmsshared.widgets.limit')}
+            </span>
             <input
               type="number"
               min={1}
@@ -157,7 +166,9 @@ function SortableWidget({
 
         {widget.type === 'text' ? (
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-zinc-500">HTML content</span>
+            <span className="mb-1 block text-[11px] font-medium text-zinc-500">
+              {t('cmsshared.widgets.html_content')}
+            </span>
             <textarea
               rows={4}
               className={cn(inputClass, 'min-h-20 resize-y px-2 py-1.5 font-mono text-xs')}
@@ -170,14 +181,16 @@ function SortableWidget({
 
         {widget.type === 'social' ? (
           <div>
-            <span className="mb-1 block text-[11px] font-medium text-zinc-500">Links</span>
+            <span className="mb-1 block text-[11px] font-medium text-zinc-500">
+              {t('cmsshared.widgets.links')}
+            </span>
             <div className="space-y-1.5">
               {(widget.settings.links ?? []).map((link, index) => (
                 <div key={index} className="flex items-center gap-1.5">
                   <input
                     className={cn(inputClass, 'w-1/3 px-2 py-1.5 text-xs')}
                     value={link.label}
-                    placeholder="Label"
+                    placeholder={t('cmsshared.field.label')}
                     onChange={(event) => {
                       const links = (widget.settings.links ?? []).map((entry2, i) =>
                         i === index ? { ...entry2, label: event.target.value } : entry2,
@@ -198,7 +211,7 @@ function SortableWidget({
                   />
                   <button
                     type="button"
-                    aria-label="Remove link"
+                    aria-label={t('cmsshared.widgets.remove_link_aria')}
                     onClick={() =>
                       onPatch({
                         links: (widget.settings.links ?? []).filter((_, i) => i !== index),
@@ -217,7 +230,7 @@ function SortableWidget({
                 }
                 className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 py-1.5 text-[11px] text-zinc-500 transition hover:border-[#6d6be8] hover:text-[#4f4dd6]"
               >
-                <Plus size={11} /> Add link
+                <Plus size={11} /> {t('cmsshared.widgets.add_link')}
               </button>
             </div>
           </div>
@@ -242,6 +255,7 @@ function WidgetAreaCard({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  const { t } = useLocale();
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -255,13 +269,15 @@ function WidgetAreaCard({
   return (
     <Card className="flex h-fit flex-col">
       <CardHeader className="flex items-center justify-between">
-        <CardTitle>{AREA_LABELS[area]}</CardTitle>
-        <span className="text-[11px] text-zinc-400">{widgets.length} widget(s)</span>
+        <CardTitle>{t(AREA_LABEL_KEYS[area])}</CardTitle>
+        <span className="text-[11px] text-zinc-400">
+          {t('cmsshared.widgets.count', { count: widgets.length })}
+        </span>
       </CardHeader>
       <CardContent className="space-y-3">
         {widgets.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed border-zinc-200 px-3 py-8 text-center">
-            <p className="text-xs text-zinc-400">No widgets in this area yet.</p>
+            <p className="text-xs text-zinc-400">{t('cmsshared.widgets.empty_area')}</p>
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -292,9 +308,11 @@ function WidgetAreaCard({
         )}
 
         <div>
-          <span className="mb-1 block text-[11px] font-medium text-zinc-500">Add widget</span>
+          <span className="mb-1 block text-[11px] font-medium text-zinc-500">
+            {t('cmsshared.widgets.add_label')}
+          </span>
           <select
-            aria-label={`Add widget to ${AREA_LABELS[area]}`}
+            aria-label={t('cmsshared.widgets.add_aria', { area: t(AREA_LABEL_KEYS[area]) })}
             className={cn(inputClass, 'appearance-none px-2.5 py-1.5 text-xs')}
             value=""
             onChange={(event) => {
@@ -303,10 +321,10 @@ function WidgetAreaCard({
               onChange([...widgets, createInstance(type)]);
             }}
           >
-            <option value="">— Choose a widget —</option>
+            <option value="">{t('cmsshared.widgets.choose')}</option>
             {CATALOGUE.map((entry) => (
               <option key={entry.type} value={entry.type}>
-                {entry.label}
+                {t(entry.labelKey)}
               </option>
             ))}
           </select>
@@ -321,6 +339,7 @@ function WidgetAreaCard({
 export default function WidgetsManager({ initialLayout }: { initialLayout: WidgetLayout }) {
   const [layout, setLayout] = useState<WidgetLayout>(initialLayout);
   const [saving, setSaving] = useState(false);
+  const { t } = useLocale();
 
   const dirty = JSON.stringify(layout) !== JSON.stringify(initialLayout);
 
@@ -333,11 +352,11 @@ export default function WidgetsManager({ initialLayout }: { initialLayout: Widge
     setSaving(true);
     try {
       const result = await saveWidgets(layout);
-      if (result.ok) toast.success('Widget layout saved.');
-      else toast.error(result.error || 'Could not save the widget layout.');
+      if (result.ok) toast.success(t('cmsshared.widgets.saved'));
+      else toast.error(result.error || t('cmsshared.widgets.save_error'));
     } catch (error) {
       console.error('[cms/appearance] save widgets failed', error);
-      toast.error('Something went wrong while saving.');
+      toast.error(t('cmsshared.builder.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -359,16 +378,19 @@ export default function WidgetsManager({ initialLayout }: { initialLayout: Widge
       <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-xs text-zinc-500">
           <span>
-            {CATALOGUE.length} widget types available across {WIDGET_AREAS.length} areas.
+            {t('cmsshared.widgets.available', {
+              types: CATALOGUE.length,
+              areas: WIDGET_AREAS.length,
+            })}
           </span>
           {dirty ? (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              Unsaved
+              {t('cmsshared.menu_builder.unsaved')}
             </span>
           ) : null}
         </div>
         <Button onClick={() => void handleSave()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save widgets'}
+          {saving ? t('cmsshared.menu_builder.saving') : t('cmsshared.widgets.save')}
         </Button>
       </div>
     </div>

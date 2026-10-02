@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
-import type { CheckoutCurrency } from '@/app/shop/checkout/checkout-contract';
+import type { CheckoutCurrency } from '@/app/home/checkout/checkout-contract';
 import * as schema from '@/db/schema-tenant';
 import { getStorefrontContext } from './context';
 import { getRequestAuthority, getRequestProtocol } from './host';

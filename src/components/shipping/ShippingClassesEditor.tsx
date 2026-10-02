@@ -13,6 +13,7 @@ import {
 } from '@/components/admin/ui';
 import { saveShippingClasses } from '@/app/cms/actions/shipping';
 import { slugify } from '@/lib/cms/format';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { ShippingClass } from '@/app/cms/shipping/settings-key';
 
 type ShippingClassesEditorProps = {
@@ -27,6 +28,7 @@ function newRow(index: number): ShippingClass {
 export default function ShippingClassesEditor({ initial }: ShippingClassesEditorProps) {
   const [classes, setClasses] = useState<ShippingClass[]>(initial);
   const [pending, setPending] = useState(false);
+  const { t } = useLocale();
 
   const update = (index: number, patch: Partial<ShippingClass>) => {
     setClasses((current) => current.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
@@ -38,7 +40,11 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
 
   const removeClass = (index: number) => {
     const target = classes[index];
-    if (target?.name && !window.confirm(`Delete the shipping class “${target.name}”?`)) return;
+    if (
+      target?.name &&
+      !window.confirm(t('cmsshared.shipping.classes.delete_confirm', { name: target.name }))
+    )
+      return;
     setClasses((current) => current.filter((_, i) => i !== index));
   };
 
@@ -53,17 +59,17 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
       .filter((entry) => entry.name);
 
     if (cleaned.length !== classes.filter((entry) => entry.name.trim() || entry.description.trim() || entry.slug.trim()).length) {
-      toast.error('Every shipping class needs a name.');
+      toast.error(t('cmsshared.shipping.classes.name_required'));
       return;
     }
     if (cleaned.length === 0) {
-      toast.error('Add at least one shipping class, or remove them all and save.');
+      toast.error(t('cmsshared.shipping.classes.at_least_one'));
       return;
     }
 
     const slugs = cleaned.map((entry) => entry.slug || slugify(entry.name));
     if (new Set(slugs).size !== slugs.length) {
-      toast.error('Each shipping class needs a unique slug.');
+      toast.error(t('cmsshared.shipping.classes.unique_slug'));
       return;
     }
 
@@ -73,15 +79,15 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
         cleaned.map((entry) => ({ ...entry, slug: entry.slug || slugify(entry.name) })),
       );
       if (!result.ok) {
-        toast.error(result.error || 'Could not save the shipping classes.');
+        toast.error(result.error || t('cmsshared.shipping.classes.save_error'));
         return;
       }
-      toast.success('Shipping classes saved.');
+      toast.success(t('cmsshared.shipping.classes.saved'));
       setClasses(
         cleaned.map((entry) => ({ ...entry, slug: entry.slug || slugify(entry.name) })),
       );
     } catch {
-      toast.error('Could not save the shipping classes.');
+      toast.error(t('cmsshared.shipping.classes.save_error'));
     } finally {
       setPending(false);
     }
@@ -91,16 +97,20 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-zinc-500">
-          {classes.length} class{classes.length === 1 ? '' : 'es'}
+          {classes.length === 1
+            ? t('cmsshared.shipping.classes.count_one', { count: classes.length })
+            : t('cmsshared.shipping.classes.count_many', { count: classes.length })}
         </p>
         <div className="flex items-center gap-2">
           <Button onClick={addClass} variant="outline">
             <Plus size={15} />
-            Add class
+            {t('cmsshared.shipping.classes.add_class')}
           </Button>
           <Button disabled={pending} onClick={() => void save()}>
             <Save size={15} />
-            {pending ? 'Saving…' : 'Save classes'}
+            {pending
+              ? t('cmsshared.menu_builder.saving')
+              : t('cmsshared.shipping.classes.save_classes')}
           </Button>
         </div>
       </div>
@@ -110,30 +120,30 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
           action={
             <Button onClick={addClass}>
               <Plus size={15} />
-              Add class
+              {t('cmsshared.shipping.classes.add_class')}
             </Button>
           }
-          description="Add classes such as “Bulky”, “Fragile”, or “Perishable” to group products that share a shipping rate."
+          description={t('cmsshared.shipping.classes.empty_desc')}
           icon={<Plus size={28} />}
-          title="No shipping classes yet"
+          title={t('cmsshared.shipping.classes.empty_title')}
         />
       ) : (
         <div className="space-y-3">
           {classes.map((entry, index) => (
             <Card key={entry.id}>
               <CardContent className="grid gap-3 sm:grid-cols-2">
-                <Field htmlFor={`class-name-${entry.id}`} label="Name">
+                <Field htmlFor={`class-name-${entry.id}`} label={t('cmsshared.field.name')}>
                   <Input
                     id={`class-name-${entry.id}`}
                     onChange={(event) => update(index, { name: event.target.value })}
-                    placeholder="e.g. Bulky items"
+                    placeholder={t('cmsshared.shipping.classes.name_ph')}
                     value={entry.name}
                   />
                 </Field>
                 <Field
                   htmlFor={`class-slug-${entry.id}`}
-                  label="Slug"
-                  hint="Used in rate rules. Generated from the name when left blank."
+                  label={t('cmsshared.shipping.classes.slug')}
+                  hint={t('cmsshared.shipping.classes.slug_hint')}
                 >
                   <Input
                     id={`class-slug-${entry.id}`}
@@ -143,16 +153,21 @@ export default function ShippingClassesEditor({ initial }: ShippingClassesEditor
                   />
                 </Field>
                 <div className="sm:col-span-2 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <Field htmlFor={`class-desc-${entry.id}`} label="Description">
+                  <Field
+                    htmlFor={`class-desc-${entry.id}`}
+                    label={t('cmsshared.field.description')}
+                  >
                     <Input
                       id={`class-desc-${entry.id}`}
                       onChange={(event) => update(index, { description: event.target.value })}
-                      placeholder="Large items that need a courier van"
+                      placeholder={t('cmsshared.shipping.classes.desc_ph')}
                       value={entry.description}
                     />
                   </Field>
                   <Button
-                    aria-label={`Delete ${entry.name || 'shipping class'}`}
+                    aria-label={t('cmsshared.shipping.classes.delete_aria', {
+                      name: entry.name || t('cmsshared.shipping.classes.class_word'),
+                    })}
                     onClick={() => removeClass(index)}
                     variant="ghost"
                   >

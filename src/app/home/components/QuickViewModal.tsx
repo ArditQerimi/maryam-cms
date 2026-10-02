@@ -21,6 +21,7 @@ import styles from '../bookstore.module.css';
 import { useCart } from '@/context/CartContext';
 import { useCompare } from '@/context/CompareContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type QvVariantOption = {
   attributeId: number;
@@ -42,6 +43,8 @@ export type QvProduct = {
   id: number;
   name: string;
   price: number;
+  /** Original list price when `price` is a sale price (renders the strike-through). */
+  originalPrice?: number | null;
   imageUrl: string;
   galleryImages?: string[];
   images?: string[];
@@ -49,6 +52,8 @@ export type QvProduct = {
   description: string;
   categoryName?: string;
   categoryId?: number | null;
+  /** Admin store rating 1–5 (or null/0 = no stars). */
+  rating?: number | null;
   variantId?: number | null;
   defaultVariantId?: number | null;
   variants?: QvVariant[];
@@ -162,6 +167,7 @@ function Modal({
   initialIndex: number;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
@@ -265,7 +271,7 @@ function Modal({
           <button
             type="button"
             className={`${styles.qvProductNav} ${styles.qvProductNavPrev}`}
-            aria-label="Previous product"
+            aria-label={t('catalog.prev_product_aria')}
             onClick={(event) => {
               event.stopPropagation();
               showProduct((activeIndex - 1 + carouselProducts.length) % carouselProducts.length);
@@ -276,7 +282,7 @@ function Modal({
           <button
             type="button"
             className={`${styles.qvProductNav} ${styles.qvProductNavNext}`}
-            aria-label="Next product"
+            aria-label={t('catalog.next_product_aria')}
             onClick={(event) => {
               event.stopPropagation();
               showProduct((activeIndex + 1) % carouselProducts.length);
@@ -288,7 +294,7 @@ function Modal({
       ) : null}
 
       <div className={styles.qvModal} onClick={(event) => event.stopPropagation()}>
-        <button type="button" className={styles.qvClose} aria-label="Close quick view" onClick={onClose}>
+        <button type="button" className={styles.qvClose} aria-label={t('catalog.close_quick_view_aria')} onClick={onClose}>
           <X size={18} aria-hidden="true" />
         </button>
 
@@ -297,7 +303,7 @@ function Modal({
             <button
               type="button"
               className={`${styles.qvImageNav} ${styles.qvImageNavPrev}`}
-              aria-label="Previous image"
+              aria-label={t('catalog.prev_image_aria')}
               onClick={() => setActiveImageIndex((boundedImageIndex - 1 + images.length) % images.length)}
             >
               <ChevronLeft size={30} aria-hidden="true" />
@@ -317,7 +323,7 @@ function Modal({
           ) : (
             <div
               role="img"
-              aria-label="Product image unavailable"
+              aria-label={t('catalog.image_unavailable_aria')}
               style={{
                 display: 'flex',
                 width: '100%',
@@ -331,7 +337,7 @@ function Modal({
               }}
             >
               <ImageOff size={36} aria-hidden="true" />
-              <span>Image unavailable</span>
+              <span>{t('catalog.image_unavailable')}</span>
             </div>
           )}
 
@@ -339,7 +345,7 @@ function Modal({
             <button
               type="button"
               className={`${styles.qvImageNav} ${styles.qvImageNavNext}`}
-              aria-label="Next image"
+              aria-label={t('catalog.next_image_aria')}
               onClick={() => setActiveImageIndex((boundedImageIndex + 1) % images.length)}
             >
               <ChevronRight size={30} aria-hidden="true" />
@@ -347,7 +353,7 @@ function Modal({
           ) : null}
 
           {canCarouselImages ? (
-            <div className={styles.qvDots} aria-label="Choose product image">
+            <div className={styles.qvDots} aria-label={t('catalog.choose_image_aria')}>
               {images.map((image, index) => (
                 <button
                   key={image}
@@ -371,7 +377,7 @@ function Modal({
 
           {hasVariants ? (
             <label className={styles.pdOptionRow}>
-              <span className={styles.pdOptionLabel}>Variant</span>
+              <span className={styles.pdOptionLabel}>{t('catalog.variant')}</span>
               <select
                 className={styles.pdSelect}
                 value={selectedVariantId ?? ''}
@@ -383,7 +389,7 @@ function Modal({
                 }}
               >
                 {activeVariant == null ? (
-                  <option value="">Choose an option</option>
+                  <option value="">{t('catalog.choose_option')}</option>
                 ) : null}
                 {activeProduct.variants?.map((variant) => (
                   <option value={variant.id} key={variant.id} disabled={variant.stockQuantity === 0}>
@@ -403,7 +409,7 @@ function Modal({
             <div className={styles.pdQtyStepper}>
               <button
                 type="button"
-                aria-label="Decrease quantity"
+                aria-label={t('catalog.decrease_quantity_aria')}
                 disabled={!canAdd || boundedQuantity <= 1}
                 onClick={() => setQuantity(Math.max(1, boundedQuantity - 1))}
               >
@@ -415,7 +421,7 @@ function Modal({
                 max={Math.max(1, availability)}
                 value={boundedQuantity}
                 disabled={!canAdd}
-                aria-label="Quantity"
+                aria-label={t('catalog.quantity_aria')}
                 onChange={(event) => {
                   const requested = Number(event.target.value);
                   const normalized = Number.isFinite(requested) ? Math.trunc(requested) : 1;
@@ -424,7 +430,7 @@ function Modal({
               />
               <button
                 type="button"
-                aria-label="Increase quantity"
+                aria-label={t('catalog.increase_quantity_aria')}
                 disabled={!canAdd || boundedQuantity >= availability}
                 onClick={() => setQuantity(Math.min(availability, boundedQuantity + 1))}
               >
@@ -437,7 +443,7 @@ function Modal({
               disabled={!canAdd && !needsVariantSelection}
               onClick={() => {
                 if (needsVariantSelection) {
-                  router.push(`/shop/products/${activeProduct.id}`);
+                  router.push(`/home/products/${activeProduct.id}`);
                   return;
                 }
                 addToCartFromModal();
@@ -503,7 +509,7 @@ function Modal({
           {activeProduct.categoryId && activeProduct.categoryName ? (
             <p className={styles.qvCategories}>
               Category:{' '}
-              <Link href={`/shop/products?category=${activeProduct.categoryId}`}>
+              <Link href={`/home/products?category=${activeProduct.categoryId}`}>
                 {activeProduct.categoryName}
               </Link>
             </p>

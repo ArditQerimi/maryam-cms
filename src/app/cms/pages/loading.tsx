@@ -1,9 +1,11 @@
 import { Card, CardHeader, PageHeader, Skeleton } from '@/components/admin/ui';
+import { getT } from '@/lib/i18n/server';
 
-export default function PagesLoading() {
+export default async function PagesLoading() {
+  const t = await getT();
   return (
     <div>
-      <PageHeader title="Pages" description="Loading pages…" />
+      <PageHeader title={t('cmscontent.pages.title')} description={t('cmscontent.pages.loading')} />
       <Card>
         <CardHeader className="flex items-center justify-between gap-3">
           <Skeleton className="h-4 w-24" />

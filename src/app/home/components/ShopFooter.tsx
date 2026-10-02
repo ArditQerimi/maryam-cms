@@ -2,6 +2,7 @@ import type { ComponentProps, CSSProperties } from 'react';
 import Link from 'next/link';
 import { Mail, MessageCircle, Phone, Send, Share2 } from 'lucide-react';
 import { getContextCompany } from '@/lib/tenant';
+import { getT, type Dictionary } from '@/lib/i18n/server';
 import type { PublicStorefrontPresentation } from '@/lib/storefront-settings/contracts';
 import { DEFAULT_FOOTER, type FooterCustomizations } from '@/lib/theme/types';
 import WidgetArea from './WidgetArea';
@@ -18,33 +19,38 @@ function safeExternalUrl(value: string | undefined): string {
   }
 }
 
-const footerGroups = [
+// Dictionary keys (not literal copy) so both locales stay in sync — the
+// labels are resolved with `t()` inside the component.
+const footerGroups: Array<{
+  titleKey: keyof Dictionary;
+  links: Array<{ labelKey: keyof Dictionary; href: string }>;
+}> = [
   {
-    title: 'Information',
+    titleKey: 'footer.group.info',
     links: [
-      { label: 'About us', href: '/shop/about-us' },
-      { label: 'Contact us', href: '/shop/contact' },
-      { label: 'FAQs', href: '/shop/faqs' },
-      { label: 'Journal', href: '/shop/blogs' },
+      { labelKey: 'footer.link.about', href: '/home/about-us' },
+      { labelKey: 'footer.link.contact', href: '/home/contact' },
+      { labelKey: 'footer.link.faqs', href: '/home/faqs' },
+      { labelKey: 'footer.link.journal', href: '/home/blogs' },
     ],
   },
   {
-    title: 'Customer account',
+    titleKey: 'footer.group.account',
     links: [
-      { label: 'Sign in', href: '/shop/login' },
-      { label: 'Create account', href: '/shop/register' },
-      { label: 'My orders', href: '/shop/account/orders' },
-      { label: 'Wishlist', href: '/shop/wishlist' },
-      { label: 'Compare', href: '/shop/compare' },
+      { labelKey: 'footer.link.signin', href: '/home/login' },
+      { labelKey: 'footer.link.create', href: '/home/register' },
+      { labelKey: 'footer.link.orders', href: '/home/account/orders' },
+      { labelKey: 'footer.link.wishlist', href: '/home/wishlist' },
+      { labelKey: 'footer.link.compare', href: '/home/compare' },
     ],
   },
   {
-    title: 'Policies',
+    titleKey: 'footer.group.policies',
     links: [
-      { label: 'Terms & Conditions', href: '/shop/terms-conditions' },
-      { label: 'Privacy Policy', href: '/shop/privacy-policy' },
-      { label: 'Shipping Policy', href: '/shop/shipping-policy' },
-      { label: 'Refund Policy', href: '/shop/refund-policy' },
+      { labelKey: 'footer.link.terms', href: '/home/terms-conditions' },
+      { labelKey: 'footer.link.privacy', href: '/home/privacy-policy' },
+      { labelKey: 'footer.link.shipping', href: '/home/shipping-policy' },
+      { labelKey: 'footer.link.refund', href: '/home/refund-policy' },
     ],
   },
 ];
@@ -87,6 +93,7 @@ export default async function ShopFooter({
   customizations?: FooterCustomizations;
 }) {
   const store = await getStoreIdentity();
+  const t = await getT();
   const footer = customizations ?? DEFAULT_FOOTER;
   const background = footer.background.trim();
   const copyright = footer.copyright.trim();
@@ -100,9 +107,9 @@ export default async function ShopFooter({
     : undefined;
   const persistedPresentation = presentation?.status === 'ready' ? presentation.config : null;
   const socialLinks = [
-    { href: store.website, label: 'Website', icon: GlobeIcon },
-    { href: store.messages, label: 'Messages', icon: MessageCircle },
-    { href: store.share, label: 'Share', icon: Share2 },
+    { href: store.website, label: t('footer.social.website'), icon: GlobeIcon },
+    { href: store.messages, label: t('footer.social.messages'), icon: MessageCircle },
+    { href: store.share, label: t('footer.social.share'), icon: Share2 },
   ].filter((item) => Boolean(item.href));
 
   return (
@@ -114,10 +121,10 @@ export default async function ShopFooter({
         <div className="footer-subscribe-bar">
           <div className="footer-subscribe-copy">
             <Send size={18} aria-hidden="true" />
-            <strong>Need help with an order?</strong>
+            <strong>{t('footer.help.title')}</strong>
           </div>
-          <Link className="footer-subscribe-form" href="/shop/contact">
-            Contact us
+          <Link className="footer-subscribe-form" href="/home/contact">
+            {t('footer.help.contact')}
           </Link>
         </div>
 
@@ -127,7 +134,7 @@ export default async function ShopFooter({
         >
           <div className="footer-col">
             <h4 className="footer-heading">{store.name}</h4>
-            {store.address ? <p>{store.address}</p> : <p>Thoughtful books for every home.</p>}
+            {store.address ? <p>{store.address}</p> : <p>{t('footer.tagline')}</p>}
             <div className="footer-contact-list">
               {store.phone ? (
                 <a className="footer-contact-item" href={`tel:${store.phone}`}>
@@ -139,8 +146,8 @@ export default async function ShopFooter({
                   <Mail size={15} aria-hidden="true" /> {store.email}
                 </a>
               ) : (
-                <Link className="footer-contact-item" href="/shop/contact">
-                  <Mail size={15} aria-hidden="true" /> Send us a message
+                <Link className="footer-contact-item" href="/home/contact">
+                  <Mail size={15} aria-hidden="true" /> {t('footer.sendMessage')}
                 </Link>
               )}
               {socialLinks.length > 0 ? (
@@ -169,11 +176,11 @@ export default async function ShopFooter({
                 </div>
               ))
             : footerGroups.map((group) => (
-                <div key={group.title} className="footer-col">
-                  <h4 className="footer-heading">{group.title}</h4>
+                <div key={group.titleKey} className="footer-col">
+                  <h4 className="footer-heading">{t(group.titleKey)}</h4>
                   <div className="footer-links">
                     {group.links.map((link) => (
-                      <Link key={link.href} href={link.href}>{link.label}</Link>
+                      <Link key={link.href} href={link.href}>{t(link.labelKey)}</Link>
                     ))}
                   </div>
                 </div>
@@ -187,16 +194,16 @@ export default async function ShopFooter({
             <p>
               {copyright
                 ? copyright
-                : <>© {new Date().getFullYear()} {store.name}. All rights reserved.</>}
+                : t('footer.rights', { year: new Date().getFullYear(), store: store.name })}
             </p>
             {persistedPresentation?.footer.supportingText ? (
               <p className="footer-supporting-text">{persistedPresentation.footer.supportingText}</p>
             ) : null}
           </div>
           <div>
-            <div>Customer account · Order support</div>
+            <div>{t('footer.support')}</div>
             {persistedPresentation?.footer.showPoweredBy ? (
-              <div>Powered by the storefront platform</div>
+              <div>{t('footer.powered')}</div>
             ) : null}
           </div>
         </div>

@@ -1,4 +1,4 @@
-const ACCOUNT_RETURN_FALLBACK = '/shop/account';
+const ACCOUNT_RETURN_FALLBACK = '/home/account';
 const ACCOUNT_RETURN_MAX_LENGTH = 512;
 const ACCOUNT_RETURN_UNSAFE = /[\u0000-\u001f\u007f\\]/i;
 const ACCOUNT_RETURN_ENCODED_SEPARATOR = /%(?:2f|5c|00|0d|0a)/i;

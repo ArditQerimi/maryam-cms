@@ -6,6 +6,7 @@ import { KeyRound, Loader2, ShieldOff, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/admin/ui';
 import { resetCustomerPassword, setCustomerAccountStatus } from '@/app/cms/actions/customers';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Header actions for a customer profile: suspend/activate the account (which
@@ -19,6 +20,7 @@ export default function CustomerHeaderActions({
   status: string;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [busy, setBusy] = useState<'status' | 'password' | null>(null);
 
   const suspended = status === 'Suspended';
@@ -28,18 +30,23 @@ export default function CustomerHeaderActions({
     const next = suspended ? 'Active' : 'Suspended';
     const confirmed = window.confirm(
       next === 'Suspended'
-        ? 'Suspend this customer? Their storefront account will be signed out and blocked.'
-        : 'Reactivate this customer and their storefront account?',
+        ? t('cmsshared.customer.status.confirm_suspend')
+        : t('cmsshared.customer.status.confirm_activate'),
     );
     if (!confirmed) return;
 
     setBusy('status');
     try {
       const result = await setCustomerAccountStatus(customerId, next);
-      if (result.ok) toast.success(`Customer ${next === 'Suspended' ? 'suspended' : 'reactivated'}.`);
-      else toast.error(result.error || 'Could not update the account status.');
+      if (result.ok)
+        toast.success(
+          next === 'Suspended'
+            ? t('cmsshared.customer.status.suspended_toast')
+            : t('cmsshared.customer.status.reactivated_toast'),
+        );
+      else toast.error(result.error || t('cmsshared.customer.status.error'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not update the account status.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.customer.status.error'));
     } finally {
       setBusy(null);
     }
@@ -47,25 +54,23 @@ export default function CustomerHeaderActions({
 
   async function resetPassword() {
     if (busy) return;
-    const confirmed = window.confirm(
-      'Generate a new temporary password for this customer? The current password stops working immediately.',
-    );
+    const confirmed = window.confirm(t('cmsshared.customer.status.confirm_reset'));
     if (!confirmed) return;
 
     setBusy('password');
     try {
       const result = await resetCustomerPassword(customerId);
       if (result.ok && result.password) {
-        toast.success('Temporary password generated — share it with the customer.', {
+        toast.success(t('cmsshared.customer.status.reset_success'), {
           description: result.password,
           duration: 20000,
         });
         router.refresh();
       } else {
-        toast.error(result.error || 'Could not reset the password.');
+        toast.error(result.error || t('cmsshared.customer.status.reset_error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not reset the password.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.customer.status.reset_error'));
     } finally {
       setBusy(null);
     }
@@ -87,7 +92,7 @@ export default function CustomerHeaderActions({
         ) : (
           <ShieldOff size={14} />
         )}
-        {suspended ? 'Enable account' : 'Disable account'}
+        {suspended ? t('cmsshared.customer.status.enable') : t('cmsshared.customer.status.disable')}
       </Button>
       <Button
         type="button"
@@ -97,7 +102,7 @@ export default function CustomerHeaderActions({
         onClick={resetPassword}
       >
         {busy === 'password' ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
-        Reset password
+        {t('cmsshared.customer.status.reset')}
       </Button>
     </div>
   );

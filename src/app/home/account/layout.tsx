@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { getAccountAccess, getAccountLoginUrl } from '@/lib/account/data';
 import { getSafeAccountReturnTo } from '@/lib/account/validation';
+import { getT } from '@/lib/i18n/server';
 import AccountNavigation from './AccountNavigation';
 import styles from './account.module.css';
 
@@ -34,7 +35,7 @@ async function getCurrentAccountReturnTo() {
   for (const candidate of candidates) {
     if (!candidate) continue;
     const direct = getSafeAccountReturnTo(candidate);
-    if (direct !== '/shop/account') return direct;
+    if (direct !== '/home/account') return direct;
   }
 
   const referer = headerList.get('referer');
@@ -42,11 +43,11 @@ async function getCurrentAccountReturnTo() {
     try {
       return getSafeAccountReturnTo(new URL(referer).pathname);
     } catch {
-      return '/shop/account';
+      return '/home/account';
     }
   }
 
-  return '/shop/account';
+  return '/home/account';
 }
 
 export default async function CustomerAccountLayout({
@@ -60,7 +61,8 @@ export default async function CustomerAccountLayout({
   }
   if (access.status === 'denied') notFound();
 
-  const storeName = access.company.name?.trim() || 'the store';
+  const t = await getT();
+  const storeName = access.company.name?.trim() || t('account.layout.storeFallback');
 
   return (
     <div className={styles.accountPage}>
@@ -68,15 +70,15 @@ export default async function CustomerAccountLayout({
         <div className={styles.shell}>
           <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
             <ol>
-              <li><Link href="/shop">Store</Link></li>
+              <li><Link href="/home">{t('account.layout.crumbStore')}</Link></li>
               <li aria-hidden="true">/</li>
-              <li aria-current="page">Account</li>
+              <li aria-current="page">{t('account.layout.crumbAccount')}</li>
             </ol>
           </nav>
           <div className={styles.mastheadCopy}>
-            <p>Private customer area</p>
-            <h1>My account</h1>
-            <span>Account details and services for {storeName}.</span>
+            <p>{t('account.layout.eyebrow')}</p>
+            <h1>{t('account.layout.title')}</h1>
+            <span>{t('account.layout.subtitle', { storeName })}</span>
           </div>
         </div>
       </header>
@@ -86,7 +88,7 @@ export default async function CustomerAccountLayout({
           <aside className={styles.sidebar}>
             <AccountNavigation storeName={storeName} />
           </aside>
-          <section className={styles.accountContent} id="account-content" aria-label="Account page content">
+          <section className={styles.accountContent} id="account-content" aria-label={t('account.layout.contentAria')}>
             {children}
           </section>
         </div>

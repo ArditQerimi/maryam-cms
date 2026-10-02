@@ -15,10 +15,10 @@ function readSetting(value: string | undefined): string {
 }
 
 /**
- * Blocks for the storefront front page. `/shop` is the homepage, so the CMS
+ * Blocks for the storefront front page. `/home` is the homepage, so the CMS
  * page with the `home` slug drives it directly — no extra setting to flip.
  * Reading settings still win when they explicitly name another static page.
- * An empty result leaves `/shop` on its built-in section layout.
+ * An empty result leaves `/home` on its built-in section layout.
  */
 export async function getStorefrontHomepageBlocks(): Promise<Block[]> {
   try {

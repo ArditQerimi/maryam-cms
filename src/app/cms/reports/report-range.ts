@@ -1,3 +1,5 @@
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+
 /** settings_store key holding the reporter's remembered range (report_* namespace). */
 export const REPORT_SALES_RANGE_KEY = 'report_sales_range';
 
@@ -12,6 +14,11 @@ export type ReportRange = {
   /** Exclusive end boundary (UTC midnight of the day after the last day). */
   to: Date;
   label: string;
+  /**
+   * Dictionary key of the localized `label` for preset ranges (custom ranges
+   * keep a literal date label). Resolve with `t(range.labelKey)`.
+   */
+  labelKey?: keyof Dictionary;
   fromParam: string;
   toParam: string;
 };
@@ -71,24 +78,31 @@ export function resolveReportRange(search: ReportRangeSearch): ReportRange {
   const now = new Date();
   const todayStart = utcDayStart(now);
 
-  const build = (preset: ReportPreset, from: Date, toExclusive: Date, label: string): ReportRange => ({
+  const build = (
+    preset: ReportPreset,
+    from: Date,
+    toExclusive: Date,
+    label: string,
+    labelKey?: keyof Dictionary,
+  ): ReportRange => ({
     preset,
     from,
     to: toExclusive,
     label,
+    labelKey,
     fromParam: toDayParam(from),
     toParam: toDayParam(new Date(toExclusive.getTime() - DAY_MS)),
   });
 
   if (presetRaw === '7d') {
-    return build('7d', new Date(todayStart.getTime() - 6 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 7 days');
+    return build('7d', new Date(todayStart.getTime() - 6 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 7 days', 'cmsdash.range.last7');
   }
   if (presetRaw === '30d') {
-    return build('30d', new Date(todayStart.getTime() - 29 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 30 days');
+    return build('30d', new Date(todayStart.getTime() - 29 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 30 days', 'cmsdash.range.last30');
   }
   if (presetRaw === 'month') {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    return build('month', monthStart, new Date(todayStart.getTime() + DAY_MS), 'This month');
+    return build('month', monthStart, new Date(todayStart.getTime() + DAY_MS), 'This month', 'cmsdash.range.thisMonth');
   }
   if (presetRaw === 'custom') {
     const from = parseUtcDay(first(search.from));
@@ -102,7 +116,7 @@ export function resolveReportRange(search: ReportRangeSearch): ReportRange {
     }
   }
 
-  return build('30d', new Date(todayStart.getTime() - 29 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 30 days');
+  return build('30d', new Date(todayStart.getTime() - 29 * DAY_MS), new Date(todayStart.getTime() + DAY_MS), 'Last 30 days', 'cmsdash.range.last30');
 }
 
 /** All UTC day keys (`YYYY-MM-DD`) covered by the range, for chart gap filling. */

@@ -3,6 +3,7 @@ import { DollarSign, Receipt, ShoppingBag, Users } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
 import { customers, productVariants, products, saleItems, sales, settingsStore } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT } from '@/lib/i18n/server';
 import { formatMoney } from '@/lib/cms/format';
 import {
   Badge,
@@ -147,11 +148,13 @@ async function getTopProducts(range: ReportRange) {
 
 export default async function SalesReportPage({ searchParams }: SalesPageProps) {
   await requireCmsSession();
+  const t = await getT();
 
   const params = await searchParams;
   const range = isPresetProvided(params)
     ? resolveReportRange(params)
     : resolveReportRange(await loadSavedRange());
+  const rangeLabel = range.labelKey ? t(range.labelKey) : range.label;
 
   const [stats, series, topProducts] = await Promise.all([
     getStats(range),
@@ -162,48 +165,50 @@ export default async function SalesReportPage({ searchParams }: SalesPageProps) 
   return (
     <div>
       <PageHeader
-        title="Sales report"
-        description="Revenue, orders, and customer growth for the selected period."
+        title={t('cmsdash.sales.title')}
+        description={t('cmsdash.sales.description')}
       />
 
       <div className="mb-6">
         <RangePicker
           basePath="/cms/reports/sales"
           current={{ preset: range.preset, from: range.fromParam, to: range.toParam }}
-          label={range.label}
+          label={rangeLabel}
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          hint="Online orders in period"
+          hint={t('cmsdash.sales.revenueHint')}
           icon={DollarSign}
-          label="Total revenue"
+          label={t('cmsdash.sales.revenue')}
           value={formatMoney(stats.revenue)}
         />
         <StatCard
-          hint="Placed through the storefront"
+          hint={t('cmsdash.sales.ordersHint')}
           icon={Receipt}
-          label="Orders"
+          label={t('cmsdash.sales.orders')}
           value={stats.orders.toLocaleString()}
         />
         <StatCard
-          hint="Revenue ÷ orders"
+          hint={t('cmsdash.sales.averageHint')}
           icon={ShoppingBag}
-          label="Average order value"
+          label={t('cmsdash.sales.average')}
           value={formatMoney(stats.average)}
         />
         <StatCard
-          hint={range.label}
+          hint={rangeLabel}
           icon={Users}
-          label="New customers"
+          label={t('cmsdash.sales.newCustomers')}
           value={stats.newCustomers.toLocaleString()}
         />
       </div>
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Revenue per day — {range.label.toLowerCase()}</CardTitle>
+          <CardTitle>
+            {t('cmsdash.sales.chartTitle', { period: rangeLabel.toLowerCase() })}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <SalesChart data={series} />
@@ -212,14 +217,14 @@ export default async function SalesReportPage({ searchParams }: SalesPageProps) 
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Top 10 products by revenue</CardTitle>
+          <CardTitle>{t('cmsdash.sales.topProducts')}</CardTitle>
         </CardHeader>
         {topProducts.length === 0 ? (
           <CardContent>
             <EmptyState
-              description="No online sales were recorded in this period."
+              description={t('cmsdash.sales.emptyDescription')}
               icon={<ShoppingBag size={28} />}
-              title="No sales in this period"
+              title={t('cmsdash.sales.emptyTitle')}
             />
           </CardContent>
         ) : (
@@ -228,9 +233,9 @@ export default async function SalesReportPage({ searchParams }: SalesPageProps) 
               <thead>
                 <tr>
                   <Th>#</Th>
-                  <Th>Product</Th>
-                  <Th className="text-right">Units sold</Th>
-                  <Th className="text-right">Revenue</Th>
+                  <Th>{t('cmsdash.th.product')}</Th>
+                  <Th className="text-right">{t('cmsdash.th.unitsSold')}</Th>
+                  <Th className="text-right">{t('cmsdash.th.revenue')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -240,7 +245,7 @@ export default async function SalesReportPage({ searchParams }: SalesPageProps) 
                       <Badge tone="brand">{index + 1}</Badge>
                     </Td>
                     <Td className="max-w-[320px] truncate font-medium text-zinc-900">
-                      {product.name || 'Deleted product'}
+                      {product.name || t('cmsdash.deletedProduct')}
                     </Td>
                     <Td className="text-right">{product.units.toLocaleString()}</Td>
                     <Td className="text-right font-medium text-zinc-900">

@@ -1,7 +1,11 @@
 import Image from 'next/image';
-import BookstoreHero from '@/app/shop/components/BookstoreHero';
-import bookstore from '@/app/shop/bookstore.module.css';
-import { BLOCK_DEFS, type Block, type BlockType } from './blocks';
+import BookstoreHero from '@/app/home/components/BookstoreHero';
+import ProductStars from '@/app/home/components/ProductStars';
+import bookstore from '@/app/home/bookstore.module.css';
+import { Eye, Heart, Layers3 } from 'lucide-react';
+import { BLOCK_DEFS, isLayoutType, type Block, type Breakpoint, type BlockType } from './blocks';
+import { isDiscounted, selectSourceProducts } from './product-sources';
+import { L, SourceCopy, T } from './Copy';
 
 export type RendererProduct = {
   id: number;
@@ -11,7 +15,32 @@ export type RendererProduct = {
   href: string;
   badge?: string | null;
   stock?: number | null;
+  /** Lets the "by category" source filter without extra lookups. */
+  categoryId?: number | null;
+  /** Powers 🆕 new-arrivals ordering (ISO string or epoch milliseconds). */
+  createdAt?: string | number | null;
+  /** Units sold — powers 🔥 best-sellers ordering. */
+  soldCount?: number | null;
+  /** Effective sale price when a discount applies, else null. */
+  salePrice?: string | number | null;
+  /** Admin store rating 1–5 (0/null = no stars shown). */
+  rating?: number | null;
+  /** Catalogue status — previews mirror the storefront's Active-only rule. */
+  status?: string | null;
 };
+
+/** Same formatting the storefront cards use (en-IE / EUR). */
+const storefrontPrice = new Intl.NumberFormat('en-IE', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatEur(value: string | number | null | undefined): string {
+  const n = typeof value === 'string' ? Number.parseFloat(value) : (value ?? Number.NaN);
+  return Number.isFinite(n) ? storefrontPrice.format(n) : '';
+}
 
 export type BlockRendererProps = {
   block: Block;
@@ -19,6 +48,20 @@ export type BlockRendererProps = {
   mode?: 'edit' | 'live';
   products?: RendererProduct[];
   categories?: Array<{ id: number; name: string }>;
+  /**
+   * Storefront sections need live catalogue data, so `/home` renders them
+   * server-side and hands them in here; without it they show a placeholder.
+   */
+  renderStoreBlock?: (block: Block) => React.ReactNode;
+  /**
+   * Builder canvas only: floating toolbar + selection ring rendered *inside*
+   * every row/column/module so nesting stays legible and gutters line up.
+   */
+  editChrome?: (node: Block) => React.ReactNode;
+  /** Builder canvas only: column resize gutters, rendered inside a row. */
+  editGutter?: (row: Block) => React.ReactNode;
+  /** Builder preview: which breakpoint's rules to apply instead of the viewport. */
+  breakpoint?: Breakpoint;
 };
 
 const GAP: Record<string, string> = { small: '12px', medium: '24px', large: '40px' };
@@ -91,15 +134,36 @@ function Img({
         className={`flex items-center justify-center bg-zinc-100 text-xs text-zinc-400 ${className || ''}`}
         style={style}
       >
-        No image selected
+        <L text="No image selected" />
       </div>
     );
   }
-  const isExternal = /^https?:\/\//i.test(src) && !src.startsWith(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3003');
+  const placeholder = (
+    <div
+      className={`flex items-center justify-center bg-zinc-100 text-xs text-zinc-400 ${className || ''}`}
+      style={style}
+    >
+      <L text="No image selected" />
+    </div>
+  );
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3003';
+  const isHttp = /^https?:\/\//i.test(src);
+  const sameOrigin = isHttp && src.startsWith(appOrigin);
+  const isExternal = (isHttp && !sameOrigin) || src.startsWith('//');
   if (isExternal) {
     // next/image only allows configured remote hosts; fall back to <img>.
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} className={className} style={style} sizes={sizes} />;
+  }
+  const nextImageSafe =
+    sameOrigin ||
+    src.startsWith('data:') ||
+    src.startsWith('blob:') ||
+    (src.startsWith('/') && !src.startsWith('//'));
+  if (!nextImageSafe) {
+    // Broken value (e.g. raw media-library JSON) — never let next/image throw
+    // "Failed to construct 'URL': Invalid URL"; show the placeholder instead.
+    return placeholder;
   }
   return (
     <Image
@@ -173,62 +237,378 @@ function ButtonLink({
   );
 }
 
-function ProductGrid({ block, products }: { block: Block; products?: RendererProduct[] }) {
-  const columns = String(block.props.columns || '4');
-  const list = (products || []).slice(0, Number(block.props.limit) || 8);
+/**
+ * Honour the block's "Products to show" source — hand-picked, category,
+ * best sellers, new arrivals, discounted … The shared resolver in
+ * `product-sources.ts` keeps this identical to what `/home` will render.
+ */
+function selectGridProducts(block: Block, products: RendererProduct[]): RendererProduct[] {
+  const props = block.props;
+  return selectSourceProducts(products, {
+    source: props.source,
+    ids: props.manualIds,
+    categoryId: props.categoryId,
+    limit: Number(props.limit) || 8,
+  });
+}
 
-  if (!list.length) {
+/**
+ * Product Grid is a thin resolver: it honours the block's source/layout
+ * settings and delegates the rendering to the shared `ProductsShowcase`
+ * so its heading and cards match the storefront sections exactly.
+ */
+function ProductGrid({
+  block,
+  products,
+  mode,
+}: {
+  block: Block;
+  products?: RendererProduct[];
+  mode?: 'edit' | 'live';
+}) {
+  const p = block.props;
+  const list = selectGridProducts(block, products || []);
+  // Canvas: the catalogue fetch may still be in flight — don't blame the
+  // block's configuration before the data arrives.
+  const loading = mode === 'edit' && !products?.length;
+
+  return (
+    <ProductsShowcase
+      products={list}
+      title={p.showTitle !== false && p.title ? String(p.title) : undefined}
+      layout={p.layout === 'grid' ? 'grid' : 'carousel'}
+      columns={Number(p.columns) || 4}
+      emptyCopy={loading ? <T k="cmscontent.builder.loadingProducts" /> : <SourceCopy source={p.source} />}
+    />
+  );
+}
+
+/**
+ * The ONE product-carousel component both commerce blocks share — Product
+ * Showcase *and* Product Grid render here, so the serif section heading and
+ * the cards (sale price with the struck-through original) are identical
+ * everywhere: builder canvas and storefront alike. Presentational only —
+ * callers resolve WHICH products to pass (see `product-sources.ts`);
+ * deliberately static markup, because the builder has no cart/wishlist
+ * contexts and the canvas swallows link navigation anyway.
+ */
+function ProductsShowcase({
+  products,
+  title,
+  eyebrow,
+  layout = 'carousel',
+  columns = 4,
+  emptyCopy,
+}: {
+  products: RendererProduct[];
+  /** Section heading — the storefront's serif `sectionTitle`. */
+  title?: string;
+  /** Small line above the title (the showcase's "eyebrow"). */
+  eyebrow?: string;
+  layout?: 'carousel' | 'grid';
+  columns?: number;
+  /** Explains why the box is empty (source-aware copy or a loading note). */
+  emptyCopy?: React.ReactNode;
+}) {
+  if (!products.length) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center text-sm text-zinc-500">
-        No products matched this selection yet.
+      <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 px-6 py-10 text-center">
+        <p className="mx-auto mt-1 max-w-sm text-xs text-emerald-700/70">{emptyCopy}</p>
       </div>
     );
   }
 
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        gap: 24,
-      }}
+  const perView = Math.min(Math.max(columns, 1), 6);
+  const cards = products.map((product) => (
+    <article
+      key={product.id}
+      className={`${bookstore.productCard} ${layout === 'carousel' ? bookstore.carouselCard : ''}`}
+      style={
+        layout === 'carousel'
+          ? { flex: `0 0 calc((100% - ${perView - 1} * 1.75rem) / ${perView})` }
+          : undefined
+      }
     >
-      {list.map((product) => (
-        <a key={product.id} href={product.href} className="group block">
-          <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-zinc-100">
-            {product.image ? (
-              <Img src={product.image} alt={product.name} fill className="object-cover transition group-hover:scale-105" />
-            ) : (
-              <span className="flex h-full items-center justify-center text-xs text-zinc-400">
-                No image
-              </span>
-            )}
-            {product.badge ? (
-              <span className="absolute left-2 top-2 rounded-full bg-[var(--cms-primary,#6d6be8)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                {product.badge}
-              </span>
-            ) : null}
-          </div>
-          <p className="truncate text-sm font-medium text-[var(--cms-text,#18181b)] group-hover:underline">
-            {product.name}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--cms-primary,#6d6be8)]">
-            {product.price}
-          </p>
-        </a>
-      ))}
+      <a href={product.href} className={bookstore.productMedia} aria-label={`View ${product.name}`}>
+        {product.image ? (
+          <Img
+            src={product.image}
+            alt={product.name}
+            fill
+            sizes={`${Math.max(Math.round(100 / perView), 25)}vw`}
+          />
+        ) : null}
+      </a>
+      {/* Decorative quick actions: the canvas has no cart/wishlist/compare
+          contexts, so they mirror design A without doing anything. */}
+      <div className={bookstore.productQuick} aria-hidden="true" style={{ pointerEvents: 'none' }}>
+        <button type="button" tabIndex={-1}>
+          <Heart size={21} strokeWidth={1.7} aria-hidden="true" />
+        </button>
+        <button type="button" tabIndex={-1}>
+          <Layers3 size={21} strokeWidth={1.7} aria-hidden="true" />
+        </button>
+        <button type="button" tabIndex={-1}>
+          <Eye size={21} strokeWidth={1.7} aria-hidden="true" />
+        </button>
+      </div>
+      <a href={product.href} className={bookstore.productTitleLink}>
+        <h3 className={bookstore.productTitle}>{product.name}</h3>
+      </a>
+      <ProductStars rating={product.rating} />
+      <div className={bookstore.productPriceRow}>
+        <span className={bookstore.productPrice}>
+          {formatEur(isDiscounted(product) ? product.salePrice : product.price)}
+        </span>
+        {isDiscounted(product) ? (
+          <span className={bookstore.productPriceOld}>{formatEur(product.price)}</span>
+        ) : null}
+      </div>
+      {/* Hover-revealed ADD TO CART (design C) — decorative stand-in. */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className={bookstore.productAddBtn}
+        style={{ pointerEvents: 'none', display: 'block' }}
+      >
+        Add to cart
+      </button>
+    </article>
+  ));
+
+  return (
+    <div className={bookstore.page}>
+      <section className={bookstore.productsSection}>
+        <div className={bookstore.container}>
+          {eyebrow ? <p className={bookstore.sectionEyebrow}>{eyebrow}</p> : null}
+          {title ? <h2 className={bookstore.sectionTitle}>{title}</h2> : null}
+          {layout === 'grid' ? (
+            <div
+              className={bookstore.productsGrid}
+              style={{ gridTemplateColumns: `repeat(${perView}, minmax(0, 1fr))` }}
+            >
+              {cards}
+            </div>
+          ) : (
+            <div className={bookstore.carouselContainer}>
+              <div className={bookstore.carouselTrack}>{cards}</div>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
+}
+
+/**
+ * Canvas preview of the "Product Showcase" storefront section: resolves the
+ * block's product source exactly like `/home` does, then hands the list to
+ * the shared `ProductsShowcase` component.
+ */
+function StoreProductsPreview({
+  block,
+  products,
+}: {
+  block: Block;
+  products: RendererProduct[];
+}) {
+  const p = block.props;
+
+  // Mirror the storefront filters: Active products with an image only.
+  const active = products.filter(
+    (product) => (!product.status || product.status === 'Active') && Boolean(product.image),
+  );
+  const list = selectSourceProducts(active, {
+    source: p.source,
+    ids: p.productIds,
+    categoryId: p.categoryId,
+    limit: Number(p.limit) || 12,
+    offset: Number(p.offset) || 0,
+  });
+
+  return (
+    <ProductsShowcase
+      products={list}
+      eyebrow={String(p.eyebrow ?? '').trim() || undefined}
+      title={String(p.title ?? '').trim() || undefined}
+      // The catalogue arrives from the API after hydration — a calm loading
+      // note reads better than an empty-state that blames the config.
+      emptyCopy={
+        products.length ? <SourceCopy source={p.source} /> : <T k="cmscontent.builder.loadingProducts" />
+      }
+    />
+  );
+}
+
+/* ------------------------------------------------------------ layout tree */
+
+const SHADOWS: Record<string, string> = {
+  none: 'none',
+  sm: '0 1px 3px rgba(15,15,16,0.08)',
+  md: '0 6px 16px rgba(15,15,16,0.10)',
+  lg: '0 14px 34px rgba(15,15,16,0.12)',
+  xl: '0 26px 60px rgba(15,15,16,0.16)',
+};
+
+type BoxValue = { top: number; right: number; bottom: number; left: number };
+
+const EMPTY_BOX: BoxValue = { top: 0, right: 0, bottom: 0, left: 0 };
+
+/** Accepts `{top,right,bottom,left}`, a px number, or a CSS shorthand string. */
+function toBox(value: unknown): BoxValue {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { top: value, right: value, bottom: value, left: value };
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parts = value
+      .trim()
+      .split(/\s+/)
+      .map((part) => {
+        const num = Number.parseFloat(part);
+        return Number.isFinite(num) ? num : 0;
+      });
+    if (parts.length === 1) return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+    if (parts.length === 2) return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+    if (parts.length === 3) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+    if (parts.length >= 4) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const source = value as Record<string, unknown>;
+    const out: BoxValue = { ...EMPTY_BOX };
+    for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+      const num = Number(source[side]);
+      if (Number.isFinite(num)) out[side] = num;
+    }
+    return out;
+  }
+  return { ...EMPTY_BOX };
+}
+
+function boxCss(value: unknown): React.CSSProperties {
+  const box = toBox(value);
+  return {
+    paddingTop: box.top,
+    paddingRight: box.right,
+    paddingBottom: box.bottom,
+    paddingLeft: box.left,
+  };
+}
+
+function borderCss(width: unknown, style: unknown, color: unknown): React.CSSProperties {
+  const px = Number(width) || 0;
+  if (px <= 0) return {};
+  const cssStyle = String(style || 'solid');
+  if (cssStyle === 'none') return {};
+  return { border: `${px}px ${cssStyle} ${String(color || 'transparent')}` };
+}
+
+const UNITLESS_CSS = new Set([
+  'opacity',
+  'zIndex',
+  'fontWeight',
+  'lineHeight',
+  'order',
+  'flex',
+  'flexGrow',
+  'flexShrink',
+]);
+
+function cssDeclarations(overrides: Record<string, unknown>): string {
+  const out: string[] = [];
+  for (const [key, raw] of Object.entries(overrides)) {
+    if (raw === null || raw === undefined || raw === '') continue;
+    if (key === 'padding' || key === 'margin') {
+      const box = toBox(raw);
+      out.push(`${key}:${box.top}px ${box.right}px ${box.bottom}px ${box.left}px`);
+      continue;
+    }
+    if (key === 'visibility') continue;
+    const property = key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+    const value =
+      typeof raw === 'number' && !UNITLESS_CSS.has(key) ? `${raw}px` : String(raw).trim();
+    if (value) out.push(`${property}:${value}`);
+  }
+  return out.join(';');
+}
+
+/**
+ * Class name plus the `<style>` needed for breakpoint visibility and any
+ * per-breakpoint prop overrides stored in `node.responsive`.
+ *
+ * On the storefront the rules are keyed to the viewport. Inside the builder a
+ * `breakpoint` is passed instead, so the preview obeys the switcher in the top
+ * bar rather than the size of the browser window.
+ */
+function responsiveAttrs(node: Block, breakpoint?: Breakpoint): { className: string; css: string } {
+  const cls = `bb-${node.id}`;
+  const visibility = node.props?.visibility;
+  const classes = [cls];
+  if (visibility && typeof visibility === 'object') {
+    if (visibility.desktop === false) classes.push('bb-hide-desktop');
+    if (visibility.tablet === false) classes.push('bb-hide-tablet');
+    if (visibility.mobile === false) classes.push('bb-hide-mobile');
+  }
+  const rules: string[] = [];
+
+  if (breakpoint) {
+    // Builder preview: only the selected breakpoint is honoured.
+    if (visibility && typeof visibility === 'object' && visibility[breakpoint] === false) {
+      rules.push(`.bp-${breakpoint} .${cls}{display:none!important}`);
+    }
+    const overrides = node.responsive?.[breakpoint];
+    if (overrides && typeof overrides === 'object' && Object.keys(overrides).length) {
+      const declarations = cssDeclarations(overrides as Record<string, unknown>);
+      if (declarations) rules.push(`.bp-${breakpoint} .${cls}{${declarations}}`);
+    }
+    return { className: classes.join(' '), css: rules.join('') };
+  }
+
+  if (classes.length > 1) {
+    rules.push(
+      `@media(min-width:1024px){.${cls}.bb-hide-desktop{display:none!important}}`,
+      `@media(min-width:768px)and(max-width:1023px){.${cls}.bb-hide-tablet{display:none!important}}`,
+      `@media(max-width:767px){.${cls}.bb-hide-mobile{display:none!important}}`,
+    );
+  }
+  const media: Record<string, string> = {
+    desktop: '@media(min-width:1024px)',
+    tablet: '@media(min-width:768px)and(max-width:1023px)',
+    mobile: '@media(max-width:767px)',
+  };
+  for (const breakpointKey of ['desktop', 'tablet', 'mobile'] as const) {
+    const overrides = node.responsive?.[breakpointKey];
+    if (overrides && typeof overrides === 'object' && Object.keys(overrides).length) {
+      const declarations = cssDeclarations(overrides as Record<string, unknown>);
+      if (declarations) rules.push(`${media[breakpointKey]}{.${cls}{${declarations}}}`);
+    }
+  }
+  return { className: classes.join(' '), css: rules.join('') };
+}
+
+/** Percentage basis that leaves room for the row's gap so columns never wrap. */
+function columnBasis(width: number, gap: number): string {
+  const clamped = Math.min(100, Math.max(0, width));
+  return `calc(${round2(clamped)}% - ${round2((gap * clamped) / 100)}px)`;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export default function BlockRenderer({
   block,
   mode = 'live',
   products,
-  categories: _categories,
+  categories,
+  renderStoreBlock,
+  editChrome,
+  editGutter,
+  breakpoint,
 }: BlockRendererProps) {
   const p = block.props || {};
   const interactive = mode === 'live';
+  const editing = mode === 'edit';
 
   const renderColumns = () => {
     const count = block.type === 'columns_2' ? 2 : block.type === 'columns_3' ? 3 : 4;
@@ -239,10 +619,18 @@ export default function BlockRenderer({
         {Array.from({ length: count }).map((_, index) => (
           <div key={index} className="min-w-0">
             {children[index] ? (
-              <BlockRenderer block={children[index]} mode={mode} products={products} />
+              <BlockRenderer
+                block={children[index]}
+                mode={mode}
+                products={products}
+                categories={categories}
+                renderStoreBlock={renderStoreBlock}
+                editChrome={editChrome}
+                breakpoint={breakpoint}
+              />
             ) : mode === 'edit' ? (
               <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-xs text-zinc-400">
-                Empty column
+                <L text="Empty column" />
               </div>
             ) : null}
           </div>
@@ -251,7 +639,221 @@ export default function BlockRenderer({
     );
   };
 
-  switch (block.type as BlockType) {
+  switch (block.type) {
+    /* ---------------------------------------------------------- layout tree */
+    case 'row': {
+      const children = block.children || [];
+      const backgroundType = String(p.backgroundType || 'none');
+      const gap = Number(p.gap) || 0;
+      const valign = String(p.valign || 'stretch');
+      const boxed = p.contentWidth === 'fixed';
+      const { className, css } = responsiveAttrs(block, breakpoint);
+      const minHeight =
+        p.height === 'full'
+          ? '100vh'
+          : p.height === 'fixed'
+            ? `${Number(p.heightPx) || 420}px`
+            : undefined;
+      const margin = toBox(p.margin);
+
+      const style: React.CSSProperties = {
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight,
+        ...boxCss(p.padding),
+        ...borderCss(p.borderWidth, p.borderStyle, p.borderColor),
+        borderRadius: Number(p.radius) || 0,
+        boxShadow: SHADOWS[String(p.shadow || 'none')] || 'none',
+        marginTop: margin.top || undefined,
+        marginRight: margin.right || undefined,
+        marginBottom: margin.bottom || undefined,
+        marginLeft: margin.left || undefined,
+      };
+      if (backgroundType === 'color') {
+        style.backgroundColor = String(p.backgroundColor || 'transparent');
+      } else if (backgroundType === 'image' && p.backgroundImage) {
+        style.backgroundImage = `url(${JSON.stringify(String(p.backgroundImage))})`;
+        style.backgroundSize = 'cover';
+        style.backgroundPosition = 'center';
+        style.backgroundRepeat = 'no-repeat';
+      } else if (backgroundType === 'video') {
+        style.backgroundColor = String(p.backgroundColor || '#000000');
+      }
+
+      /* Columns become full-width bands on phones (or on the previewed breakpoint). */
+      const cls0 = String(className).split(' ')[0];
+      const stackCss = breakpoint
+        ? breakpoint === 'mobile'
+          ? `.bp-mobile .${cls0} .bb-row-inner>.bb-col{flex-basis:100%!important}`
+          : ''
+        : `@media(max-width:767px){.${cls0} .bb-row-inner>.bb-col{flex-basis:100%!important}}`;
+
+      return (
+        <section
+          id={p.cssId ? String(p.cssId) : undefined}
+          data-node={editing ? block.id : undefined}
+          className={[className, p.cssClass ? String(p.cssClass) : ''].filter(Boolean).join(' ') || undefined}
+          style={style}
+        >
+          {editing && editChrome ? editChrome(block) : null}
+          {css || stackCss ? <style>{css + stackCss}</style> : null}
+          {backgroundType === 'video' && p.backgroundVideo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <video
+              aria-hidden="true"
+              autoPlay
+              muted
+              loop
+              playsInline
+              src={String(p.backgroundVideo)}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : null}
+          {backgroundType !== 'none' && Number(p.overlayOpacity) > 0 ? (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: String(p.overlayColor || '#000000'),
+                opacity: (Number(p.overlayOpacity) || 0) / 100,
+                pointerEvents: 'none',
+              }}
+            />
+          ) : null}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              flex: 1,
+              width: '100%',
+              ...(boxed
+                ? {
+                    maxWidth: Number(p.maxWidth) || 1280,
+                    margin: '0 auto',
+                    padding: '0 24px',
+                  }
+                : {}),
+            }}
+          >
+            <div
+              className="bb-row-inner"
+              style={{
+                display: 'flex',
+                flex: 1,
+                flexWrap: 'wrap',
+                minWidth: 0,
+                alignItems: valign,
+                gap,
+                // Gutters are positioned against the flex container, not the section.
+                ...(editing ? { position: 'relative' as const } : {}),
+              }}
+            >
+              {editing && editGutter ? editGutter(block) : null}
+              {children.length ? (
+                children.map((child) => (
+                  <BlockRenderer
+                    key={child.id}
+                    block={child}
+                    mode={mode}
+                    products={products}
+                    categories={categories}
+                    renderStoreBlock={renderStoreBlock}
+                    editChrome={editChrome}
+                    editGutter={editGutter}
+                    breakpoint={breakpoint}
+                  />
+                ))
+              ) : mode === 'edit' ? (
+                <div className="flex w-full min-h-24 items-center justify-center rounded-lg border border-dashed border-sky-300 bg-sky-50/40 text-xs font-medium text-sky-600">
+                  <L text="Empty row — pick a column layout from the Rows tab" />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    case 'column': {
+      const children = block.children || [];
+      const gap = Number(p.gap) || 0;
+      const width = Number(p.width);
+      const { className, css } = responsiveAttrs(block, breakpoint);
+      const valign = String(p.valign || 'stretch');
+      const reversed = p.reverseOnMobile === true || p.stackOrder === 'reverse';
+      const cls = String(className).split(' ')[0];
+
+      const style: React.CSSProperties = {
+        flex: Number.isFinite(width) && width > 0 ? `0 0 ${columnBasis(width, gap)}` : '1 1 0',
+        minWidth: 0,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        gap,
+        justifyContent: valign,
+        ...boxCss(p.padding),
+        ...borderCss(p.borderWidth, p.borderStyle, p.borderColor),
+        borderRadius: Number(p.radius) || 0,
+        ...(editing ? { position: 'relative' as const } : {}),
+      };
+      if (p.backgroundColor && p.backgroundColor !== 'transparent') {
+        style.backgroundColor = String(p.backgroundColor);
+      }
+
+      const orderCss = reversed
+        ? breakpoint
+          ? `.bp-${breakpoint} .${cls}{order:-1}`
+          : `@media(max-width:767px){.${cls}{order:-1}}`
+        : '';
+
+      return (
+        <div
+          data-node={editing ? block.id : undefined}
+          className={['bb-col', className, p.cssClass ? String(p.cssClass) : '']
+            .filter(Boolean)
+            .join(' ')}
+          style={style}
+        >
+          {editing && editChrome ? editChrome(block) : null}
+          {css || orderCss ? <style>{css + orderCss}</style> : null}
+          {children.length ? (
+            children.map((child) => {
+              const rendered = (
+                <BlockRenderer
+                  block={child}
+                  mode={mode}
+                  products={products}
+                  categories={categories}
+                  renderStoreBlock={renderStoreBlock}
+                  editChrome={editChrome}
+                  editGutter={editGutter}
+                  breakpoint={breakpoint}
+                />
+              );
+              // Storefront rendering stays exactly as it was — no extra wrappers.
+              if (!editing || !editChrome) return <div key={child.id} style={{ display: 'contents' }}>{rendered}</div>;
+              // Modules get a wrapper that hosts their toolbar and selection ring;
+              // layout nodes render their own chrome inside themselves.
+              if (isLayoutType(child.type)) return <div key={child.id} className="w-full">{rendered}</div>;
+              return (
+                <div key={child.id} data-node={child.id} className={`relative w-full bb-${child.id}`}>
+                  {editChrome(child)}
+                  {rendered}
+                </div>
+              );
+            })
+          ) : mode === 'edit' ? (
+            <div className="flex min-h-24 flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-xs text-zinc-400">
+              <L text="Empty column — drop a module here" />
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
     case 'columns_2':
     case 'columns_3':
     case 'columns_4':
@@ -329,19 +931,22 @@ export default function BlockRenderer({
         </div>
       );
 
-    case 'html':
-      return (
-        <div
-          className="cms-embed"
-          dangerouslySetInnerHTML={{ __html: mode === 'edit' ? '' : String(p.code || '') }}
-        >
-          {mode === 'edit' ? (
+    case 'html': {
+      const code = String(p.code || '');
+      /* `dangerouslySetInnerHTML` and children are mutually exclusive in
+         React — in edit mode the code preview replaces the embed instead of
+         sitting inside it (this used to crash the whole canvas). */
+      if (mode === 'edit') {
+        return (
+          <div className="cms-embed">
             <pre className="overflow-x-auto rounded-lg bg-zinc-900 p-4 text-xs leading-relaxed text-emerald-300">
-              {String(p.code || '').slice(0, 400)}
+              {code.slice(0, 400)}
             </pre>
-          ) : null}
-        </div>
-      );
+          </div>
+        );
+      }
+      return <div className="cms-embed" dangerouslySetInnerHTML={{ __html: code }} />;
+    }
 
     case 'image': {
       const radius = p.rounded === 'full' ? '50%' : p.rounded === 'medium' ? '12px' : '0';
@@ -367,7 +972,7 @@ export default function BlockRenderer({
       if (!images.length) {
         return (
           <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center text-sm text-zinc-500">
-            No images in this gallery yet.
+            <L text="No images in this gallery yet." />
           </div>
         );
       }
@@ -392,41 +997,47 @@ export default function BlockRenderer({
       );
     }
 
-    case 'product_grid':
-      return (
-        <Section block={block}>
-          <Container>
-            {p.showTitle !== false && p.title ? (
-              <h2
-                className="mb-6"
-                style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--cms-text, #18181b)', margin: '0 0 24px' }}
-              >
-                {p.title}
-              </h2>
-            ) : null}
-            <ProductGrid block={block} products={products} />
-          </Container>
-        </Section>
-      );
+    case 'product_grid': {
+      /* `/home` hands us the live storefront card (with cart actions). */
+      const live = renderStoreBlock?.(block);
+      if (live) return <>{live}</>;
+      // Otherwise preview the shared showcase so the heading + cards look
+      // identical to the Product Showcase block.
+      return <ProductGrid block={block} products={products} mode={mode} />;
+    }
 
     /* Storefront sections need live catalogue data and server-only components,
-       so `/shop` renders them itself; here we only show what will appear. */
-    case 'store_products':
+       so `/home` renders them itself; here we only show what will appear. */
+    case 'store_products': {
+      /* `/home` hands us the live server-rendered section when it has one. */
+      const live = renderStoreBlock?.(block);
+      if (live) return <>{live}</>;
+      // Otherwise preview the real section with the resolved product list,
+      // so the admin always sees the products this block will show.
+      return <StoreProductsPreview block={block} products={products ?? []} />;
+    }
+
     case 'store_categories':
     case 'store_stats':
     case 'store_about':
     case 'store_deal':
     case 'store_story':
     case 'store_mind':
-    case 'store_blog': {
+    case 'store_blog':
+    case 'store_widgets': {
+      /* `/home` hands us the live server-rendered section when it has one. */
+      const live = renderStoreBlock?.(block);
+      if (live) return <>{live}</>;
       const def = BLOCK_DEFS[block.type];
       return (
         <Section block={block}>
           <Container>
             <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 px-6 py-10 text-center">
-              <p className="text-sm font-semibold text-emerald-800">{def.label}</p>
+              <p className="text-sm font-semibold text-emerald-800">
+                <L text={def.label} />
+              </p>
               <p className="mx-auto mt-1 max-w-sm text-xs text-emerald-700/70">
-                {def.description} Rendered with live data on the storefront.
+                <L text={def.description || ''} /> <T k="cmscontent.builder.renderedLive" />
               </p>
             </div>
           </Container>
@@ -441,7 +1052,7 @@ export default function BlockRenderer({
           title: String(entry?.title ?? '').trim(),
           price: String(entry?.price ?? '').trim(),
           img: String(entry?.image ?? '').trim(),
-          href: String(entry?.url ?? '').trim() || '/shop/products',
+          href: String(entry?.url ?? '').trim() || '/home/products',
           ctaLabel: String(entry?.ctaLabel ?? '').trim(),
         }))
         .filter((slide) => slide.title && slide.img);
@@ -451,7 +1062,7 @@ export default function BlockRenderer({
           <Section block={block}>
             <Container>
               <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-400">
-                Add a slide with an image and a title to show this hero.
+                <L text="Add a slide with an image and a title to show this hero." />
               </p>
             </Container>
           </Section>
@@ -604,13 +1215,15 @@ export default function BlockRenderer({
                       className="group rounded-xl border border-zinc-200 bg-white px-5 py-4"
                     >
                       <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900">
-                        {item.q || 'Untitled question'}
+                        {item.q || <L text="Untitled question" />}
                       </summary>
                       <p className="mt-3 text-sm leading-relaxed text-zinc-600">{item.a}</p>
                     </details>
                   ) : (
                     <div key={key} className="rounded-xl border border-zinc-200 bg-white px-5 py-4">
-                      <p className="text-sm font-semibold text-zinc-900">{item.q || 'Untitled question'}</p>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {item.q || <L text="Untitled question" />}
+                      </p>
                       <p className="mt-3 text-sm leading-relaxed text-zinc-600">{item.a}</p>
                     </div>
                   );
@@ -672,7 +1285,7 @@ export default function BlockRenderer({
     default:
       return (
         <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
-          Unknown block: {block.type}
+          <T k="cmscontent.builder.unknownBlock" params={{ type: block.type }} />
         </div>
       );
   }

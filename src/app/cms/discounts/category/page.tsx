@@ -21,6 +21,7 @@ import Pagination from '@/components/admin/Pagination';
 import ConfirmActionButton from '@/components/store/ConfirmActionButton';
 import DiscountForm, { type DiscountFormValues } from '@/components/store/DiscountForm';
 import { deleteCategoryDiscount } from '@/app/cms/actions/discounts';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export default async function CategoryDiscountsPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireCmsSession();
+  const t = await getT();
   const params = await searchParams;
 
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
@@ -101,14 +103,14 @@ export default async function CategoryDiscountsPage({
   return (
     <div>
       <PageHeader
-        title="Category discounts"
-        description="Time-boxed price reductions applied to every product in a category."
+        title={t('cmspromo.category.title')}
+        description={t('cmspromo.category.description')}
         actions={
           <Link
             href="/cms/discounts/product"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Product discounts
+            {t('cmspromo.category.link_product')}
           </Link>
         }
       />
@@ -118,8 +120,10 @@ export default async function CategoryDiscountsPage({
         <CardHeader>
           <CardTitle>
             {edited
-              ? `Edit discount: ${editedCategoryName || 'deleted category'}`
-              : 'Create category discount'}
+              ? t('cmspromo.discount.edit_title', {
+                  name: editedCategoryName || t('cmspromo.category.deleted_fallback'),
+                })
+              : t('cmspromo.category.create_title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -129,30 +133,32 @@ export default async function CategoryDiscountsPage({
 
       {rows.length === 0 ? (
         <EmptyState
-          title="No category discounts yet"
-          description="Create a discount above to run a promotion across a whole category."
+          title={t('cmspromo.category.empty_title')}
+          description={t('cmspromo.category.empty_desc')}
           icon={<Percent size={28} />}
         />
       ) : (
         <Table>
           <thead>
             <tr>
-              <Th>Category</Th>
-              <Th>Type</Th>
-              <Th className="text-right">Value</Th>
-              <Th>Date range</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
+              <Th>{t('cmspromo.category.th_category')}</Th>
+              <Th>{t('cmspromo.th.type')}</Th>
+              <Th className="text-right">{t('cmspromo.th.value')}</Th>
+              <Th>{t('cmspromo.th.date_range')}</Th>
+              <Th>{t('cmspromo.th.status')}</Th>
+              <Th className="text-right">{t('cmspromo.th.actions')}</Th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="transition hover:bg-zinc-50">
                 <Td className="font-medium text-zinc-900">
-                  {row.categoryName || 'Deleted category'}
+                  {row.categoryName || t('cmspromo.category.deleted_row')}
                 </Td>
                 <Td className="whitespace-nowrap text-zinc-500">
-                  {row.discountType === 'Percentage' ? 'Percentage' : 'Fixed'}
+                  {row.discountType === 'Percentage'
+                    ? t('cmspromo.type.percentage')
+                    : t('cmspromo.type.fixed')}
                 </Td>
                 <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
                   {row.discountType === 'Percentage'
@@ -162,7 +168,7 @@ export default async function CategoryDiscountsPage({
                 <Td className="whitespace-nowrap text-zinc-500">
                   {row.startDate ? formatDate(row.startDate) : '—'}
                   {' – '}
-                  {row.endDate ? formatDate(row.endDate) : 'No expiry'}
+                  {row.endDate ? formatDate(row.endDate) : t('cmspromo.date.no_expiry')}
                 </Td>
                 <Td>
                   <StatusBadge status={row.status} />
@@ -173,17 +179,17 @@ export default async function CategoryDiscountsPage({
                       href={`/cms/discounts/category?edit=${row.id}`}
                       className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      Edit
+                      {t('cmspromo.action.edit')}
                     </Link>
                     <ConfirmActionButton
                       action={deleteCategoryDiscount}
                       args={[row.id]}
-                      confirmMessage="Delete this category discount? This cannot be undone."
-                      successMessage="Discount deleted."
+                      confirmMessage={t('cmspromo.category.confirm_delete')}
+                      successMessage={t('cmspromo.discount.delete_success')}
                       variant="ghost"
                       className="text-red-600 hover:bg-red-50"
                     >
-                      Delete
+                      {t('cmspromo.action.delete')}
                     </ConfirmActionButton>
                   </div>
                 </Td>

@@ -1,5 +1,7 @@
 /** Shared, serializable shapes passed from the zones page to client components. */
 
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+
 export type ZoneLocationView = {
   id: number;
   type: string;
@@ -46,8 +48,8 @@ export type StateOption = {
   name: string;
 };
 
-export const METHOD_TYPE_LABELS: Record<string, string> = {
-  flat_rate: 'Flat Rate',
-  free_shipping: 'Free Shipping',
-  local_pickup: 'Local Pickup',
+export const METHOD_TYPE_KEYS: Record<string, keyof Dictionary> = {
+  flat_rate: 'cmsshared.shipping.method_flat_rate',
+  free_shipping: 'cmsshared.shipping.method_free_shipping',
+  local_pickup: 'cmsshared.shipping.method_local_pickup',
 };

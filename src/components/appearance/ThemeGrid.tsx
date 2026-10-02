@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Badge, Button, Card, CardContent, cn } from '@/components/admin/ui';
 import { setActiveTheme } from '@/app/cms/actions/theme';
 import type { ThemeDefinition } from '@/lib/theme/types';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Theme picker grid. Screenshots come from `public/themes/<id>/screenshot.svg`
@@ -19,6 +20,7 @@ export default function ThemeGrid({
   themes: ThemeDefinition[];
   activeId: string;
 }) {
+  const { t } = useLocale();
   const [pending, setPending] = useState<string | null>(null);
 
   async function activate(id: string) {
@@ -27,13 +29,17 @@ export default function ThemeGrid({
     try {
       const result = await setActiveTheme(id);
       if (result.ok) {
-        toast.success(`Theme “${themes.find((theme) => theme.id === id)?.name || id}” activated.`);
+        toast.success(
+          t('cmsshared.theme_grid.activated', {
+            name: themes.find((theme) => theme.id === id)?.name || id,
+          }),
+        );
       } else {
-        toast.error(result.error || 'Could not activate the theme.');
+        toast.error(result.error || t('cmsshared.theme_grid.activate_error'));
       }
     } catch (error) {
       console.error('[cms/appearance] activate failed', error);
-      toast.error('Something went wrong while activating the theme.');
+      toast.error(t('cmsshared.theme_grid.activate_failed'));
     } finally {
       setPending(null);
     }
@@ -57,12 +63,12 @@ export default function ThemeGrid({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={theme.screenshot}
-                alt={`${theme.name} theme screenshot`}
+                alt={t('cmsshared.theme_grid.screenshot_aria', { name: theme.name })}
                 className="h-full w-full object-cover"
               />
               {isActive ? (
                 <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow">
-                  <Sparkles size={12} /> Active
+                  <Sparkles size={12} /> {t('cmsshared.theme_grid.active')}
                 </span>
               ) : null}
             </div>
@@ -95,7 +101,7 @@ export default function ThemeGrid({
                     href="/cms/appearance/customize"
                     className="inline-flex h-8 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
                   >
-                    <Palette size={14} /> Customize
+                    <Palette size={14} /> {t('cmsshared.theme_grid.customize')}
                   </Link>
                 ) : (
                   <Button
@@ -104,7 +110,9 @@ export default function ThemeGrid({
                     disabled={pending !== null}
                     onClick={() => void activate(theme.id)}
                   >
-                    {pending === theme.id ? 'Activating…' : 'Activate'}
+                    {pending === theme.id
+                      ? t('cmsshared.theme_grid.activating')
+                      : t('cmsshared.theme_grid.activate')}
                   </Button>
                 )}
               </div>

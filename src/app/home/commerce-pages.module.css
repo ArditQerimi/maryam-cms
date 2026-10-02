@@ -619,8 +619,11 @@
 
 .summaryTitle {
   margin-bottom: 1.2rem;
+  /* Explicit ink: the heading must never inherit a cream/paper tone from an
+     outer surface (it was rendering nearly invisible on the white card). */
+  color: var(--commerce-ink);
   font-size: 1.35rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .summaryRow {

@@ -37,8 +37,8 @@ export async function updateAccountProfile(
     };
   }
 
-  revalidatePath('/shop/account');
-  revalidatePath('/shop/account/profile');
+  revalidatePath('/home/account');
+  revalidatePath('/home/account/profile');
 
   return {
     status: 'success',
@@ -58,7 +58,7 @@ export async function changeAccountPassword(
   if (!result.ok) {
     if (result.passwordChanged) {
       await clearSession();
-      redirect(getAccountLoginUrl('/shop/account/security', 'password-changed'));
+      redirect(getAccountLoginUrl('/home/account/security', 'password-changed'));
     }
 
     return {
@@ -68,7 +68,7 @@ export async function changeAccountPassword(
     };
   }
 
-  revalidatePath('/shop/account/security');
+  revalidatePath('/home/account/security');
   return {
     status: 'success',
     message: 'Your password has been changed and this browser has received a new session.',
@@ -78,5 +78,5 @@ export async function changeAccountPassword(
 
 export async function logoutCustomer() {
   await clearSession();
-  redirect('/shop');
+  redirect('/home');
 }

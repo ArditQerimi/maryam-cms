@@ -1,4 +1,5 @@
 import { requireCmsSession } from '@/lib/cms/session';
+import { getT, type Translator } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard';
 import SettingsForm from '@/components/settings/SettingsForm';
@@ -17,48 +18,56 @@ const DEFAULTS: SettingsValues = {
   media_organise_folders: false,
 };
 
-function sizeFields(label: string, widthKey: string, heightKey: string): SettingField[] {
+function sizeFields(t: Translator, label: string, widthKey: string, heightKey: string): SettingField[] {
   return [
-    { kind: 'number', key: widthKey, label: `${label} width`, min: 0, max: 4000, suffix: 'px' },
-    { kind: 'number', key: heightKey, label: `${label} height`, min: 0, max: 4000, suffix: 'px' },
+    { kind: 'number', key: widthKey, label: t('cmssettings.media.sizeWidth', { size: label }), min: 0, max: 4000, suffix: 'px' },
+    { kind: 'number', key: heightKey, label: t('cmssettings.media.sizeHeight', { size: label }), min: 0, max: 4000, suffix: 'px' },
   ];
 }
 
-const FIELDS: SettingField[] = [
-  ...sizeFields('Thumbnail size', 'media_thumb_width', 'media_thumb_height'),
-  ...sizeFields('Medium size', 'media_medium_width', 'media_medium_height'),
-  ...sizeFields('Large size', 'media_large_width', 'media_large_height'),
+function buildFields(t: Translator): SettingField[] {
+  return [
+  ...sizeFields(t, t('cmssettings.media.sizeThumbnail'), 'media_thumb_width', 'media_thumb_height'),
+  ...sizeFields(t, t('cmssettings.media.sizeMedium'), 'media_medium_width', 'media_medium_height'),
+  ...sizeFields(t, t('cmssettings.media.sizeLarge'), 'media_large_width', 'media_large_height'),
   {
     kind: 'toggle',
     key: 'media_organise_folders',
-    label: 'Organise uploads into month-based folders',
-    hint: 'New files are stored under /2026/09/ style paths.',
+    label: t('cmssettings.media.organiseLabel'),
+    hint: t('cmssettings.media.organiseHint'),
   },
-];
+  ];
+}
 
 export default async function MediaSettingsPage() {
   await requireCmsSession();
+  const t = await getT();
   const loaded = await loadSettingsByPrefix('media_');
   const values = withDefaults(DEFAULTS, loaded);
 
   return (
     <div>
       <PageHeader
-        title="Media settings"
-        description="Default image sizes generated for thumbnails, cards and detail views."
+        title={t('cmssettings.media.title')}
+        description={t('cmssettings.media.description')}
       />
 
       <div className="max-w-3xl space-y-6">
         <SettingsCard
-          title="Image sizes"
-          description="Width and height in pixels. Set to 0 to keep the original dimension."
+          title={t('cmssettings.media.cardTitle')}
+          description={t('cmssettings.media.cardDescription')}
         >
-          <SettingsForm fields={FIELDS} initialValues={values} onSubmit={saveMediaSettings}>
-            <SettingsSection title="Uploads">
+          <SettingsForm
+            fields={buildFields(t)}
+            initialValues={values}
+            onSubmit={saveMediaSettings}
+            saveLabel={t('cmssettings.common.saveChanges')}
+          >
+            <SettingsSection title={t('cmssettings.media.sectionTitle')}>
               <p className="text-xs text-zinc-500">
                 {values.media_organise_folders
-                  ? 'Files are grouped into month folders, which keeps large libraries manageable.'
-                  : 'Files are stored flat in the uploads root.'}
+                  ? t('cmssettings.media.uploadsOrganised')
+                  : t('cmssettings.media.uploadsFlat')}
               </p>
             </SettingsSection>
           </SettingsForm>

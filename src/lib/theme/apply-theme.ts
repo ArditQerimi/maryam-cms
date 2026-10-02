@@ -3,7 +3,7 @@
  *
  * `getStorefrontTheme` merges the persisted `theme_settings` row for a company
  * over the active theme's `theme.json` defaults, and `buildThemeCss` turns the
- * result into the `<style>` block injected by `src/app/shop/layout.tsx`.
+ * result into the `<style>` block injected by `src/app/home/layout.tsx`.
  */
 
 import { eq } from 'drizzle-orm';

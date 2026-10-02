@@ -1,29 +1,16 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
 import type { CartItem } from '@/context/CartContext';
-import type { CartPricedLine, TaxQuote } from '@/app/shop/cart/pricing-types';
+import type { CartPricedLine } from '@/app/home/cart/pricing-types';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from './checkout.module.css';
-
-type OrderSummaryPromotion = {
-  label: string;
-  discountCents: number;
-};
 
 type OrderSummaryProps = {
   headingId: string;
   cart: readonly CartItem[];
   itemCount: number;
-  /** Integer cents of the subtotal AFTER product/category discounts. */
-  subtotalCents: number;
   /** Server-priced cart lines; falls back to the local cart price when null. */
   pricing: CartPricedLine[] | null;
-  /** Validated promotion code, or `null` when none is applied. */
-  promotion: OrderSummaryPromotion | null;
-  /** Matched `tax_rates` row; `null` means no tax line is shown at all. */
-  taxQuote: TaxQuote | null;
-  deliveryLabel: string;
 };
 
 function formatMoney(value: number): string {
@@ -41,20 +28,17 @@ function lineKey(item: CartItem): string {
   return `${typeof item.productId}:${String(item.productId)}|${typeof item.variantId}:${String(item.variantId)}`;
 }
 
-function canRenderImage(value: string): boolean {
-  return value.startsWith('/') || value.startsWith('data:image/') || /^https?:\/\//i.test(value);
-}
-
+/**
+ * The "Your order" panel: a WooCommerce-style Product / Subtotal table only.
+ * Totals, coupon and payment live outside this component in the checkout aside.
+ */
 export default function OrderSummary({
   headingId,
   cart,
   itemCount,
-  subtotalCents,
   pricing,
-  promotion,
-  taxQuote,
-  deliveryLabel,
 }: OrderSummaryProps) {
+  const { t } = useLocale();
   const pricedLines = pricing && pricing.length === cart.length ? pricing : null;
 
   const linePriceCents = (index: number, item: CartItem): number => {
@@ -68,47 +52,37 @@ export default function OrderSummary({
   };
 
   return (
-    <div className={styles.summaryCard}>
-      <div className={styles.summaryHeadingRow}>
-        <div>
-          <p className={styles.summaryEyebrow}>Current cart</p>
-          <h2 className={styles.summaryHeading} id={headingId}>Order summary</h2>
-        </div>
+    <div className={styles.orderSummary}>
+      <div className={styles.orderHeadingRow}>
+        <h2 className={styles.orderHeading} id={headingId}>
+          {t('checkout.order.heading')}
+        </h2>
         <span className={styles.itemCount}>
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          {itemCount === 1
+            ? t('checkout.summary.itemCount.one', { count: itemCount })
+            : t('checkout.summary.itemCount.other', { count: itemCount })}
         </span>
       </div>
 
-      <ul className={styles.summaryItems} aria-label="Items in your current cart">
+      <div className={styles.orderTableHead}>
+        <span>{t('checkout.order.product')}</span>
+        <span>{t('checkout.order.subtotal')}</span>
+      </div>
+
+      <ul className={styles.summaryItems} aria-label={t('checkout.summary.itemsAria')}>
         {cart.map((item, index) => {
+          const unitCents = linePriceCents(index, item);
           const compareAtCents = lineCompareAtCents(index);
           return (
             <li className={styles.summaryItem} key={lineKey(item)}>
-              <div className={styles.summaryImageWrap} aria-hidden="true">
-                {canRenderImage(item.imageUrl) ? (
-                  <Image
-                    alt=""
-                    className={styles.summaryImage}
-                    height={84}
-                    src={item.imageUrl}
-                    unoptimized
-                    width={64}
-                  />
-                ) : (
-                  <span className={styles.summaryImageFallback} />
-                )}
-                <span className={styles.summaryQuantity}>{item.quantity}</span>
-              </div>
               <div className={styles.summaryItemDetails}>
                 <p className={styles.summaryItemName}>{item.name}</p>
-                {item.variantId !== null ? (
-                  <p className={styles.summaryVariant}>Variant {String(item.variantId)}</p>
-                ) : (
-                  <p className={styles.summaryVariant}>Default variant</p>
-                )}
+                <p className={styles.summaryQuantityLine}>
+                  {item.quantity} <span aria-hidden="true">&times;</span> {formatCents(unitCents)}
+                </p>
               </div>
               <p className={styles.summaryLinePrice}>
-                {formatCents(linePriceCents(index, item) * item.quantity)}
+                {formatCents(unitCents * item.quantity)}
                 {compareAtCents !== null ? (
                   <s className={styles.summaryLineOriginal}>
                     {formatCents(compareAtCents * item.quantity)}
@@ -119,44 +93,6 @@ export default function OrderSummary({
           );
         })}
       </ul>
-
-      <dl className={styles.summaryTotals}>
-        <div className={styles.summaryTotalRow}>
-          <dt>Cart subtotal</dt>
-          <dd>{formatCents(subtotalCents)}</dd>
-        </div>
-        <div className={styles.summaryTotalRow}>
-          <dt>Promotion</dt>
-          <dd>
-            {promotion
-              ? `${promotion.label} · −${formatCents(promotion.discountCents)}`
-              : 'Not applied'}
-          </dd>
-        </div>
-        <div className={styles.summaryTotalRow}>
-          <dt>Delivery</dt>
-          <dd>{deliveryLabel}</dd>
-        </div>
-        {taxQuote ? (
-          <div className={styles.summaryTotalRow}>
-            <dt>{taxQuote.label}</dt>
-            <dd>{formatCents(taxQuote.amountCents)}</dd>
-          </div>
-        ) : null}
-      </dl>
-
-      <div className={styles.estimateNotice}>
-        <span className={styles.estimateDot} aria-hidden="true" />
-        <p>
-          These browser totals are display-only. The server must verify stock,
-          variants, promotions, delivery, tax, and the final amount.
-        </p>
-      </div>
-
-      <Link className={styles.editCartLink} href="/shop/cart">
-        Edit cart
-        <span aria-hidden="true">→</span>
-      </Link>
     </div>
   );
 }

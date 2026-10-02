@@ -116,6 +116,8 @@ type ConfigInput = {
   saleFrom: string;
   saleTo: string;
   backorder: BackorderPolicy;
+  /** Validated '1'…'5' or '' — the card stars. */
+  rating: string;
 };
 
 async function writeConfig(db: Db, productId: number, config: ConfigInput) {
@@ -124,6 +126,7 @@ async function writeConfig(db: Db, productId: number, config: ConfigInput) {
     saleFrom: dateString(config.saleFrom),
     saleTo: dateString(config.saleTo),
     backorder: isBackorder(config.backorder),
+    rating: text(config.rating, 2),
   });
   const key = `products_config_${productId}`;
   const [existing] = await db
@@ -166,6 +169,7 @@ type ValidatedProduct = {
     saleFrom: string;
     saleTo: string;
     backorder: BackorderPolicy;
+    rating: string;
   };
 };
 
@@ -199,6 +203,17 @@ function validate(values: ProductFormValues): { ok: true; data: ValidatedProduct
     return { ok: false, error: 'The sale end date must be after the start date.' };
   }
 
+  // Store rating: '' (no stars) or a whole number 1–5 (shown on every card).
+  const ratingRaw = text(values.rating, 4).trim();
+  let rating = '';
+  if (ratingRaw) {
+    const parsedRating = Number(ratingRaw);
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return { ok: false, error: 'Store rating must be a whole number from 1 to 5.' };
+    }
+    rating = String(parsedRating);
+  }
+
   return {
     ok: true,
     data: {
@@ -227,6 +242,7 @@ function validate(values: ProductFormValues): { ok: true; data: ValidatedProduct
         saleFrom,
         saleTo,
         backorder: isBackorder(values.backorder),
+        rating,
       },
     },
   };
@@ -265,7 +281,7 @@ export async function createProduct(values: ProductFormValues): Promise<ActionRe
 
     revalidatePath('/cms/products');
     revalidatePath(`/cms/products/${product.id}/edit`);
-    revalidatePath('/shop/products');
+    revalidatePath('/home/products');
     return { ok: true, id: product.id };
   } catch (error) {
     return { ok: false, error: fkOrUniqueCode(error) || 'Could not create the product.' };
@@ -327,8 +343,8 @@ export async function updateProduct(id: number, values: ProductFormValues): Prom
 
     revalidatePath('/cms/products');
     revalidatePath(`/cms/products/${id}/edit`);
-    revalidatePath('/shop/products');
-    revalidatePath(`/shop/products/${id}`);
+    revalidatePath('/home/products');
+    revalidatePath(`/home/products/${id}`);
     return { ok: true, id };
   } catch (error) {
     return { ok: false, error: fkOrUniqueCode(error) || 'Could not save the product.' };
@@ -417,8 +433,8 @@ export async function deleteProduct(id: number): Promise<ActionResult> {
     await db.delete(productDiscounts).where(eq(productDiscounts.productId, id));
 
     revalidatePath('/cms/products');
-    revalidatePath('/shop/products');
-    revalidatePath(`/shop/products/${id}`);
+    revalidatePath('/home/products');
+    revalidatePath(`/home/products/${id}`);
     return { ok: true, id };
   } catch (error) {
     const referenced =

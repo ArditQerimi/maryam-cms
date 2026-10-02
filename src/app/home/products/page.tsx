@@ -15,18 +15,23 @@ import {
   priceProduct,
   type ActiveDiscounts,
 } from '@/lib/storefront/pricing';
+import { loadProductRatings } from '@/lib/storefront/section-data';
+import { getT } from '@/lib/i18n/server';
 import {
   getSingleActiveCatalogVariant,
   getStorefrontCatalogStock,
 } from '../catalog-variants';
 
-export const metadata: Metadata = {
-  title: 'Shop — Të gjithë librat',
-  description: 'Shfleto koleksionin tonë të plotë të librave — filtro sipas kategorisë, çmimit dhe më shumë.',
-  alternates: {
-    canonical: '/shop/products',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return {
+    title: t('catalog.meta.shop_title'),
+    description: t('catalog.meta.shop_description'),
+    alternates: {
+      canonical: '/home/products',
+    },
+  };
+}
 
 type ProductAttributeEntry = {
   value?: string | null;
@@ -115,10 +120,14 @@ async function loadStorefrontDiscounts(): Promise<ActiveDiscounts> {
 export default async function ShopProductsPage() {
   await connection();
 
-  const [categories, products, discounts] = await Promise.all([
+  const t = await getT();
+
+  const [categories, products, discounts, ratings] = await Promise.all([
     getCategories().catch(() => []),
     getProducts({ limit: 500 }).catch(() => []),
     loadStorefrontDiscounts(),
+    // Admin store rating (1–5) per product — rendered as card stars.
+    loadProductRatings().catch(() => new Map<number, number>()),
   ]);
 
   const storefrontCategories = categories.filter((category) => category.status === 'Active');
@@ -156,13 +165,16 @@ export default async function ShopProductsPage() {
         originalPrice: priced.discounted ? priced.originalPrice : null,
         imageUrl: parseImageUrl(product.imageUrl),
         categoryId,
-        categoryName: categoryId ? (categoryNames.get(categoryId) ?? 'Pa kategori') : 'Pa kategori',
+        categoryName: categoryId
+          ? (categoryNames.get(categoryId) ?? t('catalog.no_category'))
+          : t('catalog.no_category'),
         stockQuantity,
         variantId: selectedVariant?.id ?? null,
         description: product.description?.trim() ?? '',
         size: getAttributeValue(attributeValues, SIZE_ATTRIBUTE_NAMES),
         color: getAttributeValue(attributeValues, COLOR_ATTRIBUTE_NAMES),
         createdAt: toTimestamp(product.createdAt),
+        rating: ratings.get(product.id) ?? 0,
       };
     });
 

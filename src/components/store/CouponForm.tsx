@@ -7,6 +7,7 @@ import { Loader2, Plus, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Field, Input, Select } from '@/components/admin/ui';
 import { createCoupon, updateCoupon } from '@/app/cms/actions/coupons';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export const COUPON_STATUSES = [
   'Active',
@@ -38,6 +39,7 @@ export type CouponFormValues = {
  */
 export default function CouponForm({ coupon }: { coupon?: CouponFormValues | null }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const editing = Boolean(coupon);
 
@@ -50,14 +52,14 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
     const rawValue = String(formData.get('discountValue') || '').replace(',', '.');
     const value = Number(rawValue);
     if (!rawValue || !Number.isFinite(value) || value <= 0) {
-      toast.error('The discount value must be greater than 0.');
+      toast.error(t('cmsshared.coupon.invalid_value'));
       return;
     }
 
     const start = String(formData.get('startDate') || '');
     const end = String(formData.get('endDate') || '');
     if (start && end && new Date(end).getTime() < new Date(start).getTime()) {
-      toast.error('The end date must be on or after the start date.');
+      toast.error(t('cmsshared.coupon.invalid_range'));
       return;
     }
 
@@ -67,17 +69,17 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
         ? await updateCoupon(coupon.id, formData)
         : await createCoupon(formData);
       if (result.ok) {
-        toast.success(editing ? 'Coupon updated.' : 'Coupon created.');
+        toast.success(editing ? t('cmsshared.coupon.updated') : t('cmsshared.coupon.created'));
         if (editing) router.push('/cms/coupons');
         else {
           form.reset();
           router.refresh();
         }
       } else {
-        toast.error(result.error || 'Could not save the coupon.');
+        toast.error(result.error || t('cmsshared.coupon.error'));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the coupon.');
+      toast.error(error instanceof Error ? error.message : t('cmsshared.coupon.error'));
     } finally {
       setBusy(false);
     }
@@ -86,7 +88,7 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Coupon code" htmlFor="coupon-code" className="sm:col-span-2">
+        <Field label={t('cmsshared.coupon.code')} htmlFor="coupon-code" className="sm:col-span-2">
           <Input
             id="coupon-code"
             name="code"
@@ -97,7 +99,7 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
           />
         </Field>
 
-        <Field label="Discount type" htmlFor="coupon-type">
+        <Field label={t('cmsshared.coupon.discount_type')} htmlFor="coupon-type">
           <Select
             id="coupon-type"
             name="discountType"
@@ -105,16 +107,18 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
           >
             {COUPON_DISCOUNT_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type === 'Percentage' ? 'Percentage (%)' : 'Fixed amount'}
+                {type === 'Percentage'
+                  ? t('cmsshared.coupon.type_percentage')
+                  : t('cmsshared.coupon.type_fixed')}
               </option>
             ))}
           </Select>
         </Field>
 
         <Field
-          label="Value"
+          label={t('cmsshared.coupon.value')}
           htmlFor="coupon-value"
-          hint="Must be greater than 0 (max 100 for percentages)."
+          hint={t('cmsshared.coupon.value_hint')}
         >
           <Input
             id="coupon-value"
@@ -127,7 +131,7 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
           />
         </Field>
 
-        <Field label="Start date" htmlFor="coupon-start">
+        <Field label={t('cmsshared.coupon.start_date')} htmlFor="coupon-start">
           <Input
             id="coupon-start"
             name="startDate"
@@ -136,11 +140,11 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
           />
         </Field>
 
-        <Field label="End date" htmlFor="coupon-end">
+        <Field label={t('cmsshared.coupon.end_date')} htmlFor="coupon-end">
           <Input id="coupon-end" name="endDate" type="date" defaultValue={coupon?.endDate ?? ''} />
         </Field>
 
-        <Field label="Usage limit" htmlFor="coupon-limit" hint="0 = unlimited.">
+        <Field label={t('cmsshared.coupon.usage_limit')} htmlFor="coupon-limit" hint={t('cmsshared.coupon.usage_hint')}>
           <Input
             id="coupon-limit"
             name="usageLimit"
@@ -151,7 +155,7 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
           />
         </Field>
 
-        <Field label="Status" htmlFor="coupon-status">
+        <Field label={t('cmsshared.coupon.status')} htmlFor="coupon-status">
           <Select id="coupon-status" name="status" defaultValue={coupon?.status ?? 'Active'}>
             {COUPON_STATUSES.map((option) => (
               <option key={option} value={option}>
@@ -168,12 +172,12 @@ export default function CouponForm({ coupon }: { coupon?: CouponFormValues | nul
             href="/cms/coupons"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
-            Cancel
+            {t('cmsshared.action.cancel')}
           </Link>
         ) : null}
         <Button type="submit" variant="primary" size="md" disabled={busy}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : editing ? <Save size={14} /> : <Plus size={14} />}
-          {editing ? 'Save changes' : 'Create coupon'}
+          {editing ? t('cmsshared.action.save_changes') : t('cmsshared.coupon.create')}
         </Button>
       </div>
     </form>

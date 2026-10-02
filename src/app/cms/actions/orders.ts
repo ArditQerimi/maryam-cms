@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, like } from 'drizzle-orm';
-import nodemailer from 'nodemailer';
 import { getContextDb } from '@/lib/tenant';
 import {
   customers,
@@ -18,6 +17,8 @@ import {
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatMoney } from '@/lib/cms/format';
+import { isResendConfigured, sendEmail } from '@/lib/email/send';
+import { trackingEmailMessage } from '@/lib/email/templates';
 
 export type OrderActionResult = { ok: boolean; error?: string };
 export type SendEmailResult = {
@@ -247,20 +248,23 @@ export async function sendTrackingEmail(orderId: number): Promise<SendEmailResul
       .where(like(settingsStore.key, 'smtp_%'));
 
     const config = buildSmtpConfig(settings);
-    if (!config) {
+    const resendReady = isResendConfigured();
+    if (!config && !resendReady) {
       return {
         ok: false,
         notConfigured: true,
-        error: 'SMTP is not configured. Open /cms/settings/email and save your outbound email settings first.',
+        error:
+          'No email provider configured — add RESEND_API_KEY to the .env file (Resend) or save your SMTP settings at /cms/settings/email first.',
       };
     }
 
     const recipientName = customer?.name || user?.name || '';
     const currency = details?.currency || 'EUR';
+    const amountText = formatMoney(sale.grandTotal, currency);
     const lines = [
       recipientName ? `Hello ${recipientName},` : 'Hello,',
       '',
-      `Your order ${sale.reference} (${formatMoney(sale.grandTotal, currency)}) is on its way.`,
+      `Your order ${sale.reference} (${amountText}) is on its way.`,
       '',
       `Tracking number: ${tracking.trackingNumber}`,
       tracking.carrier ? `Carrier: ${tracking.carrier}` : '',
@@ -269,22 +273,32 @@ export async function sendTrackingEmail(orderId: number): Promise<SendEmailResul
       'Thank you for shopping with us!',
     ].filter((line) => line !== '');
 
-    const transport = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: { user: config.user, pass: config.pass },
-    });
-
-    await transport.sendMail({
-      from: config.fromName ? `${config.fromName} <${config.from}>` : config.from,
+    const outcome = await sendEmail({
       to,
       subject: `Tracking details for order ${sale.reference}`,
       text: lines.join('\n'),
-      html: lines
-        .map((line) => (line ? `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>` : '<br/>'))
-        .join(''),
+      react: trackingEmailMessage({
+        recipientName: recipientName || undefined,
+        orderReference: sale.reference,
+        amountText,
+        trackingNumber: tracking.trackingNumber,
+        carrier: tracking.carrier,
+        trackingUrl: tracking.trackingUrl,
+      }),
+      smtp: config,
     });
+
+    if (!outcome.ok) {
+      if ('notConfigured' in outcome) {
+        return {
+          ok: false,
+          notConfigured: true,
+          error:
+            'No email provider configured — add RESEND_API_KEY to the .env file (Resend) or save your SMTP settings at /cms/settings/email first.',
+        };
+      }
+      return { ok: false, error: `Could not send the tracking email: ${outcome.error}` };
+    }
 
     const [existing] = await db
       .select({ id: orderTracking.id })

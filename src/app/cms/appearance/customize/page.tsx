@@ -5,6 +5,7 @@ import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { themeSettings } from '@/db/schema-tenant';
 import { DEFAULT_THEME_ID, getTheme } from '@/lib/theme/themes';
 import { mergeCustomizations } from '@/lib/theme/types';
+import { getT } from '@/lib/i18n/server';
 import { EmptyState, PageHeader } from '@/components/admin/ui';
 import Customizer from '@/components/appearance/Customizer';
 
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function CustomizePage() {
   await requireCmsSession();
+  const t = await getT();
 
   let activeTheme = DEFAULT_THEME_ID;
   let savedCustomizations: unknown = {};
@@ -40,16 +42,16 @@ export default async function CustomizePage() {
   return (
     <div>
       <PageHeader
-        title="Theme customizer"
-        description="Edit colours, typography and content blocks with a live preview of the storefront."
+        title={t('cmsappearance.customize.title')}
+        description={t('cmsappearance.customize.description')}
       />
 
       {theme ? (
         <Customizer theme={theme} initial={mergeCustomizations(theme, savedCustomizations)} />
       ) : (
         <EmptyState
-          title="No theme installed"
-          description="Add src/themes/<id>/theme.json to make a theme available for customization."
+          title={t('cmsappearance.customize.emptyTitle')}
+          description={t('cmsappearance.customize.emptyDescription')}
           icon={<Palette size={28} />}
         />
       )}

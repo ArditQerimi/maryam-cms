@@ -7,6 +7,9 @@ import { Heart, Search, ShoppingBag, User, Repeat, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useCompare } from '@/context/CompareContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { navLabelKey } from '@/lib/i18n/nav-labels';
+import LanguageSwitcher from './LanguageSwitcher';
 
 function cartLineKey(item: { productId: string | number; variantId: string | number | null }) {
   return `${String(item.productId)}:${String(item.variantId)}`;
@@ -37,7 +40,7 @@ type ShopHeaderProps = {
 };
 
 export default function ShopHeader({
-  accountHref = '/shop/login',
+  accountHref = '/home/login',
   blogCategories = [],
   navItems = [],
   brandName = 'ELIF',
@@ -50,9 +53,9 @@ export default function ShopHeader({
   headerBgColor = '#ffffff',
 }: ShopHeaderProps) {
   const pathname = usePathname();
-  const isHomePage = pathname === '/shop';
+  const isHomePage = pathname === '/home';
   const isActive = (href: string) => (
-    href === '/shop' ? pathname === href : pathname.startsWith(href)
+    href === '/home' ? pathname === href : pathname.startsWith(href)
   );
   // CMS menu wins when it has items; otherwise the historical links stay.
   const hasCustomNav = navItems.some((item) => item.label && item.label.trim());
@@ -74,17 +77,27 @@ export default function ShopHeader({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { t } = useLocale();
+
+  /**
+   * CMS menu labels are stored in the database; the seeded defaults get their
+   * localized wording, merchant-renamed labels stay exactly as written.
+   */
+  const navLabel = (label: string) => {
+    const key = navLabelKey(label);
+    return key ? t(key) : label;
+  };
 
   const shopDropdown = [
-    { label: 'Cart', href: '/shop/cart' },
-    { label: 'Checkout', href: '/shop/checkout' },
-    { label: 'Wishlist', href: '/shop/wishlist' },
-    { label: 'Compare', href: '/shop/compare' },
-    { label: 'My Account', href: accountHref },
+    { label: t('header.shop.cart'), href: '/home/cart' },
+    { label: t('header.shop.checkout'), href: '/home/checkout' },
+    { label: t('header.shop.wishlist'), href: '/home/wishlist' },
+    { label: t('header.shop.compare'), href: '/home/compare' },
+    { label: t('header.shop.account'), href: accountHref },
   ];
 
   const blogDropdown = [
-    { label: 'All articles', href: '/shop/blogs' },
+    { label: t('header.blog.all'), href: '/home/blogs' },
     ...blogCategories.map((category) => ({ label: category.name, href: category.href })),
   ];
 
@@ -98,13 +111,13 @@ export default function ShopHeader({
           <button
             type="button"
             className="site-burger"
-            aria-label="Open menu"
+            aria-label={t('header.menu.open')}
             onClick={() => setIsMenuOpen(true)}
           >
             ☰
           </button>
 
-          <nav className="site-nav" aria-label="Primary">
+          <nav className="site-nav" aria-label={t('header.nav.aria')}>
             {hasCustomNav ? (
               navItems
                 .filter((item) => item.label && item.label.trim())
@@ -116,24 +129,24 @@ export default function ShopHeader({
                       item.url.startsWith('/') && isActive(item.url) ? ' is-active' : ''
                     }${item.depth === 1 ? ' is-sub' : ''}`}
                   >
-                    {item.label}
+                    {navLabel(item.label)}
                   </Link>
                 ))
             ) : (
               <>
                 <Link
-                  href="/shop"
-                  className={`site-nav-link${isActive('/shop') ? ' is-active' : ''}`}
+                  href="/home"
+                  className={`site-nav-link${isActive('/home') ? ' is-active' : ''}`}
                 >
-                  Home
+                  {t('header.nav.home')}
                 </Link>
 
                 <div className="site-nav-item">
                   <Link
-                    href="/shop/products"
-                    className={`site-nav-link${isActive('/shop/products') ? ' is-active' : ''}`}
+                    href="/home/products"
+                    className={`site-nav-link${isActive('/home/products') ? ' is-active' : ''}`}
                   >
-                    Shop <span className="site-nav-caret">▾</span>
+                    {t('header.nav.shop')} <span className="site-nav-caret">▾</span>
                   </Link>
                   <div className="site-dropdown">
                     {shopDropdown.map((item) => (
@@ -144,10 +157,10 @@ export default function ShopHeader({
 
                 <div className="site-nav-item">
                   <Link
-                    href="/shop/blogs"
-                    className={`site-nav-link${isActive('/shop/blogs') ? ' is-active' : ''}`}
+                    href="/home/blogs"
+                    className={`site-nav-link${isActive('/home/blogs') ? ' is-active' : ''}`}
                   >
-                    Blog <span className="site-nav-caret">▾</span>
+                    {t('header.nav.blog')} <span className="site-nav-caret">▾</span>
                   </Link>
                   <div className="site-dropdown">
                     {blogDropdown.map((item) => (
@@ -157,22 +170,22 @@ export default function ShopHeader({
                 </div>
 
                 <Link
-                  href="/shop/about-us"
-                  className={`site-nav-link${isActive('/shop/about-us') ? ' is-active' : ''}`}
+                  href="/home/about-us"
+                  className={`site-nav-link${isActive('/home/about-us') ? ' is-active' : ''}`}
                 >
-                  About Us
+                  {t('header.nav.about')}
                 </Link>
                 <Link
-                  href="/shop/contact"
-                  className={`site-nav-link${isActive('/shop/contact') ? ' is-active' : ''}`}
+                  href="/home/contact"
+                  className={`site-nav-link${isActive('/home/contact') ? ' is-active' : ''}`}
                 >
-                  Contact Us
+                  {t('header.nav.contact')}
                 </Link>
               </>
             )}
           </nav>
 
-          <Link href="/shop" className="site-brand" aria-label={brandNameText}>
+          <Link href="/home" className="site-brand" aria-label={brandNameText}>
             {brandLogo.trim() ? (
               <img
                 className="site-brand-logo"
@@ -196,20 +209,20 @@ export default function ShopHeader({
               <button
                 type="button"
                 className="site-icon-btn"
-                aria-label="Search"
+                aria-label={t('header.search.open')}
                 onClick={() => setIsSearchOpen(true)}
               >
                 <Search size={24} strokeWidth={1.5} />
               </button>
             ) : null}
-            <Link href={accountHref} className="site-icon-btn" aria-label="Account">
+            <Link href={accountHref} className="site-icon-btn" aria-label={t('header.account')}>
               <User size={24} strokeWidth={1.5} />
             </Link>
-            <Link href="/shop/compare" className="site-icon-btn" aria-label="Compare">
+            <Link href="/home/compare" className="site-icon-btn" aria-label={t('header.compare')}>
               <Repeat size={24} strokeWidth={1.5} />
               <span className="site-badge">{compareItems.length}</span>
             </Link>
-            <Link href="/shop/wishlist" className="site-icon-btn" aria-label="Wishlist">
+            <Link href="/home/wishlist" className="site-icon-btn" aria-label={t('header.wishlist')}>
               <Heart size={24} strokeWidth={1.5} />
               <span className="site-badge">{wishlist.length}</span>
             </Link>
@@ -217,13 +230,14 @@ export default function ShopHeader({
               <button
                 type="button"
                 className="site-icon-btn"
-                aria-label="Cart"
+                aria-label={t('header.cart')}
                 onClick={() => setIsCartOpen(true)}
               >
                 <ShoppingBag size={24} strokeWidth={1.5} />
                 <span className="site-badge">{totalItems}</span>
               </button>
             ) : null}
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -235,25 +249,25 @@ export default function ShopHeader({
             <button
               type="button"
               className="site-search-close"
-              aria-label="Close search"
+              aria-label={t('header.search.close')}
               onClick={() => setIsSearchOpen(false)}
             >
               <X size={22} />
             </button>
             <form
               className="site-search-form"
-              action="/shop/products"
+              action="/home/products"
               method="get"
               onSubmit={() => setIsSearchOpen(false)}
             >
               <input
                 type="search"
                 name="q"
-                placeholder="Search by title or SKU…"
-                aria-label="Search products"
+                placeholder={t('header.search.placeholder')}
+                aria-label={t('header.search.title')}
                 autoFocus
               />
-              <button type="submit" className="button">Search</button>
+              <button type="submit" className="button">{t('header.search.submit')}</button>
             </form>
           </div>
         </div>
@@ -267,13 +281,13 @@ export default function ShopHeader({
             onClick={() => setIsCartOpen(false)}
             aria-hidden="true"
           />
-          <aside className="site-cart-panel" role="dialog" aria-modal="true" aria-label="Shopping Cart">
+          <aside className="site-cart-panel" role="dialog" aria-modal="true" aria-label={t('header.cart.title')}>
             <div className="site-cart-head">
-              <h2 className="site-cart-title">Shopping Cart</h2>
+              <h2 className="site-cart-title">{t('header.cart.title')}</h2>
               <button
                 type="button"
                 className="site-cart-close"
-                aria-label="Close cart"
+                aria-label={t('header.cart.close')}
                 onClick={() => setIsCartOpen(false)}
               >
                 <X size={20} />
@@ -282,7 +296,7 @@ export default function ShopHeader({
 
             <div className="site-cart-items">
               {cart.length === 0 ? (
-                <p className="site-cart-empty">Shporta juaj është bosh.</p>
+                <p className="site-cart-empty">{t('header.cart.empty')}</p>
               ) : (
                 cart.map((item) => (
                   <div key={cartLineKey(item)} className="site-cart-item">
@@ -300,7 +314,7 @@ export default function ShopHeader({
                     <button
                       type="button"
                       className="site-cart-remove"
-                      aria-label={`Remove ${item.name}`}
+                      aria-label={t('header.cart.removeItem', { name: item.name })}
                       onClick={() => removeFromCart({ productId: item.productId, variantId: item.variantId })}
                     >
                       ×
@@ -312,23 +326,23 @@ export default function ShopHeader({
 
             <div className="site-cart-foot">
               <div className="site-cart-subtotal">
-                <span>Subtotal:</span>
+                <span>{t('header.cart.subtotal')}</span>
                 <span>€{subtotal.toFixed(2)}</span>
               </div>
               <div className="site-cart-actions">
                 <Link
-                  href="/shop/cart"
+                  href="/home/cart"
                   className="button is-outline"
                   onClick={() => setIsCartOpen(false)}
                 >
-                  View Cart
+                  {t('header.cart.view')}
                 </Link>
                 <Link
-                  href="/shop/checkout"
+                  href="/home/checkout"
                   className="button"
                   onClick={() => setIsCartOpen(false)}
                 >
-                  Checkout
+                  {t('header.cart.checkout')}
                 </Link>
               </div>
             </div>
@@ -345,7 +359,7 @@ export default function ShopHeader({
               type="button"
               className="site-icon-btn"
               onClick={() => setIsMenuOpen(false)}
-              aria-label="Close menu"
+              aria-label={t('header.menu.close')}
             >
               <X size={22} />
             </button>
@@ -361,19 +375,19 @@ export default function ShopHeader({
                     className={item.depth === 1 ? 'is-sub' : undefined}
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    {item.label}
+                    {navLabel(item.label)}
                   </Link>
                 ))
             ) : (
               <>
-                <Link href="/shop" onClick={() => setIsMenuOpen(false)}>Home</Link>
-                <Link href="/shop/products" onClick={() => setIsMenuOpen(false)}>Shop</Link>
-                <Link href="/shop/blogs" onClick={() => setIsMenuOpen(false)}>Blog</Link>
-                <Link href="/shop/about-us" onClick={() => setIsMenuOpen(false)}>About Us</Link>
-                <Link href="/shop/contact" onClick={() => setIsMenuOpen(false)}>Contact Us</Link>
+                <Link href="/home" onClick={() => setIsMenuOpen(false)}>{t('header.nav.home')}</Link>
+                <Link href="/home/products" onClick={() => setIsMenuOpen(false)}>{t('header.nav.shop')}</Link>
+                <Link href="/home/blogs" onClick={() => setIsMenuOpen(false)}>{t('header.nav.blog')}</Link>
+                <Link href="/home/about-us" onClick={() => setIsMenuOpen(false)}>{t('header.nav.about')}</Link>
+                <Link href="/home/contact" onClick={() => setIsMenuOpen(false)}>{t('header.nav.contact')}</Link>
               </>
             )}
-            <Link href={accountHref} onClick={() => setIsMenuOpen(false)}>My Account</Link>
+            <Link href={accountHref} onClick={() => setIsMenuOpen(false)}>{t('header.shop.account')}</Link>
           </nav>
         </div>
       ) : null}

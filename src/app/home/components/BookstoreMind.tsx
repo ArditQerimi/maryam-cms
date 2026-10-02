@@ -1,3 +1,4 @@
+import { getT } from '@/lib/i18n/server';
 import styles from '../bookstore.module.css';
 import { parseImageUrl } from '@/lib/image-url';
 import type { getCategories, getProducts } from '@/lib/actions';
@@ -5,13 +6,14 @@ import type { getCategories, getProducts } from '@/lib/actions';
 type CategoryRecord = Awaited<ReturnType<typeof getCategories>>[number];
 type ProductRecord = Awaited<ReturnType<typeof getProducts>>[number];
 
-export default function BookstoreMind({
+export default async function BookstoreMind({
   categories,
   products,
 }: {
   categories: CategoryRecord[];
   products: ProductRecord[];
 }) {
+  const t = await getT();
   const visibleCategories = categories
     .filter((category) => category.status === 'Active' && category.name.trim())
     .slice(0, 5);
@@ -32,16 +34,15 @@ export default function BookstoreMind({
             ) : null}
           </div>
           <div className={styles.mindCopy}>
-            <p className={styles.sectionEyebrowLeft}>Rreth katalogut</p>
+            <p className={styles.sectionEyebrowLeft}>{t('home.mind.eyebrow')}</p>
             <h2 className={styles.mindTitle}>
-              ZGJERO<br />MENDJEN TËNDE<br />ÇDO DITË
+              {t('home.mind.title.line1')}<br />{t('home.mind.title.line2')}<br />{t('home.mind.title.line3')}
             </h2>
             <p className={styles.mindLead}>
-              Dituria fiton nga leximi i qëndrueshëm. Shfleto kategoritë aktuale
-              dhe zgjidh titullin që i përshtatet pyetjes suaj.
+              {t('home.mind.lead')}
             </p>
             {visibleCategories.length > 0 ? (
-              <div className={styles.mindPartners} aria-label="Kategoritë aktuale">
+              <div className={styles.mindPartners} aria-label={t('home.mind.categoriesLabel')}>
                 {visibleCategories.map((category) => (
                   <span key={category.id} className={styles.mindPartner}>{category.name}</span>
                 ))}

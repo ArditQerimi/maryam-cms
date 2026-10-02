@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export type SalesPoint = {
   day: string;
@@ -17,8 +18,12 @@ export type SalesPoint = {
 };
 
 export default function SalesChart({ data }: { data: SalesPoint[] }) {
+  const { t } = useLocale();
+
   if (!data.length) {
-    return <p className="py-10 text-center text-sm text-zinc-500">No sales in this period.</p>;
+    return (
+      <p className="py-10 text-center text-sm text-zinc-500">{t('cmscommon.chart.noSales')}</p>
+    );
   }
 
   return (
@@ -58,7 +63,10 @@ export default function SalesChart({ data }: { data: SalesPoint[] }) {
               const display = isRevenue
                 ? `€${Number(value ?? 0).toFixed(2)}`
                 : String(value ?? 0);
-              return [display, isRevenue ? 'Revenue' : 'Orders'] as [string, string];
+              return [
+                display,
+                isRevenue ? t('cmscommon.chart.revenue') : t('cmscommon.chart.orders'),
+              ] as [string, string];
             }}
           />
           <Area
