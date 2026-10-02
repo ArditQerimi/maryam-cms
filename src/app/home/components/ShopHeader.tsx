@@ -10,6 +10,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { navLabelKey } from '@/lib/i18n/nav-labels';
 import LanguageSwitcher from './LanguageSwitcher';
+import HeaderSearch from './HeaderSearch';
 
 function cartLineKey(item: { productId: string | number; variantId: string | number | null }) {
   return `${String(item.productId)}:${String(item.variantId)}`;
@@ -242,36 +243,8 @@ export default function ShopHeader({
         </div>
       </header>
 
-      {/* Search overlay */}
-      {isSearchOpen && showSearch ? (
-        <div className="site-search-overlay" role="dialog" aria-modal="true">
-          <div className="site-search-panel">
-            <button
-              type="button"
-              className="site-search-close"
-              aria-label={t('header.search.close')}
-              onClick={() => setIsSearchOpen(false)}
-            >
-              <X size={22} />
-            </button>
-            <form
-              className="site-search-form"
-              action="/home/products"
-              method="get"
-              onSubmit={() => setIsSearchOpen(false)}
-            >
-              <input
-                type="search"
-                name="q"
-                placeholder={t('header.search.placeholder')}
-                aria-label={t('header.search.title')}
-                autoFocus
-              />
-              <button type="submit" className="button">{t('header.search.submit')}</button>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {/* Search: white bar with live suggestions (see HeaderSearch). */}
+      {isSearchOpen && showSearch ? <HeaderSearch onClose={() => setIsSearchOpen(false)} /> : null}
 
       {/* Cart sidebar */}
       {isCartOpen && showCart ? (

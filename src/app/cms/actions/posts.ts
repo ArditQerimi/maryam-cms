@@ -36,6 +36,24 @@ function readString(formData: FormData, key: string, max = 4000) {
   return typeof value === 'string' ? value.slice(0, max) : '';
 }
 
+/**
+ * The excerpt comes from the rich-text editor (HTML). The column holds 320
+ * characters, so an excerpt whose markup would not fit is kept as plain text
+ * instead of being cut mid-tag.
+ */
+function readExcerpt(formData: FormData) {
+  const html = readString(formData, 'excerpt', 20000).trim();
+  if (html === '<p></p>') return '';
+  if (html.length <= 320) return html;
+  const text = html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.slice(0, 320);
+}
+
 function readCategoryId(formData: FormData): number | null {
   const raw = readString(formData, 'categoryId', 20).trim();
   if (!raw) return null;
@@ -83,7 +101,7 @@ export async function createPost(formData: FormData): Promise<PostActionResult> 
       categoryId: readCategoryId(formData),
       title,
       slug,
-      excerpt: readString(formData, 'excerpt', 320),
+      excerpt: readExcerpt(formData),
       content: readString(formData, 'content', 400_000),
       coverImageUrl: readString(formData, 'coverImageUrl', 1000) || null,
       authorName: sessionAuthor(session),
@@ -130,7 +148,7 @@ export async function updatePost(id: number, formData: FormData): Promise<PostAc
       categoryId: readCategoryId(formData),
       title,
       slug,
-      excerpt: readString(formData, 'excerpt', 320),
+      excerpt: readExcerpt(formData),
       content: readString(formData, 'content', 400_000),
       coverImageUrl: readString(formData, 'coverImageUrl', 1000) || null,
       authorName: current.authorName || sessionAuthor(session),

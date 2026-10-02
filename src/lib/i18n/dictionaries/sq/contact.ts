@@ -54,7 +54,7 @@ export const contact: typeof contactEn = {
   'contact.map.aria': 'Vendndodhja e dyqanit në hartë',
   'contact.map.title': 'Harta e dyqanit — {address}',
   'contact.map.info': 'Vendndodhja e dyqanit',
-  'contact.map.openExternal': 'Hap në Google Maps',
+  'contact.map.openExternal': 'Hap në OpenStreetMap',
   'contact.map.zoomIn': 'Afro',
   'contact.map.zoomOut': 'Largo',
   'contact.policy.shipping': 'Shipping Policy',

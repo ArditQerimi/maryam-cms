@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import React from 'react';
 import { getSession } from '@/lib/session';
+import { hasShopperSessionAudience } from '@/lib/auth-validation';
 import { getFilterOptions, getStorefrontBlogPosts } from './blogs/blog-data';
 import { getContextCompany } from '@/lib/tenant';
 import { getPublicEcommerceStorefrontPresentation } from '@/lib/storefront-settings/reader';
@@ -100,11 +101,9 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       name: category.label,
       href: `/home/blogs?category=${encodeURIComponent(category.value)}`,
     }));
-  const accountHref = session?.platformRole === 'customer'
-    ? '/home/account'
-    : session?.platformRole === 'admin' || session?.platformRole === 'super_admin'
-      ? '/'
-      : '/home/login';
+  // The shop's user icon always opens My account; when nobody is signed in as
+  // a customer, that page itself sends them to the customer sign-in first.
+  const accountHref = '/home/account';
 
   // Cookie-resolved storefront locale (sq default) + its dictionary for the
   // client tree — see src/lib/i18n.
@@ -113,7 +112,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
 
   return (
     <LocaleProvider locale={locale} dict={dict}>
-      <ShopProviders>
+      <ShopProviders customerSession={hasShopperSessionAudience(session)}>
         <PreviewBridge />
         <div
           className={`${styles.shopWrapper} shopWrapper`}

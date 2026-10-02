@@ -8,8 +8,7 @@ import { getTenantDb } from '@/db/index';
 import * as tenantSchema from '@/db/schema-tenant';
 import { hashPassword } from '@/lib/auth';
 import {
-  hasCustomerSessionAudience,
-  isActiveCustomerAccount,
+  hasShopperSessionAudience,
   isSessionForCompany,
 } from '@/lib/auth-validation';
 import { getSession } from '@/lib/session';
@@ -117,7 +116,8 @@ function isExactCustomer(
 ): customer is ExactAccountCustomerRow {
   return Boolean(
     customer &&
-    isActiveCustomerAccount({ status: customer.status, roleName: customer.roleName }) &&
+    // Customers and store staff alike use My account on their own user row.
+    customer.status === 'Active' &&
     customer.tenantRoleId
   );
 }
@@ -207,7 +207,7 @@ export async function getAccountAccess(): Promise<AccountAccess> {
   const userId = parsePositiveSessionId(session.userId);
   if (
     !userId ||
-    !hasCustomerSessionAudience(session) ||
+    !hasShopperSessionAudience(session) ||
     !isSessionForCompany(session, company.id)
   ) {
     return { status: 'denied' };

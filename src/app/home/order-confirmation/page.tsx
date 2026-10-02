@@ -8,6 +8,7 @@ import {
   type StorefrontOrderConfirmation,
 } from '@/lib/storefront/checkout-order-confirmation';
 import { formatPersistedCheckoutMoney } from '@/lib/storefront/checkout-money';
+import { addressLines } from '@/lib/account/addresses';
 import styles from './order-confirmation.module.css';
 
 export const metadata: Metadata = {
@@ -51,13 +52,13 @@ async function ConfirmationUnavailable() {
 }
 
 async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmation }) {
-  const lineItems = [
-    { name: 'Bob golf book', qty: 1, total: 103 },
-    { name: 'Luna and friend', qty: 1, total: 90 },
-  ];
-  const subtotal = 193;
-  const shipping = 'Flat rate';
   const paymentMethod = formatCapability(order.paymentMethodId);
+  const money = (value: string | number) => formatPersistedCheckoutMoney(String(value), order.currency);
+  // Shipping is what remains of the grand total after merchandise, coupon and tax.
+  const shippingCost =
+    Number(order.total) - Number(order.subtotal) + Number(order.discount) - Number(order.tax);
+  const billing = addressLines(order.billingAddress);
+  const shipping = addressLines(order.shippingAddress);
 
   return (
     <div className={styles.page}>
@@ -89,7 +90,7 @@ async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmati
             </div>
             <div>
               <dt>Total:</dt>
-              <dd>{formatPersistedCheckoutMoney(order.total, order.currency)}</dd>
+              <dd>{money(order.total)}</dd>
             </div>
             <div>
               <dt>Payment method:</dt>
@@ -97,7 +98,9 @@ async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmati
             </div>
           </dl>
 
-          <p className={styles.payInfo}>Pay with cash upon delivery.</p>
+          {order.paymentMethodId === 'cash_on_delivery' ? (
+            <p className={styles.payInfo}>Pay with cash upon delivery.</p>
+          ) : null}
 
           <section className={styles.orderSummary} aria-labelledby="order-details-title">
             <h2 id="order-details-title">Order details</h2>
@@ -107,28 +110,46 @@ async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmati
                 <span>Total</span>
               </div>
 
-              {lineItems.map((item) => (
-                <div key={item.name} className={styles.summaryRow}>
-                  <span>{item.name} × {item.qty}</span>
-                  <span>{formatPersistedCheckoutMoney(String(item.total), order.currency)}</span>
+              {order.lines.map((line, index) => (
+                <div key={`${line.name}-${index}`} className={styles.summaryRow}>
+                  <span>
+                    {line.name}
+                    {line.variant ? ` — ${line.variant}` : ''} × {line.quantity}
+                  </span>
+                  <span>{money(line.total)}</span>
                 </div>
               ))}
 
               <div className={styles.summaryRow}>
                 <span>Subtotal:</span>
-                <span>{formatPersistedCheckoutMoney(String(subtotal), order.currency)}</span>
+                <span>{money(order.subtotal)}</span>
               </div>
+              {Number(order.discount) > 0 ? (
+                <div className={styles.summaryRow}>
+                  <span>Discount:</span>
+                  <span>-{money(order.discount)}</span>
+                </div>
+              ) : null}
               <div className={styles.summaryRow}>
                 <span>Shipping:</span>
-                <span>{shipping}</span>
+                <span>
+                  {formatCapability(order.deliveryMethodId)}
+                  {shippingCost > 0.004 ? ` (${money(shippingCost.toFixed(2))})` : ''}
+                </span>
               </div>
+              {Number(order.tax) > 0 ? (
+                <div className={styles.summaryRow}>
+                  <span>Tax:</span>
+                  <span>{money(order.tax)}</span>
+                </div>
+              ) : null}
               <div className={styles.summaryRow}>
                 <span>Payment method:</span>
                 <span>{paymentMethod}</span>
               </div>
               <div className={styles.summaryRowTotal}>
                 <span>Total:</span>
-                <span>{formatPersistedCheckoutMoney(order.total, order.currency)}</span>
+                <span>{money(order.total)}</span>
               </div>
             </div>
           </section>
@@ -137,20 +158,20 @@ async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmati
             <section className={styles.addressCard}>
               <h3>Billing address</h3>
               <div className={styles.addressBody}>
-                <p>ardit qerimi</p>
-                <p>Kosova</p>
-                <p>Kosova, CA 10000</p>
-                <p>049494949</p>
-                <p>admin@arditi.com</p>
+                {billing.map((line, index) => (
+                  <p key={`b-${index}`}>{line}</p>
+                ))}
+                {order.contactPhone ? <p>{order.contactPhone}</p> : null}
+                <p>{order.contactEmail}</p>
               </div>
             </section>
 
             <section className={styles.addressCard}>
               <h3>Shipping address</h3>
               <div className={styles.addressBody}>
-                <p>ardit qerimi</p>
-                <p>Kosova</p>
-                <p>Kosova, CA 10000</p>
+                {shipping.map((line, index) => (
+                  <p key={`s-${index}`}>{line}</p>
+                ))}
               </div>
             </section>
           </div>

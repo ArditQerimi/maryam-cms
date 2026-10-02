@@ -17,6 +17,7 @@ const storeFrontMigrations = [
   'src/db/storefront-migrations/006_product_reviews.sql',
   'src/db/storefront-migrations/007_auth_email_tokens.sql',
   'src/db/storefront-migrations/008_user_type.sql',
+  'src/db/storefront-migrations/009_customer_addresses.sql',
   'drizzle/add_cms_tables.sql',
 ];
 

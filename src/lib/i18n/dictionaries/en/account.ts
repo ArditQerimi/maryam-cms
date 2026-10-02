@@ -192,4 +192,83 @@ export const account = {
   'account.strength.fair': 'Fair',
   'account.strength.good': 'Good',
   'account.strength.strong': 'Strong',
+
+  // My-account layout (sidebar + pages)
+  'account.nav.dashboard': 'Dashboard',
+  'account.nav.downloads': 'Downloads',
+  'account.nav.compare': 'Compare',
+  'account.nav.logOut': 'Log out',
+
+  // Dashboard
+  'account.dashboard.hello': 'Hello',
+  'account.dashboard.notPrefix': 'not',
+  'account.dashboard.copy1': 'From your account dashboard you can view your',
+  'account.dashboard.link1': 'recent orders',
+  'account.dashboard.copy2': 'manage your',
+  'account.dashboard.link2': 'shipping and billing addresses',
+  'account.dashboard.copy3': 'and',
+  'account.dashboard.link3': 'edit your password and account details',
+
+  // Orders table
+  'account.orders.colOrder': 'Order',
+  'account.orders.colDate': 'Date',
+  'account.orders.colStatus': 'Status',
+  'account.orders.colTotal': 'Total',
+  'account.orders.colActions': 'Actions',
+  'account.orders.view': 'View',
+  'account.orders.totalForItem': '{total} for {count} item',
+  'account.orders.totalForItems': '{total} for {count} items',
+  'account.orders.emptyNotice': 'No order has been made yet.',
+  'account.orders.browse': 'Browse products',
+
+  // Single order
+  'account.order.prefix': 'Order',
+  'account.order.placedOn': 'was placed on',
+  'account.order.andIs': 'and is currently',
+  'account.order.details': 'Order details',
+  'account.order.product': 'Product',
+  'account.order.total': 'Total',
+  'account.order.subtotal': 'Subtotal:',
+  'account.order.shipping': 'Shipping:',
+  'account.order.payment': 'Payment method:',
+  'account.order.grandTotal': 'Total:',
+  'account.order.billing': 'Billing address',
+  'account.order.shippingAddress': 'Shipping address',
+
+  // Downloads
+  'account.downloads.empty': 'No downloads available yet.',
+
+  // Addresses
+  'account.addresses.billing': 'Billing address',
+  'account.addresses.shipping': 'Shipping address',
+  'account.addresses.none': 'You have not set up this type of address yet.',
+  'account.addresses.intro': 'The following addresses will be used on the checkout page by default.',
+  'account.addresses.save': 'Save address',
+  'account.addresses.editBilling': 'Edit Billing address',
+  'account.addresses.editShipping': 'Edit Shipping address',
+
+  // Account details form
+  'account.form.firstName': 'First name',
+  'account.form.lastName': 'Last name',
+  'account.form.displayName': 'Display name',
+  'account.form.displayNameHint':
+    'This will be how your name will be displayed in the account section and in reviews',
+  'account.form.email': 'Email address',
+  'account.form.phone': 'Phone',
+  'account.form.passwordChange': 'Password change',
+  'account.form.currentPassword': 'Current password (leave blank to leave unchanged)',
+  'account.form.newPassword': 'New password (leave blank to leave unchanged)',
+  'account.form.confirmPassword': 'Confirm new password',
+  'account.form.showPassword': 'Show password',
+  'account.form.hidePassword': 'Hide password',
+  'account.form.save': 'Save changes',
+  'account.form.saving': 'Saving…',
+
+  // Compare / wishlist inside the account
+  'account.compare.empty': 'No product is added to the comparison table.',
+  'account.compare.product': 'Product',
+  'account.compare.price': 'Price',
+  'account.compare.remove': 'Remove',
+  'account.compare.open': 'Open full comparison',
+  'account.wishlist.empty': 'There are no products on the Wishlist!',
 };

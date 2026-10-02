@@ -4,6 +4,15 @@ export const blog: typeof blogEn = {
   'blog.title': 'Blogu',
   'blog.crumb.home': 'Kryefaqja',
   'blog.card.read': 'Lexo {title}',
+  'blog.card.by': 'Nga {name}',
+  'blog.reply.loggedInAs': 'Je kyçur si {name}.',
+  'blog.reply.editProfile': 'Ndrysho profilin.',
+  'blog.reply.required': 'Fushat e detyrueshme janë shënuar me',
+  'blog.reply.name': 'Emri',
+  'blog.reply.comment': 'Komenti',
+  'blog.reply.post': 'Dërgo komentin',
+  'blog.reply.posting': 'Duke dërguar…',
+  'blog.reply.count': '{count} komente',
 
   // Listing results
   'blog.results.filteredKicker': 'Rezultatet e filtruara',

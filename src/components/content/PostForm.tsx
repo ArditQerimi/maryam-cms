@@ -17,7 +17,6 @@ import {
   Field,
   Input,
   Select,
-  Textarea,
 } from '@/components/admin/ui';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 
@@ -62,7 +61,7 @@ export default function PostForm({
   const [slug, setSlug] = useState(initial.slug);
   const [slugEdited, setSlugEdited] = useState(Boolean(initial.slug));
   const [categoryId, setCategoryId] = useState(initial.categoryId === null ? '' : String(initial.categoryId));
-  const [excerpt, setExcerpt] = useState(initial.excerpt);
+  const [excerpt] = useState(initial.excerpt);
   const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl);
   const [content, setContent] = useState(initial.content);
   const [status, setStatus] = useState<StatusValue>(DB_TO_STATUS[initial.status] ?? 'Draft');
@@ -153,21 +152,9 @@ export default function PostForm({
                 placeholder="five-ways-to-style-your-new-arrivals"
               />
             </Field>
-            <Field
-              label={t('cmsshared.post_form.excerpt_label')}
-              htmlFor="post-excerpt"
-              hint={t('cmsshared.post_form.excerpt_hint')}
-            >
-              <Textarea
-                id="post-excerpt"
-                name="excerpt"
-                rows={3}
-                maxLength={320}
-                value={excerpt}
-                onChange={(event) => setExcerpt(event.target.value)}
-                placeholder={t('cmsshared.post_form.excerpt_placeholder')}
-              />
-            </Field>
+            {/* No separate excerpt field: quotes and highlights are added inside the
+                content with the editor (quote button); listings use the content's
+                opening text. */}
           </CardContent>
         </Card>
 

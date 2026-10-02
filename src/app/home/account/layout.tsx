@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { getAccountAccess, getAccountLoginUrl } from '@/lib/account/data';
 import { getSafeAccountReturnTo } from '@/lib/account/validation';
 import { getT } from '@/lib/i18n/server';
+import ShopPageHeader from '../components/ShopPageHeader';
 import AccountNavigation from './AccountNavigation';
 import styles from './account.module.css';
 
@@ -59,34 +59,25 @@ export default async function CustomerAccountLayout({
   if (access.status === 'unauthenticated') {
     redirect(getAccountLoginUrl(await getCurrentAccountReturnTo()));
   }
-  if (access.status === 'denied') notFound();
+  // Signed in, but not as this store's customer (e.g. a staff account): send
+  // them to the customer sign-in instead of a bare 404.
+  if (access.status === 'denied') {
+    redirect(getAccountLoginUrl(await getCurrentAccountReturnTo()));
+  }
 
   const t = await getT();
-  const storeName = access.company.name?.trim() || t('account.layout.storeFallback');
 
   return (
     <div className={styles.accountPage}>
-      <header className={styles.accountMasthead}>
-        <div className={styles.shell}>
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <ol>
-              <li><Link href="/home">{t('account.layout.crumbStore')}</Link></li>
-              <li aria-hidden="true">/</li>
-              <li aria-current="page">{t('account.layout.crumbAccount')}</li>
-            </ol>
-          </nav>
-          <div className={styles.mastheadCopy}>
-            <p>{t('account.layout.eyebrow')}</p>
-            <h1>{t('account.layout.title')}</h1>
-            <span>{t('account.layout.subtitle', { storeName })}</span>
-          </div>
-        </div>
-      </header>
+      <ShopPageHeader
+        title={t('account.layout.title')}
+        crumbs={[{ label: t('account.layout.title') }]}
+      />
 
       <div className={styles.shell}>
         <div className={styles.accountGrid}>
           <aside className={styles.sidebar}>
-            <AccountNavigation storeName={storeName} />
+            <AccountNavigation />
           </aside>
           <section className={styles.accountContent} id="account-content" aria-label={t('account.layout.contentAria')}>
             {children}

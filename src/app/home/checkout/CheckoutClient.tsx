@@ -10,7 +10,6 @@ import {
   Lock,
   PackageCheck,
   ShoppingBag,
-  Truck,
 } from 'lucide-react';
 import { useCart, type CartItem } from '@/context/CartContext';
 import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
@@ -31,6 +30,8 @@ import AddressFields, {
   type AddressErrors,
   type AddressPrefix,
 } from './AddressFields';
+import { TextAreaField, TextField } from '../components/FormField';
+import ShopPageHeader from '../components/ShopPageHeader';
 import OrderSummary from './OrderSummary';
 import { SHIPPING_AVAILABLE_ENDPOINT } from './checkout-contract';
 import type {
@@ -99,6 +100,7 @@ type CheckoutFormState = {
   deliveryMethod: CheckoutDeliveryMethodId;
   paymentMethod: CheckoutPaymentMethodId;
   termsAccepted: boolean;
+  orderNotes: string;
 };
 
 type SubmissionState =
@@ -129,6 +131,7 @@ const INITIAL_FORM: CheckoutFormState = {
   deliveryMethod: 'standard',
   paymentMethod: 'cash_on_delivery',
   termsAccepted: false,
+  orderNotes: '',
 };
 
 function controlClassName(hasError: boolean): string {
@@ -263,6 +266,7 @@ function checkoutRequestFrom(
     delivery: { methodId: form.deliveryMethod },
     payment: { methodId: form.paymentMethod },
     promotionCode,
+    ...(form.orderNotes.trim() ? { orderNotes: form.orderNotes.trim() } : {}),
     terms: { accepted: true },
   };
 }
@@ -879,18 +883,10 @@ export default function CheckoutClient({
 
   return (
     <div className={styles.page}>
-      <header className={styles.pageHeader}>
-        <div className={styles.container}>
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/home">{t('checkout.crumb.home')}</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">{t('checkout.crumb.checkout')}</span>
-          </nav>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{t('checkout.header.title')}</h1>
-          </div>
-        </div>
-      </header>
+      <ShopPageHeader
+        title={t('checkout.header.title')}
+        crumbs={[{ label: t('checkout.crumb.checkout') }]}
+      />
 
       <main className={styles.main}>
         <div className={styles.container}>
@@ -993,78 +989,35 @@ export default function CheckoutClient({
                         />
 
                         <div className={styles.fieldGrid}>
-                          <div className={styles.field}>
-                            <label className={styles.label} htmlFor="checkout-contact-phone">
-                              {t('checkout.contact.phone')}
-                              <span className={styles.optional}>{t('checkout.contact.phoneHint')}</span>
-                            </label>
-                            <input
-                              aria-describedby={fieldErrors['contact.phone'] ? 'checkout-contact-phone-error' : undefined}
-                              aria-invalid={fieldErrors['contact.phone'] ? true : undefined}
-                              autoComplete="tel"
-                              className={controlClassName(Boolean(fieldErrors['contact.phone']))}
-                              id="checkout-contact-phone"
-                              inputMode="tel"
-                              name="contact.phone"
-                              onChange={(event) => updateContact('phone', event.target.value)}
-                              type="tel"
-                              value={form.contact.phone}
-                            />
-                            {fieldErrors['contact.phone'] ? (
-                              <p className={styles.fieldError} id="checkout-contact-phone-error">
-                                {fieldErrors['contact.phone']}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          <div className={styles.field}>
-                            <label className={styles.label} htmlFor="checkout-contact-email">
-                              {t('checkout.contact.email')}
-                              <span className={styles.requiredMark} aria-hidden="true">*</span>
-                            </label>
-                            <input
-                              aria-describedby={fieldErrors['contact.email'] ? 'checkout-contact-email-error' : undefined}
-                              aria-invalid={fieldErrors['contact.email'] ? true : undefined}
-                              autoCapitalize="none"
-                              autoComplete="email"
-                              className={controlClassName(Boolean(fieldErrors['contact.email']))}
-                              id="checkout-contact-email"
-                              inputMode="email"
-                              name="contact.email"
-                              onChange={(event) => updateContact('email', event.target.value)}
-                              placeholder="you@example.com"
-                              required
-                              spellCheck={false}
-                              type="email"
-                              value={form.contact.email}
-                            />
-                            {fieldErrors['contact.email'] ? (
-                              <p className={styles.fieldError} id="checkout-contact-email-error">
-                                {fieldErrors['contact.email']}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <label className={styles.checkboxRow}>
-                          <input
-                            checked={form.contact.marketingOptIn}
-                            className={styles.checkbox}
-                            name="contact.marketingOptIn"
-                            onChange={(event) => {
-                              setForm((current) => ({
-                                ...current,
-                                contact: {
-                                  ...current.contact,
-                                  marketingOptIn: event.target.checked,
-                                },
-                              }));
-                              markFormChanged();
-                            }}
-                            type="checkbox"
+                          <TextField
+                            id="checkout-contact-phone"
+                            name="contact.phone"
+                            label={t('checkout.contact.phone')}
+                            className={styles.fieldWide}
+                            error={fieldErrors['contact.phone']}
+                            autoComplete="tel"
+                            inputMode="tel"
+                            type="tel"
+                            value={form.contact.phone}
+                            onChange={(event) => updateContact('phone', event.target.value)}
                           />
-                          <span>{t('checkout.contact.marketing')}</span>
-                        </label>
+                          <TextField
+                            id="checkout-contact-email"
+                            name="contact.email"
+                            label={t('checkout.contact.email')}
+                            required
+                            className={styles.fieldWide}
+                            error={fieldErrors['contact.email']}
+                            autoCapitalize="none"
+                            autoComplete="email"
+                            inputMode="email"
+                            placeholder="you@example.com"
+                            spellCheck={false}
+                            type="email"
+                            value={form.contact.email}
+                            onChange={(event) => updateContact('email', event.target.value)}
+                          />
+                        </div>
 
                         <div>
                           <label className={`${styles.checkboxRow} ${styles.billingToggle}`}>
@@ -1097,48 +1050,20 @@ export default function CheckoutClient({
                           )}
                         </div>
 
-                        <div className={styles.subsectionHeadingRow}>
-                          <div>
-                            <h3 className={styles.subsectionTitle}>{t('checkout.delivery.methodTitle')}</h3>
-                            <p>{t('checkout.delivery.methodCopy')}</p>
-                          </div>
-                        </div>
-                        <div className={styles.choiceList} role="radiogroup" aria-labelledby="delivery-method-label">
-                          <span className={styles.visuallyHidden} id="delivery-method-label">{t('checkout.delivery.choose')}</span>
-                          {deliveryChoices.map((option) => (
-                            <label className={styles.choiceCard} key={option.key}>
-                              <input
-                                checked={selectedDeliveryKey === option.key}
-                                className={styles.radio}
-                                id={`checkout-delivery-${option.key}`}
-                                name="delivery.methodId"
-                                onChange={() => {
-                                  if (shippingOptions.length > 0) {
-                                    setSelectedShippingId(option.key);
-                                  } else {
-                                    setForm((current) => ({
-                                      ...current,
-                                      deliveryMethod: option.key as CheckoutDeliveryMethodId,
-                                    }));
-                                  }
-                                  clearFieldError('delivery.methodId');
-                                  markFormChanged();
-                                }}
-                                type="radio"
-                                value={option.key}
-                              />
-                              <span className={styles.choiceIcon} aria-hidden="true"><Truck size={20} /></span>
-                              <span className={styles.choiceCopy}>
-                                <strong>{option.label}</strong>
-                                <small>{option.detail}</small>
-                              </span>
-                              <span className={styles.choicePrice}>{option.price}</span>
-                            </label>
-                          ))}
-                        </div>
-                        {fieldErrors['delivery.methodId'] ? (
-                          <p className={styles.fieldError}>{fieldErrors['delivery.methodId']}</p>
-                        ) : null}
+                        <TextAreaField
+                          id="checkout-order-notes"
+                          name="orderNotes"
+                          label={t('checkout.notes.label')}
+                          suffix={t('checkout.address.optional')}
+                          placeholder={t('checkout.notes.placeholder')}
+                          maxLength={1000}
+                          rows={1}
+                          value={form.orderNotes}
+                          onChange={(event) => {
+                            setForm((current) => ({ ...current, orderNotes: event.target.value }));
+                            markFormChanged();
+                          }}
+                        />
                       </div>
                     </section>
 
@@ -1220,11 +1145,43 @@ export default function CheckoutClient({
                           </div>
                         ) : null}
                         <div className={styles.orderTotalRow}>
-                          <dt>
-                            {t('checkout.totals.shipping')}
-                            {currentDeliveryLabel ? ` - ${currentDeliveryLabel}` : ''}
-                          </dt>
-                          <dd>{formatShippingMoney(shippingCents / 100)}</dd>
+                          <dt>{t('checkout.totals.shipping')}</dt>
+                          <dd>
+                            {deliveryChoices.length > 0 ? (
+                              <span className={styles.shippingChoices} role="radiogroup" aria-label={t('checkout.delivery.choose')}>
+                                {deliveryChoices.map((option) => (
+                                  <label className={styles.shippingChoice} key={option.key}>
+                                    <input
+                                      checked={selectedDeliveryKey === option.key}
+                                      className={deliveryChoices.length === 1 ? styles.visuallyHidden : styles.radio}
+                                      id={`checkout-delivery-${option.key}`}
+                                      name="delivery.methodId"
+                                      onChange={() => {
+                                        if (shippingOptions.length > 0) {
+                                          setSelectedShippingId(option.key);
+                                        } else {
+                                          setForm((current) => ({
+                                            ...current,
+                                            deliveryMethod: option.key as CheckoutDeliveryMethodId,
+                                          }));
+                                        }
+                                        clearFieldError('delivery.methodId');
+                                        markFormChanged();
+                                      }}
+                                      type="radio"
+                                      value={option.key}
+                                    />
+                                    <span>{option.label}{option.price ? `: ${option.price}` : ''}</span>
+                                  </label>
+                                ))}
+                              </span>
+                            ) : (
+                              formatShippingMoney(shippingCents / 100)
+                            )}
+                            {fieldErrors['delivery.methodId'] ? (
+                              <span className={styles.fieldError}>{fieldErrors['delivery.methodId']}</span>
+                            ) : null}
+                          </dd>
                         </div>
                         {taxQuote ? (
                           <div className={styles.orderTotalRow}>
@@ -1246,6 +1203,16 @@ export default function CheckoutClient({
 
                       <div className={styles.paymentOptions} role="radiogroup" aria-labelledby="payment-method-label">
                         <span className={styles.visuallyHidden} id="payment-method-label">{t('checkout.payment.choose')}</span>
+                        <label className={styles.paymentOption} aria-disabled="true">
+                          <input
+                            checked={false}
+                            className={styles.radio}
+                            disabled
+                            readOnly
+                            type="radio"
+                          />
+                          <span className={styles.paymentOptionLabel}>{t('checkout.payment.check.label')}</span>
+                        </label>
                         {PAYMENT_OPTIONS.map((option) => (
                           <label className={styles.paymentOption} key={option.id}>
                             <input
@@ -1262,10 +1229,12 @@ export default function CheckoutClient({
                               value={option.id}
                             />
                             <span className={styles.paymentOptionLabel}>{t(option.label)}</span>
-                            <span className={styles.paymentOptionBox}>{t(option.detail)}</span>
                           </label>
                         ))}
                       </div>
+                      {PAYMENT_OPTIONS.filter((option) => option.id === form.paymentMethod).map((option) => (
+                        <p className={styles.paymentDetail} key={option.id}>{t(option.detail)}</p>
+                      ))}
                       {fieldErrors['payment.methodId'] ? (
                         <p className={styles.fieldError}>{fieldErrors['payment.methodId']}</p>
                       ) : null}

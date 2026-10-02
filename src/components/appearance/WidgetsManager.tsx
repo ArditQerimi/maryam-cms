@@ -280,7 +280,12 @@ function WidgetAreaCard({
             <p className="text-xs text-zinc-400">{t('cmsshared.widgets.empty_area')}</p>
           </div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            id={`widget-area-${area}`}
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
             <SortableContext
               items={widgets.map((widget) => widget.id)}
               strategy={verticalListSortingStrategy}

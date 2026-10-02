@@ -141,20 +141,30 @@ export async function getStorefrontContext(
   let customer: StorefrontCustomer | null = null;
   const db = getTenantDb(company.dbConnectionString, company.dbSchema);
 
-  if (session) {
-    const sessionUserId = parseSessionInteger(session.userId);
-    const sessionCompanyId = parseSessionInteger(session.companyId);
-    if (
-      !sessionUserId ||
-      !sessionCompanyId ||
-      sessionCompanyId !== company.id ||
-      session.platformRole !== 'customer' ||
-      (session.isPlatformUser !== undefined && session.isPlatformUser !== false) ||
-      (session.audience !== undefined && session.audience !== 'customer') ||
-      (session.tenantRole !== undefined && !hasCustomerRole(session.tenantRole))
-    ) {
-      throw new StorefrontError(403, 'storefront-session-tenant-mismatch', 'This session cannot access the storefront tenant.');
-    }
+  const sessionUserId = session ? parseSessionInteger(session.userId) : null;
+  const sessionCompanyId = session ? parseSessionInteger(session.companyId) : null;
+  const isCustomerSessionForTenant = Boolean(
+    session &&
+      sessionUserId &&
+      sessionCompanyId &&
+      sessionCompanyId === company.id &&
+      (session.isPlatformUser === undefined || session.isPlatformUser === false) &&
+      // Customers, and store staff shopping as themselves.
+      ((session.platformRole === 'customer' &&
+        (session.audience === undefined || session.audience === 'customer') &&
+        (session.tenantRole === undefined || hasCustomerRole(session.tenantRole))) ||
+        (session.platformRole === 'admin' &&
+          (session.audience === undefined || session.audience === 'staff'))),
+  );
+  // A staff/admin (or other-tenant) session browsing the shop is not a
+  // customer: it shops exactly like a signed-out guest (the CMS live preview
+  // does this). Guest-capable endpoints serve it as a guest; customer-only
+  // endpoints answer 401 like they do for any guest, never with its data.
+  if (session && !isCustomerSessionForTenant && !allowGuest) {
+    throw new StorefrontError(401, 'authentication-required', 'Sign in as a Customer to continue.');
+  }
+
+  if (session && isCustomerSessionForTenant && sessionUserId) {
 
     const [customerRow] = await db
       .select({
@@ -172,7 +182,7 @@ export async function getStorefrontContext(
     if (
       !customerRow ||
       customerRow.status !== 'Active' ||
-      !hasCustomerRole(customerRow.roleName)
+      (session.platformRole === 'customer' && !hasCustomerRole(customerRow.roleName))
     ) {
       throw new StorefrontError(403, 'active-customer-required', 'An active Customer account is required.');
     }

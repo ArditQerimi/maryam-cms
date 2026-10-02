@@ -53,7 +53,7 @@ export const contact = {
   'contact.map.aria': 'Store location on the map',
   'contact.map.title': 'Store map — {address}',
   'contact.map.info': 'Store location',
-  'contact.map.openExternal': 'Open in Google Maps',
+  'contact.map.openExternal': 'Open in OpenStreetMap',
   'contact.map.zoomIn': 'Zoom in',
   'contact.map.zoomOut': 'Zoom out',
   'contact.policy.shipping': 'Shipping Policy',

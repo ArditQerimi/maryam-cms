@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
-import { hasCustomerSessionAudience } from '@/lib/auth-validation';
+import { hasShopperSessionAudience } from '@/lib/auth-validation';
 import CheckoutPanel from './CheckoutPanel';
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default async function ShopCheckoutPage() {
   // registered customers only — guests are sent to sign in and brought
   // straight back here after authenticating.
   const session = await getSession();
-  if (!session || !hasCustomerSessionAudience(session)) {
+  if (!session || !hasShopperSessionAudience(session)) {
     redirect('/home/login?returnTo=/home/checkout');
   }
 

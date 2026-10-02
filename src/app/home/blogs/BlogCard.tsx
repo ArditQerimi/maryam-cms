@@ -35,11 +35,9 @@ export default async function BlogCard({ post, priority = false }: BlogCardProps
         </div>
 
         <div className={styles.cardBody}>
-          <p className={styles.cardCategory}>{post.category}</p>
           <h3 className={styles.cardTitle}>{post.title}</h3>
-          {post.excerpt ? <p className={styles.cardExcerpt}>{post.excerpt}</p> : null}
           <div className={styles.cardMeta}>
-            <span>{post.authorName}</span>
+            <span>{t('blog.card.by', { name: post.authorName })}</span>
             <span className={styles.metaDot} aria-hidden="true" />
             <time dateTime={post.publishedAt}>{formatBlogDate(post.publishedAt)}</time>
           </div>

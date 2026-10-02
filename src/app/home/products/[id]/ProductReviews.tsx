@@ -1,9 +1,11 @@
 'use client';
 
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, SlidersHorizontal } from 'lucide-react';
+import { BadgeCheck, SlidersHorizontal, Star } from 'lucide-react';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import ProductStars from '../../components/ProductStars';
 import styles from './product-details.module.css';
 
 export type ReviewRating = 1 | 2 | 3 | 4 | 5;
@@ -100,9 +102,9 @@ function safeInternalHref(value: string | undefined, fallback: string): string {
 function formatReviewDate(value: string): string | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   }).format(date);
@@ -260,26 +262,41 @@ export function ReviewList({
         const helpfulCount = safeCount(review.helpfulCount);
         return (
           <li className={styles.reviewItem} key={review.id}>
-            <article aria-labelledby={`review-author-${review.id}`}>
-              <header className={styles.reviewItemHeader}>
-                <div>
+            <article
+              className={styles.reviewArticle}
+              aria-labelledby={`review-author-${review.id}`}
+            >
+              <span className={styles.reviewAvatar} aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <circle cx="12" cy="8.6" r="4.4" />
+                  <path d="M3.6 22c0-5 3.8-8 8.4-8s8.4 3 8.4 8z" />
+                </svg>
+              </span>
+              <div className={styles.reviewContent}>
+                <ProductStars rating={review.rating} />
+                <header className={styles.reviewItemHeader}>
                   <h3 id={`review-author-${review.id}`}>{review.authorName.trim() || t('catalog.reviews_customer')}</h3>
-                  {date ? <time dateTime={review.createdAt}>{date}</time> : null}
-                </div>
-                <div className={styles.reviewItemMeta}>
-                  <span className={styles.reviewRatingValue}>{review.rating} / 5</span>
-                  {review.verifiedPurchase ? (
-                    <span className={styles.verifiedBadge}>
-                      <BadgeCheck size={14} aria-hidden="true" />
-                      {t('catalog.reviews_verified')}
-                    </span>
+                  {date ? (
+                    <>
+                      <span aria-hidden="true">–</span>
+                      <time dateTime={review.createdAt}>{date}</time>
+                    </>
                   ) : null}
-                </div>
-              </header>
-              <p className={styles.reviewBody}>{review.body}</p>
-              {helpfulCount > 0 ? (
-                <p className={styles.reviewHelpful}>{t('catalog.reviews_helpful', { count: helpfulCount })}</p>
-              ) : null}
+                  <span className={styles.reviewItemMeta}>
+                    <span className={styles.srOnly}>{review.rating} / 5</span>
+                    {review.verifiedPurchase ? (
+                      <span className={styles.verifiedBadge}>
+                        <BadgeCheck size={14} aria-hidden="true" />
+                        {t('catalog.reviews_verified')}
+                      </span>
+                    ) : null}
+                  </span>
+                </header>
+                <p className={styles.reviewBody}>{review.body}</p>
+                {helpfulCount > 0 ? (
+                  <p className={styles.reviewHelpful}>{t('catalog.reviews_helpful', { count: helpfulCount })}</p>
+                ) : null}
+              </div>
             </article>
           </li>
         );
@@ -426,7 +443,10 @@ export function ReviewForm({
     || t('catalog.review_unavailable');
 
   return (
-    <aside className={styles.reviewFormCard} aria-labelledby="write-review-title">
+    <aside
+      className={`${styles.reviewFormCard} ${styles.reviewFormOpen}`}
+      aria-labelledby="write-review-title"
+    >
       <span className={styles.reviewFormEyebrow}>{t('catalog.reviews_share')}</span>
       <h3 id="write-review-title">{t('catalog.write_review')}</h3>
       <p>
@@ -455,19 +475,37 @@ export function ReviewForm({
       <form className={styles.reviewForm} action={form?.endpoint} method="post">
         <input type="hidden" name="productId" value={productId} />
         <input type="hidden" name="returnTo" value={returnTo} />
+        <fieldset className={styles.starField}>
+          <legend>
+            {t('catalog.rating')}{' '}
+            <span className={styles.requiredMark} aria-hidden="true">*</span>
+          </legend>
+          {/* DOM order 5→1 inside a row-reverse flex lets `:checked ~ label` and
+              `:hover ~ label` light every star up to the chosen one. */}
+          <div className={styles.starInputs}>
+            {REVIEW_RATINGS.map((rating) => (
+              <Fragment key={rating}>
+                <input
+                  className={styles.starRadio}
+                  type="radio"
+                  name="rating"
+                  id={`review-rating-${rating}`}
+                  value={rating}
+                  required
+                />
+                <label className={styles.starLabel} htmlFor={`review-rating-${rating}`}>
+                  <Star size={26} strokeWidth={1.6} aria-hidden="true" />
+                  <span className={styles.srOnly}>{t(`catalog.rating_${rating}`)}</span>
+                </label>
+              </Fragment>
+            ))}
+          </div>
+        </fieldset>
         <label>
-          <span>{t('catalog.rating')}</span>
-          <select name="rating" required defaultValue="">
-            <option value="" disabled>{t('catalog.select_rating')}</option>
-            <option value="5">{t('catalog.rating_5')}</option>
-            <option value="4">{t('catalog.rating_4')}</option>
-            <option value="3">{t('catalog.rating_3')}</option>
-            <option value="2">{t('catalog.rating_2')}</option>
-            <option value="1">{t('catalog.rating_1')}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t('catalog.your_review')}</span>
+          <span>
+            {t('catalog.your_review')}{' '}
+            <span className={styles.requiredMark} aria-hidden="true">*</span>
+          </span>
           <textarea
             name="body"
             required

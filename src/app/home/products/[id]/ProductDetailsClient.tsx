@@ -8,6 +8,10 @@ import { useCart } from '@/context/CartContext';
 import { useCompare } from '@/context/CompareContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
+import ProductCard, {
+  toCardQuickView,
+  type ProductCardData,
+} from '../../components/ProductCard';
 import ProductStars from '../../components/ProductStars';
 import ShopPageHeader from '../../components/ShopPageHeader';
 import ProductReviews, { type ProductReviewsData } from './ProductReviews';
@@ -74,6 +78,8 @@ export type RelatedProduct = {
   variantId: number | null;
   defaultVariantId: number | null;
   variants: DetailVariant[];
+  /** Admin store rating (1–5); 0 = unrated. */
+  rating: number;
 };
 
 type OptionGroup = {
@@ -83,19 +89,6 @@ type OptionGroup = {
 };
 
 export type ProductDetailTab = 'description' | 'details' | 'reviews';
-
-/**
- * Optional merchandising banner shown between the tabs and the related grid.
- * Sourced from tenant settings (`pdp_banner_*`); hidden until configured so
- * the page never shows placeholder marketing copy.
- */
-export type DetailPromo = {
-  image: string;
-  title: string;
-  text?: string | null;
-  ctaLabel?: string | null;
-  ctaHref?: string | null;
-};
 
 const priceFormatter = new Intl.NumberFormat('en-IE', {
   style: 'currency',
@@ -272,87 +265,34 @@ function variantMatchesSelections(
   });
 }
 
-function RelatedActions({ product }: { product: RelatedProduct }) {
-  const { t } = useLocale();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const { addToCompare, removeFromCompare, isInCompare } = useCompare();
-  const variantId = product.variantId;
-  const selector = { productId: product.id, variantId };
-  const inWishlist = isInWishlist(selector);
-  const inCompare = isInCompare(selector);
-  const commerceDisabled = product.price === null;
-
-  const wishlistPayload = {
-    productId: product.id,
-    variantId,
-    name: product.name,
-    price: product.price,
-    imageUrl: product.imageUrl,
-    stockQuantity: product.stockQuantity,
+/** Related-product row → the shared catalogue card's input (same card as /home/products). */
+function toRelatedCardData(item: RelatedProduct): ProductCardData {
+  return {
+    id: item.id,
+    name: item.name,
+    // A product without a price renders as "unavailable" and its actions stay disabled.
+    price: item.price ?? Number.NaN,
+    originalPrice: item.compareAtPrice,
+    imageUrl: item.imageUrl,
+    stockQuantity: item.stockQuantity,
+    description: item.description,
+    rating: item.rating,
+    variantId: item.variantId,
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    sku: item.sku,
   };
-
-  return (
-    <div className={styles.relatedActions}>
-      <button
-        type="button"
-        aria-label={
-          inWishlist ? t('catalog.remove_from_wishlist') : t('catalog.add_to_wishlist')
-        }
-        aria-pressed={inWishlist}
-        data-active={inWishlist}
-        disabled={commerceDisabled}
-        onClick={() => {
-          if (inWishlist) removeFromWishlist(selector);
-          else if (product.price !== null) {
-            addToWishlist({ ...wishlistPayload, price: product.price });
-          }
-        }}
-      >
-        <Heart size={17} fill={inWishlist ? 'currentColor' : 'none'} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        aria-label={
-          inCompare ? t('catalog.remove_from_comparison') : t('catalog.add_to_comparison')
-        }
-        aria-pressed={inCompare}
-        data-active={inCompare}
-        disabled={commerceDisabled}
-        onClick={() => {
-          if (inCompare) {
-            removeFromCompare(selector);
-          } else if (product.price !== null) {
-            addToCompare({
-              productId: product.id,
-              variantId,
-              name: product.name,
-              price: product.price,
-              imageUrl: product.imageUrl,
-              stockQuantity: product.stockQuantity,
-              description: product.description,
-              sku: product.sku || null,
-              categoryName: product.categoryName || null,
-            });
-          }
-        }}
-      >
-        <Layers3 size={17} aria-hidden="true" />
-      </button>
-    </div>
-  );
 }
 
 export default function ProductDetailsClient({
   product,
   related,
   reviews,
-  promo,
   initialTab = 'description',
 }: {
   product: DetailProduct;
   related: RelatedProduct[];
   reviews?: ProductReviewsData;
-  promo?: DetailPromo | null;
   initialTab?: ProductDetailTab;
 }) {
   const { addToCart } = useCart();
@@ -530,6 +470,8 @@ export default function ProductDetailsClient({
     : t('catalog.reviews_tab');
   const selectedOptions = selectedVariant?.options ?? [];
   const canUseCommerce = selectedPrice !== null;
+  const relatedCardData = useMemo(() => related.map(toRelatedCardData), [related]);
+  const relatedQuickView = useMemo(() => relatedCardData.map(toCardQuickView), [relatedCardData]);
 
   return (
     <div className={styles.page}>
@@ -956,28 +898,6 @@ export default function ProductDetailsClient({
         ) : null}
       </section>
 
-      {promo && promo.image && promo.title ? (
-        <section className={styles.promoSection} aria-label={promo.title}>
-          <div className={styles.promoBanner}>
-            <Image
-              src={promo.image}
-              alt=""
-              fill
-              unoptimized
-              objectFit="cover"
-              sizes="(max-width: 900px) 100vw, 1100px"
-            />
-            <div className={styles.promoCard}>
-              <h2>{promo.title}</h2>
-              {promo.text ? <p>{promo.text}</p> : null}
-              {promo.ctaHref && promo.ctaLabel ? (
-                <Link href={promo.ctaHref}>{promo.ctaLabel}</Link>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       {related.length > 0 ? (
         <section className={styles.relatedSection} aria-labelledby="related-products-title">
           <div className={styles.relatedHeading}>
@@ -985,41 +905,15 @@ export default function ProductDetailsClient({
             <Link href="/home/products">{t('catalog.view_all_products')}</Link>
           </div>
           <div className={styles.relatedGrid}>
-            {related.map((item) => (
-              <article className={styles.relatedCard} key={item.id}>
-                <div className={styles.relatedMedia}>
-                  <Link href={`/home/products/${item.id}`} aria-label={t('catalog.view_product', { name: item.name })}>
-                    {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.name}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 620px) 90vw, 25vw"
-                      />
-                    ) : (
-                      <span className={styles.relatedImageFallback}><ImageOff size={28} aria-hidden="true" /></span>
-                    )}
-                  </Link>
-                  {item.stockQuantity === 0 ? <span className={styles.relatedStockBadge}>{t('catalog.out_of_stock')}</span> : null}
-                  <RelatedActions product={item} />
-                </div>
-                <div className={styles.relatedBody}>
-                  {item.categoryName || item.brandName ? (
-                    <span>{item.categoryName || item.brandName}</span>
-                  ) : null}
-                  <h3><Link href={`/home/products/${item.id}`}>{item.name}</Link></h3>
-                  <div>
-                    <strong>
-                      <PriceWithCompareAt
-                        price={item.price}
-                        compareAtPrice={item.compareAtPrice}
-                      />
-                    </strong>
-                    {item.sku ? <small>{t('catalog.sku', { sku: item.sku })}</small> : null}
-                  </div>
-                </div>
-              </article>
+            {related.map((item, index) => (
+              <ProductCard
+                key={item.id}
+                product={relatedCardData[index]}
+                quickViewProducts={relatedQuickView}
+                quickViewIndex={index}
+                headingLevel="h3"
+                sizes="(max-width: 620px) 90vw, (max-width: 1080px) 46vw, 25vw"
+              />
             ))}
           </div>
         </section>

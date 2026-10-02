@@ -555,6 +555,7 @@ export default function MenuBuilder({
               </div>
             ) : (
               <DndContext
+                id="menu-builder"
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}

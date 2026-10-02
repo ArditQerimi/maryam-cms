@@ -160,3 +160,23 @@ export function hasCustomerSessionAudience(session: unknown) {
     (payload.tenantRole === undefined || isActualCustomerRole(payload.tenantRole)) &&
     (audience === undefined || audience === 'customer');
 }
+
+/**
+ * A signed-in staff member of the store (not a platform administrator).
+ * The shop treats them exactly like a customer: My account, cart, wishlist,
+ * compare and checkout all run on their own tenant user record.
+ */
+export function hasTenantStaffSessionAudience(session: unknown) {
+  if (!session || typeof session !== 'object' || Array.isArray(session)) return false;
+  const payload = session as Record<string, unknown>;
+  return payload.platformRole === 'admin' &&
+    payload.isPlatformUser !== true &&
+    parsePositiveSessionId(payload.userId) !== null &&
+    parsePositiveSessionId(payload.companyId) !== null &&
+    (payload.audience === undefined || payload.audience === 'staff');
+}
+
+/** Customer or store staff: anyone who may shop and use My account. */
+export function hasShopperSessionAudience(session: unknown) {
+  return hasCustomerSessionAudience(session) || hasTenantStaffSessionAudience(session);
+}

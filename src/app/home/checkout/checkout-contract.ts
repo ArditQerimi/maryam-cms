@@ -83,6 +83,8 @@ export type CheckoutRequest = {
     methodId: CheckoutPaymentMethodId;
   };
   promotionCode: string | null;
+  /** Optional note from the shopper to the store (trimmed, max 1000 chars). */
+  orderNotes?: string;
   terms: {
     accepted: true;
   };

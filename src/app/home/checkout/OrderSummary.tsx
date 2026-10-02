@@ -76,9 +76,11 @@ export default function OrderSummary({
           return (
             <li className={styles.summaryItem} key={lineKey(item)}>
               <div className={styles.summaryItemDetails}>
-                <p className={styles.summaryItemName}>{item.name}</p>
-                <p className={styles.summaryQuantityLine}>
-                  {item.quantity} <span aria-hidden="true">&times;</span> {formatCents(unitCents)}
+                <p className={styles.summaryItemName}>
+                  {item.name}{' '}
+                  <strong className={styles.summaryQuantityLine}>
+                    <span aria-hidden="true">&times;</span> {item.quantity}
+                  </strong>
                 </p>
               </div>
               <p className={styles.summaryLinePrice}>

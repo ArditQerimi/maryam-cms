@@ -1750,3 +1750,593 @@ select.control {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ── Reference layout: cream billing panel + order table + cream payment box ──
+   Measured from the reference screenshot (÷1.35 → CSS px). Later rules win over
+   the earlier card styling above. */
+.page {
+  --ck-olive: #6b5a22;
+  --ck-cream: #f0efec;
+  --ck-line: #ebe9e5;
+  --ck-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ck-serif: var(--font-spectral), "Spectral", Georgia, serif;
+
+  font-family: var(--ck-sans);
+}
+
+.page .container {
+  width: min(1300px, calc(100% - 3rem));
+}
+
+.page .main {
+  padding: 4.7rem 0 5rem;
+}
+
+.page .checkoutLayout {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 1.9rem;
+}
+
+/* Billing panel */
+.page .billingCard {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: var(--ck-cream);
+}
+
+.page .billingCardHeader {
+  padding: 1.7rem 1.7rem 0;
+}
+
+.page.page.page .billingCardHeader h2 {
+  color: #1d1d1b;
+  font-family: var(--ck-serif);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.page .billingCardBody {
+  gap: 1.1rem;
+  padding: 0.9rem 1.7rem 2rem;
+}
+
+.page .addressGrid,
+.page .fieldGrid {
+  gap: 1.1rem 2.3rem;
+}
+
+.page .label {
+  display: block;
+  min-height: 0;
+  margin-bottom: 0.4rem;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.page .requiredMark {
+  margin-left: 0.25rem;
+  color: #c0392b;
+}
+
+.page .optional {
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+  text-transform: lowercase;
+}
+
+.page .optional::before {
+  content: " (";
+}
+
+.page .optional::after {
+  content: ")";
+}
+
+.page .control {
+  min-height: 2.9rem;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid var(--ck-line);
+  border-radius: 0;
+  background-color: #ffffff;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  box-shadow: none;
+}
+
+.page .control::placeholder {
+  color: #1d1d1b;
+}
+
+.page .control:hover:not(:disabled) {
+  border-color: var(--ck-line);
+}
+
+.page .control:focus {
+  border-color: var(--ck-olive);
+  box-shadow: none;
+}
+
+.page .control:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #1d1d1b;
+}
+
+.page .checkboxRow {
+  align-items: center;
+  gap: 0.6rem;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+}
+
+.page .checkbox,
+.page .radio {
+  accent-color: var(--ck-olive);
+}
+
+.page .billingToggle {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--ck-serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.page .billingSection {
+  margin-top: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.page.page.page .subsectionTitle {
+  color: #1d1d1b;
+  font-family: var(--ck-serif);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.page .subsectionHeadingRow p,
+.page .billingSection p {
+  color: #1d1d1b;
+  font-size: 0.9rem;
+}
+
+.page .choiceCard {
+  min-height: 0;
+  border: 1px solid var(--ck-line);
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.page .choiceCard:hover {
+  border-color: var(--ck-line);
+  background: #ffffff;
+}
+
+.page .choiceCard:has(.radio:checked) {
+  border-color: var(--ck-olive);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.page .choiceIcon {
+  border: 0;
+  background: transparent;
+  color: var(--ck-olive);
+}
+
+.page .choiceCopy strong {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.page .choiceCopy small,
+.page .choicePrice {
+  color: #1d1d1b;
+  font-size: 0.85rem;
+}
+
+/* Order table */
+.page .desktopSummary {
+  top: 1.5rem;
+}
+
+.page .orderCard {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.page .orderHeadingRow .itemCount {
+  display: none;
+}
+
+.page.page.page .orderHeading {
+  color: #1d1d1b;
+  font-family: var(--ck-serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.page .orderTableHead {
+  grid-template-columns: 66% minmax(0, 1fr);
+  gap: 0;
+  margin-top: 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border-top: 0;
+  border-bottom: 1px solid var(--ck-line);
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.page .summaryItem {
+  grid-template-columns: 66% minmax(0, 1fr);
+  gap: 0;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--ck-line);
+}
+
+.page .summaryItem:last-child {
+  border-bottom: 1px solid var(--ck-line);
+}
+
+.page .summaryItemName {
+  display: block;
+  margin: 0;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.page .summaryQuantityLine {
+  margin: 0 0 0 0.3rem;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.page .summaryLinePrice {
+  margin: 0;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.page .couponRow {
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid var(--ck-line);
+}
+
+.page .couponPrompt {
+  color: var(--ck-olive);
+  font-size: 0.95rem;
+}
+
+.page .couponPrompt span {
+  color: var(--ck-olive);
+  font-weight: 400;
+}
+
+.page .couponPrompt:hover,
+.page .couponPrompt:focus,
+.page .couponPrompt:active {
+  background: none;
+  color: var(--ck-olive);
+}
+
+.page .couponPrompt:hover span,
+.page .couponPrompt:focus span {
+  color: var(--ck-olive);
+}
+
+.page .promoButton {
+  border-radius: 0;
+  background: var(--ck-olive);
+  color: #ffffff;
+}
+
+.page .orderTotals {
+  gap: 0;
+  padding-top: 0;
+  margin: 0;
+  border-top: 0;
+}
+
+.page .orderTotalRow {
+  display: grid;
+  grid-template-columns: 66% minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--ck-line);
+  font-size: 0.95rem;
+}
+
+.page .orderTotalRow dt,
+.page .orderTotalRow dd {
+  margin: 0;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  font-weight: 400;
+  text-align: left;
+}
+
+.page .orderTotalGrand {
+  padding-top: 0.55rem;
+  border-bottom: 0;
+}
+
+.page .orderTotalGrand dt,
+.page .orderTotalGrand dd {
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+/* Payment box */
+.page .paymentBox {
+  gap: 0;
+  margin-top: 2.4rem;
+  padding: 1.7rem 1.7rem 2.2rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--ck-cream);
+}
+
+.page .paymentOptions {
+  gap: 0.25rem;
+}
+
+.page .paymentOption {
+  min-height: 2.9rem;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.page .paymentOption:hover,
+.page .paymentOption:has(.radio:checked) {
+  border: 0;
+}
+
+.page .paymentOptionLabel {
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.page .paymentOptionBox {
+  display: none !important;
+}
+
+.page .paymentDetail {
+  margin: 1rem 0 0;
+  color: #1d1d1b;
+  font-size: 0.85rem;
+}
+
+.page .privacyNote {
+  margin: 2.6rem 0 0;
+  color: #1d1d1b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.page .privacyNote a,
+.page .termsBox a {
+  color: var(--ck-olive);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.page .termsBox {
+  margin-top: 0.7rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.page .submitArea {
+  margin-top: 2rem;
+}
+
+.page .placeOrderButton {
+  min-height: 2.9rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--ck-olive);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.page .placeOrderButton:hover:not(:disabled),
+.page .placeOrderButton:focus:not(:disabled),
+.page .placeOrderButton:active:not(:disabled) {
+  border: 0;
+  background: var(--ck-olive);
+  color: #ffffff;
+}
+
+.page .submitArea p {
+  color: #1d1d1b;
+}
+
+@media (max-width: 980px) {
+  .page .checkoutLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page .main {
+    padding-top: 2.5rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .page .addressGrid,
+  .page .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page .billingCardHeader {
+    padding: 1.2rem 1.1rem 0;
+  }
+
+  .page .billingCardBody,
+  .page .paymentBox {
+    padding-right: 1.1rem;
+    padding-left: 1.1rem;
+  }
+}
+
+/* Payment box refinements: white checkbox, olive-dot radio, tighter type. */
+.page .checkbox,
+.page .radio {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1px solid #8a8a86;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.page .checkbox {
+  border-radius: 2px;
+}
+
+.page .radio {
+  border-color: var(--ck-line);
+  border-radius: 50%;
+}
+
+.page .checkbox::after {
+  width: 0.55rem;
+  height: 0.3rem;
+  border-bottom: 2px solid var(--ck-olive);
+  border-left: 2px solid var(--ck-olive);
+  content: "";
+  opacity: 0;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.page .checkbox:checked::after {
+  opacity: 1;
+}
+
+.page .radio::after {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--ck-olive);
+  content: "";
+  opacity: 0;
+}
+
+.page .radio:checked::after {
+  opacity: 1;
+}
+
+.page .radio:disabled,
+.page .checkbox:disabled {
+  opacity: 1;
+}
+
+.page .paymentOption {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.page .paymentOption[aria-disabled="true"] {
+  cursor: default;
+}
+
+.page .paymentOptionLabel {
+  font-size: 0.9rem;
+}
+
+.page .paymentDetail {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+}
+
+.page .privacyNote {
+  margin: 2.8rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.75;
+}
+
+.page .termsBox {
+  margin-top: 0.4rem;
+}
+
+.page .termsBox .checkboxRow {
+  gap: 0.8rem;
+  font-size: 0.85rem;
+}
+
+.page .submitArea {
+  margin-top: 2.6rem;
+}
+
+.page .paymentBox {
+  padding-bottom: 3rem;
+}
+
+.page .placeOrderButton {
+  font-size: 0.9rem;
+}
+
+/* Shipping choice lives in the order table's Shipping row. */
+.page .shippingChoices {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.page .shippingChoice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.page .fieldTight {
+  margin-top: -0.45rem;
+}
+
+/* No color change on hover/focus/active (beats the theme's `.shopWrapper a:hover`). */
+.page.page.page .privacyNote a:hover,
+.page.page.page .privacyNote a:focus,
+.page.page.page .termsBox a:hover,
+.page.page.page .termsBox a:focus,
+.page.page.page .couponPrompt:hover,
+.page.page.page .couponPrompt:focus,
+.page.page.page .couponPrompt:hover span,
+.page.page.page .couponPrompt:focus span {
+  color: var(--ck-olive);
+}
+
+.page.page.page .placeOrderButton:hover:not(:disabled),
+.page.page.page .placeOrderButton:focus:not(:disabled),
+.page.page.page .placeOrderButton:active:not(:disabled) {
+  background: var(--ck-olive);
+  color: #ffffff;
+}

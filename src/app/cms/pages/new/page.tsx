@@ -31,7 +31,7 @@ export default async function NewPagePage() {
           metaTitle: '',
           metaDescription: '',
           status: 'Pending',
-          editorMode: 'classic',
+          editorMode: 'builder',
         }}
       />
     </div>

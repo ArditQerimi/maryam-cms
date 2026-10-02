@@ -503,6 +503,14 @@ async function createSaleAndItems(input: {
     termsAcceptedAt: new Date(),
   });
 
+  if (input.request.orderNotes) {
+    await input.tx.insert(schema.orderNotes).values({
+      orderId: sale.id,
+      body: input.request.orderNotes,
+      isCustomerNote: true,
+    });
+  }
+
   let guestAccessToken: string | null = null;
   if (input.owner.kind === 'guest') {
     const access = createOrderAccessMaterial(

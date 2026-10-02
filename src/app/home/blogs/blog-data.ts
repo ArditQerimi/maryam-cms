@@ -230,7 +230,8 @@ function normalizePost(rawValue: unknown, index: number): BlogPost | null {
   if (!title || !slug) return null;
 
   const content = asString(record.content);
-  const excerpt = asString(record.excerpt) || makeExcerpt(content, 'Read the latest story from the Elif journal.');
+  // Excerpts may be rich text from the CMS editor; listings need plain text.
+  const excerpt = cleanText(asString(record.excerpt)) || makeExcerpt(content, 'Read the latest story from the Elif journal.');
   const category = readCategory(record);
   const tags = readTags(record);
   const image = parseImageUrl(

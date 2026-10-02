@@ -48,7 +48,7 @@ export default async function BlogFilters({
   return (
     <aside className={styles.blogSidebar} aria-label={t('blog.sidebar.aria')}>
       <div className={styles.sidebarSearchSection}>
-        <h2 className={styles.sidebarHeading}>{t('blog.sidebar.searchHeading')}</h2>
+        <h2 className={styles.srOnly}>{t('blog.sidebar.searchHeading')}</h2>
         <form className={styles.sidebarSearchForm} method="get" action="/home/blogs" role="search">
           {category ? <input type="hidden" name="category" value={category} /> : null}
           {tag ? <input type="hidden" name="tag" value={tag} /> : null}
@@ -83,15 +83,13 @@ export default async function BlogFilters({
           </h2>
           {categories.length > 0 ? (
             <ul className={styles.sideList}>
-              <li>
-                <Link
-                  className={`${styles.sideLink} ${!category ? styles.sideLinkActive : ''}`}
-                  href={buildFilterHref({ query, category: '', tag })}
-                  aria-current={!category ? 'page' : undefined}
-                >
-                  <span>{t('blog.categories.all')}</span>
-                </Link>
-              </li>
+              {category ? (
+                <li>
+                  <Link className={styles.sideLink} href={buildFilterHref({ query, category: '', tag })}>
+                    <span>{t('blog.categories.all')}</span>
+                  </Link>
+                </li>
+              ) : null}
               {categories.map((option) => {
                 const active = category === option.value;
                 return (
@@ -102,7 +100,6 @@ export default async function BlogFilters({
                       aria-current={active ? 'page' : undefined}
                     >
                       <span>{option.label}</span>
-                      <span className={styles.sideCount}>{option.count}</span>
                     </Link>
                   </li>
                 );

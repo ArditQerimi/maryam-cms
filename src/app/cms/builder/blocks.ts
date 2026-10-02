@@ -32,6 +32,7 @@ export type BlockType =
   | 'heading'
   | 'paragraph'
   | 'button'
+  | 'badge'
   | 'html'
   | 'image'
   | 'gallery'
@@ -77,6 +78,7 @@ export type FieldTab = 'general' | 'style' | 'advanced';
 
 export type FieldDef = { tab?: FieldTab } & (
   | { kind: 'text'; key: string; label: string; placeholder?: string }
+  | { kind: 'link'; key: string; label: string; placeholder?: string }
   | { kind: 'textarea'; key: string; label: string; rows?: number; placeholder?: string }
   | { kind: 'richtext'; key: string; label: string }
   | { kind: 'number'; key: string; label: string; min?: number; max?: number; step?: number }
@@ -179,6 +181,12 @@ export const DEFAULT_ROW_PROPS: BlockProps = {
   heightPx: 420,
   valign: 'stretch',
   gap: 24,
+  layout: 'columns',
+  slidesPerView: 1,
+  autoplay: false,
+  intervalSeconds: 5,
+  arrows: true,
+  dots: true,
   backgroundType: 'none',
   backgroundColor: '#ffffff',
   backgroundImage: '',
@@ -259,6 +267,21 @@ const ROW_FIELDS: FieldDef[] = [
   { kind: 'number', key: 'heightPx', label: 'Fixed height (px)', tab: 'general', min: 60, max: 3000, step: 10 },
   { kind: 'select', key: 'valign', label: 'Vertical alignment', tab: 'general', options: VALIGN_OPTIONS },
   { kind: 'number', key: 'gap', label: 'Column gap (px)', tab: 'general', min: 0, max: 160, step: 4 },
+  {
+    kind: 'select',
+    key: 'layout',
+    label: 'Display columns as',
+    tab: 'general',
+    options: [
+      { value: 'columns', label: 'Columns side by side' },
+      { value: 'carousel', label: 'Carousel (one column per slide)' },
+    ],
+  },
+  { kind: 'number', key: 'slidesPerView', label: 'Slides visible at once', tab: 'general', min: 1, max: 4, step: 1 },
+  { kind: 'toggle', key: 'autoplay', label: 'Autoplay' },
+  { kind: 'number', key: 'intervalSeconds', label: 'Seconds per slide', tab: 'general', min: 2, max: 30, step: 1 },
+  { kind: 'toggle', key: 'arrows', label: 'Show arrows' },
+  { kind: 'toggle', key: 'dots', label: 'Show dots' },
   {
     kind: 'select',
     key: 'backgroundType',
@@ -472,6 +495,7 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
     defaultProps: () => ({
       text: 'A clear, compelling heading',
       level: 'h2',
+      style: 'default',
       align: 'left',
       color: '',
       width: 'full',
@@ -482,6 +506,15 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
         kind: 'heading',
         key: 'level',
         label: 'Level',
+      },
+      {
+        kind: 'select',
+        key: 'style',
+        label: 'Style',
+        options: [
+          { value: 'default', label: 'Default (bold)' },
+          { value: 'display', label: 'Large serif display' },
+        ],
       },
       ALIGN_FIELD,
       { kind: 'color', key: 'color', label: 'Colour' },
@@ -536,13 +569,15 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
       text: 'Learn more',
       url: '/home',
       variant: 'primary',
+      icon: 'none',
+      color: '',
       align: 'left',
       openNewTab: false,
       width: 'full',
     }),
     fields: [
       { kind: 'text', key: 'text', label: 'Button text' },
-      { kind: 'text', key: 'url', label: 'Link URL', placeholder: 'https://… or /home' },
+      { kind: 'link', key: 'url', label: 'Link URL', placeholder: 'https://… or /home' },
       {
         kind: 'select',
         key: 'variant',
@@ -551,10 +586,40 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
           { value: 'primary', label: 'Primary' },
           { value: 'secondary', label: 'Secondary' },
           { value: 'outline', label: 'Outline' },
+          { value: 'link', label: 'Text link (underlined)' },
         ],
       },
+      {
+        kind: 'select',
+        key: 'icon',
+        label: 'Icon',
+        options: [
+          { value: 'none', label: 'None' },
+          { value: 'cart', label: 'Shopping bag' },
+        ],
+      },
+      { kind: 'color', key: 'color', label: 'Colour (optional)' },
       ALIGN_FIELD,
       { kind: 'toggle', key: 'openNewTab', label: 'Open in new tab' },
+    ],
+  },
+  badge: {
+    type: 'badge',
+    label: 'Label',
+    group: 'content',
+    groupLabel: 'Content',
+    icon: Tag,
+    accent: 'text-sky-500',
+    description: 'A small outlined tag, e.g. a category name above a heading.',
+    defaultProps: () => ({
+      text: 'Category',
+      align: 'left',
+      color: '#6b5a22',
+    }),
+    fields: [
+      { kind: 'text', key: 'text', label: 'Text' },
+      ALIGN_FIELD,
+      { kind: 'color', key: 'color', label: 'Colour' },
     ],
   },
   html: {
@@ -585,6 +650,10 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
       alt: '',
       caption: '',
       width: 'full',
+      align: 'left',
+      ratio: '16 / 10',
+      fit: 'cover',
+      background: '',
       rounded: 'medium',
       link: '',
     }),
@@ -593,6 +662,31 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
       { kind: 'text', key: 'alt', label: 'Alt text' },
       { kind: 'text', key: 'caption', label: 'Caption' },
       widthField(),
+      ALIGN_FIELD,
+      {
+        kind: 'select',
+        key: 'ratio',
+        label: 'Shape',
+        options: [
+          { value: '21 / 9', label: 'Wide banner 21:9' },
+          { value: '16 / 9', label: 'Landscape 16:9' },
+          { value: '16 / 10', label: 'Landscape 16:10' },
+          { value: '4 / 3', label: 'Landscape 4:3' },
+          { value: '1 / 1', label: 'Square' },
+          { value: '10 / 11', label: 'Cover (portrait)' },
+          { value: '3 / 4', label: 'Portrait 3:4' },
+        ],
+      },
+      {
+        kind: 'select',
+        key: 'fit',
+        label: 'Fit',
+        options: [
+          { value: 'cover', label: 'Fill the shape (crop)' },
+          { value: 'contain', label: 'Show the whole picture' },
+        ],
+      },
+      { kind: 'color', key: 'background', label: 'Background behind the picture' },
       {
         kind: 'select',
         key: 'rounded',
@@ -603,7 +697,7 @@ export const BLOCK_DEFS: Record<NodeType, BlockDef> = {
           { value: 'full', label: 'Circle' },
         ],
       },
-      { kind: 'text', key: 'link', label: 'Link URL (optional)' },
+      { kind: 'link', key: 'link', label: 'Link URL (optional)' },
     ],
   },
   gallery: {
@@ -1450,3 +1544,145 @@ export function countBlocks(blocks: Block[]): number {
 }
 
 export const ALIGN_ICONS = { left: AlignLeft, center: AlignCenter, right: AlignRight };
+
+/* ------------------------------------------------------------- transforms
+   WordPress-style "Transform to": turn a text-like block into another block
+   type in place, keeping its id, text and layout settings (alignment, colour,
+   width). Mirrors the block switcher in the Gutenberg toolbar. */
+
+export type TransformTarget = {
+  type: NodeType;
+  /** Heading level when the target is a specific heading (H1–H6). */
+  level?: string;
+  label: string;
+};
+
+const HEADING_LEVELS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
+const TRANSFORMS: Partial<Record<NodeType, NodeType[]>> = {
+  heading: ['paragraph', 'button', 'cta', 'html'],
+  paragraph: ['heading', 'button', 'cta', 'html'],
+  button: ['heading', 'paragraph', 'cta'],
+  cta: ['heading', 'paragraph', 'button'],
+  html: ['paragraph', 'heading'],
+};
+
+function stripHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function plainTextOf(block: Block): string {
+  const p = block.props || {};
+  switch (block.type) {
+    case 'cta':
+      return stripHtml(p.title || p.description);
+    case 'html':
+      return stripHtml(p.code);
+    default:
+      return stripHtml(p.text);
+  }
+}
+
+function htmlOf(block: Block): string {
+  const p = block.props || {};
+  if (block.type === 'paragraph') return String(p.text ?? '');
+  if (block.type === 'html') return String(p.code ?? '');
+  const text = plainTextOf(block);
+  return text ? `<p>${escapeHtml(text)}</p>` : '';
+}
+
+/** Block types (and heading levels) `block` can be switched to. */
+export function getTransformTargets(block: Block): TransformTarget[] {
+  const types = TRANSFORMS[block.type];
+  if (!types) return [];
+  const targets: TransformTarget[] = [];
+  for (const type of types) {
+    if (type === 'heading') {
+      // Headings are offered per level, like Heading 1–6 in WordPress.
+      for (const level of HEADING_LEVELS) {
+        targets.push({ type, level, label: `Heading ${level.slice(1)}` });
+      }
+    } else {
+      targets.push({ type, label: BLOCK_DEFS[type].label });
+    }
+  }
+  if (block.type === 'heading') {
+    const current = String(block.props?.level || 'h2');
+    return [
+      ...HEADING_LEVELS.filter((level) => level !== current).map((level) => ({
+        type: 'heading' as NodeType,
+        level,
+        label: `Heading ${level.slice(1)}`,
+      })),
+      ...targets.filter((target) => target.type !== 'heading'),
+    ];
+  }
+  return targets;
+}
+
+/** The same block (same id) re-created as `target`, carrying text and layout over. */
+export function transformBlock(
+  block: Block,
+  target: { type: NodeType; level?: string },
+): Block {
+  const source = block.props || {};
+  const props = BLOCK_DEFS[target.type].defaultProps();
+  const text = plainTextOf(block);
+  const carry = (key: string) => {
+    if (source[key] !== undefined && source[key] !== '' && key in props) {
+      props[key] = source[key];
+    }
+  };
+
+  switch (target.type) {
+    case 'heading':
+      if (text) props.text = text;
+      props.level = target.level || (HEADING_LEVELS.includes(String(source.level)) ? source.level : 'h2');
+      carry('align');
+      carry('color');
+      carry('width');
+      break;
+    case 'paragraph':
+      if (text) props.text = htmlOf(block);
+      carry('align');
+      carry('color');
+      carry('width');
+      break;
+    case 'button':
+      if (text) props.text = text;
+      carry('align');
+      if (block.type === 'cta' && source.url) props.url = source.url;
+      break;
+    case 'cta':
+      if (block.type === 'paragraph' || block.type === 'html') {
+        if (text) props.description = text;
+      } else if (text) {
+        props.title = text;
+      }
+      if (block.type === 'button') {
+        if (source.url) props.url = source.url;
+        if (text) props.button = text;
+        props.title = BLOCK_DEFS.cta.defaultProps().title;
+      }
+      carry('align');
+      break;
+    case 'html':
+      props.code = htmlOf(block) || props.code;
+      break;
+    default:
+      break;
+  }
+
+  return { id: block.id, type: target.type, props };
+}

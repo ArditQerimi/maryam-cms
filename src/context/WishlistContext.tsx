@@ -513,7 +513,13 @@ function wishlistErrorText(error: unknown, fallback: string): string {
   return isStorefrontClientError(error) && error.message.trim() ? error.message : fallback;
 }
 
-export function WishlistProvider({ children }: { children: ReactNode }) {
+export function WishlistProvider({
+  children,
+  customerSession = true,
+}: {
+  children: ReactNode;
+  customerSession?: boolean;
+}) {
   const { t } = useLocale();
   const wishlistReadError = t('tools.wishlist.storage_read_error');
   const wishlistWriteError = t('tools.wishlist.storage_write_error');
@@ -540,6 +546,11 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const serverReadyRef = useRef(false);
   const serverInitPromiseRef = useRef<Promise<void> | null>(null);
   const serverSyncInFlightRef = useRef(false);
+  /** Signed-out shoppers keep a local wishlist; no server round-trip to fail. */
+  const customerSessionRef = useRef(customerSession);
+  useEffect(() => {
+    customerSessionRef.current = customerSession;
+  }, [customerSession]);
   const serverRefreshAbortRef = useRef<AbortController | null>(null);
   const commandQueueRef = useRef<WishlistCommand[]>([]);
   const commandProcessingRef = useRef(false);
@@ -912,6 +923,14 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const runServerSync = useCallback(async () => {
     if (typeof window === 'undefined' || serverSyncInFlightRef.current || commandProcessingRef.current) return;
+    if (!customerSessionRef.current) {
+      // Same state the server's 401 would produce, without the request.
+      serverReadyRef.current = false;
+      serverAuthenticatedRef.current = false;
+      setServerAuthenticated(false);
+      setSyncStatus('local-only');
+      return;
+    }
     serverSyncInFlightRef.current = true;
     const controller = new AbortController();
     serverRefreshAbortRef.current = controller;

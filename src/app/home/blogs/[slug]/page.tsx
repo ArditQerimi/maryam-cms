@@ -2,7 +2,12 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Clock3, MessageCircle, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen } from 'lucide-react';
+import { and, asc, eq } from 'drizzle-orm';
+import { blogComments, users } from '@/db/schema-tenant';
+import { getContextDb } from '@/lib/tenant';
+import { getSession } from '@/lib/session';
+import CommentForm from '../CommentForm';
 import { notFound } from 'next/navigation';
 import ArticleContent from '../ArticleContent';
 import BlogFilters from '../BlogFilters';
@@ -46,6 +51,44 @@ export async function generateMetadata({ params }: BlogPostParams): Promise<Meta
   };
 }
 
+/** Comments approved in the CMS (status Active), oldest first. */
+async function loadApprovedComments(postId: string) {
+  if (!/^\d+$/.test(postId)) return [];
+  try {
+    const db = await getContextDb();
+    return await db
+      .select({
+        id: blogComments.id,
+        commenterName: blogComments.commenterName,
+        comment: blogComments.comment,
+        createdAt: blogComments.createdAt,
+      })
+      .from(blogComments)
+      .where(and(eq(blogComments.postId, Number(postId)), eq(blogComments.status, 'Active')))
+      .orderBy(asc(blogComments.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+/** Name of the signed-in shopper (customer or staff), for "Logged in as …". */
+async function loadViewerName(): Promise<string | null> {
+  try {
+    const session = await getSession();
+    const userId = Number((session as Record<string, unknown> | null)?.userId);
+    if (!Number.isSafeInteger(userId) || userId <= 0) return null;
+    const db = await getContextDb();
+    const [user] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.status, 'Active')))
+      .limit(1);
+    return user?.name || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function BlogPostPage({ params }: BlogPostParams) {
   const { slug } = await params;
   const posts = await getStorefrontBlogPosts();
@@ -58,24 +101,16 @@ export default async function BlogPostPage({ params }: BlogPostParams) {
   const nextPost = postIndex > 0 ? posts[postIndex - 1] : undefined;
   const categories = getFilterOptions(posts, 'category');
   const tags = getFilterOptions(posts, 'tag');
-  const recentPosts = posts.filter((candidate) => candidate.slug !== post.slug).slice(0, 3);
+  const recentPosts = posts.filter((candidate) => candidate.slug !== post.slug).slice(0, 5);
+  const [comments, viewerName] = await Promise.all([
+    loadApprovedComments(post.id),
+    loadViewerName(),
+  ]);
 
   return (
     <div className={`${styles.page} ${styles.articlePage}`}>
       <header className={`${styles.pageBanner} ${styles.articleBanner}`}>
         <div className={styles.container}>
-          <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-            <Link href="/home">{t('blog.crumb.home')}</Link>
-            <span className={styles.breadcrumbSeparator} aria-hidden="true">
-              /
-            </span>
-            <Link href="/home/blogs">{t('blog.title')}</Link>
-            <span className={styles.breadcrumbSeparator} aria-hidden="true">
-              /
-            </span>
-            <span className={styles.breadcrumbCurrent}>{post.title}</span>
-          </nav>
-
           <Link
             className={styles.articleCategory}
             href={`/home/blogs?category=${encodeURIComponent(slugify(post.category))}`}
@@ -84,20 +119,9 @@ export default async function BlogPostPage({ params }: BlogPostParams) {
           </Link>
           <h1 className={styles.articleTitle}>{post.title}</h1>
           <div className={styles.articleMeta} aria-label={t('blog.article.metaAria')}>
-            <span className={styles.metaItem}>
-              <UserRound size={15} strokeWidth={1.7} aria-hidden="true" />
-              {post.authorName}
-            </span>
+            <span>{t('blog.card.by', { name: post.authorName })}</span>
             <span className={styles.metaDivider} aria-hidden="true" />
-            <time className={styles.metaItem} dateTime={post.publishedAt}>
-              <CalendarDays size={15} strokeWidth={1.7} aria-hidden="true" />
-              {formatBlogDate(post.publishedAt)}
-            </time>
-            <span className={styles.metaDivider} aria-hidden="true" />
-            <span className={styles.metaItem}>
-              <Clock3 size={15} strokeWidth={1.7} aria-hidden="true" />
-              {t('blog.article.minRead', { count: post.readingMinutes })}
-            </span>
+            <time dateTime={post.publishedAt}>{formatBlogDate(post.publishedAt)}</time>
           </div>
         </div>
       </header>
@@ -123,10 +147,11 @@ export default async function BlogPostPage({ params }: BlogPostParams) {
             )}
           </figure>
 
-          <ArticleContent content={post.content} fallbackQuote={post.excerpt} />
+          {/* Quotes come only from the content itself (editor quote button). */}
+          <ArticleContent content={post.content} />
 
           <div className={styles.articleTags}>
-            <span className={styles.articleTagsLabel}>{t('blog.article.tags')}</span>
+            <span className={styles.srOnly}>{t('blog.article.tags')}</span>
             <div className={styles.tagList}>
               {post.tags.map((tag) => (
                 <Link
@@ -134,7 +159,7 @@ export default async function BlogPostPage({ params }: BlogPostParams) {
                   className={styles.tag}
                   href={`/home/blogs?tag=${encodeURIComponent(slugify(tag))}`}
                 >
-                  {tag}
+                  #{tag.toLocaleLowerCase()}
                 </Link>
               ))}
             </div>
@@ -163,22 +188,39 @@ export default async function BlogPostPage({ params }: BlogPostParams) {
             </nav>
           ) : null}
 
-          <section className={styles.commentsSection} aria-labelledby="reply-title">
-            <div className={styles.commentsHeadingRow}>
-              <MessageCircle size={20} strokeWidth={1.6} aria-hidden="true" />
-              <h2 id="reply-title" className={styles.commentsTitle}>
-                {t('blog.article.replyTitle')}
+          {comments.length > 0 ? (
+            <section className={styles.commentList} aria-labelledby="comments-title">
+              <h2 id="comments-title" className={styles.replyTitle}>
+                {t('blog.reply.count', { count: comments.length })}
               </h2>
-              <span className={styles.commentsStatus}>{t('blog.article.commentsUnavailable')}</span>
-            </div>
-            <p className={styles.commentsNotice} role="status">
-              {t('blog.article.commentsNotice')}
-            </p>
-          </section>
+              <ol>
+                {comments.map((comment) => (
+                  <li key={comment.id}>
+                    <p className={styles.commentAuthor}>
+                      <strong>{comment.commenterName}</strong>
+                      <time dateTime={comment.createdAt.toISOString()}>
+                        {formatBlogDate(comment.createdAt.toISOString())}
+                      </time>
+                    </p>
+                    <p className={styles.commentText}>{comment.comment}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
 
-          <Link className={styles.backToBlog} href="/home/blogs">
-            <ArrowLeft size={15} strokeWidth={1.7} aria-hidden="true" /> {t('blog.article.back')}
-          </Link>
+          <section className={styles.commentsSection} aria-labelledby="reply-title">
+            <h2 id="reply-title" className={styles.replyTitle}>
+              {t('blog.article.replyTitle')}
+            </h2>
+            {/^\d+$/.test(post.id) ? (
+              <CommentForm postSlug={post.slug} viewerName={viewerName} />
+            ) : (
+              <p className={styles.commentsNotice} role="status">
+                {t('blog.article.commentsNotice')}
+              </p>
+            )}
+          </section>
         </article>
       </div>
     </div>

@@ -100,11 +100,12 @@ export default async function ShopBlogsPage({
           tag={tag}
           categories={categories}
           tags={tags}
-          recentPosts={posts.slice(0, 3)}
+          recentPosts={posts.slice(0, 5)}
         />
 
         <section className={styles.results} aria-labelledby="blog-results-title">
-          <div className={styles.resultsHeader}>
+          {/* Only a filtered list explains itself; the plain blog is just the grid. */}
+          <div className={hasFilters ? styles.resultsHeader : styles.srOnly}>
             <div>
               <p className={styles.resultsKicker}>
                 {hasFilters ? t('blog.results.filteredKicker') : t('blog.results.defaultKicker')}

@@ -49,6 +49,7 @@ export const checkout: typeof checkoutEn = {
   'checkout.delivery.fallbackLabel': 'Dërgesa',
   'checkout.delivery.loading': 'Duke ngarkuar…',
   'checkout.delivery.serverQuote': 'Oferta e serverit',
+  'checkout.payment.check.label': 'Pagesa me çek',
   'checkout.payment.cashOnDelivery.label': 'Pagesa në dorëzim',
   'checkout.payment.cashOnDelivery.detail': 'Paguani kur porosia të dorëzohet',
   'checkout.shippingType.flat_rate': 'Tarifë fikse',
@@ -106,6 +107,8 @@ export const checkout: typeof checkoutEn = {
   'checkout.login.promptCopy': 'Hyr në llogari që të dhënat e porosisë t\'i keni gjithmonë me vete.',
   'checkout.login.link': 'Hyr',
   'checkout.contact.email': 'Adresë email',
+  'checkout.notes.label': 'Shënime për porosinë',
+  'checkout.notes.placeholder': 'Shënime për porosinë tuaj, p.sh. udhëzime të veçanta për dërgesën.',
   'checkout.contact.phone': 'Numri i telefonit',
   'checkout.contact.phoneHint': 'Për pyetje rreth dërgesës',
   'checkout.contact.marketing':

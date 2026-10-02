@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  useDraggable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -23,6 +27,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ChevronDown,
   Copy,
   Eye,
   EyeOff,
@@ -49,8 +54,10 @@ import {
   createBlock,
   createColumn,
   createRow,
+  getTransformTargets,
   isBlockType,
   normalizeBlocks,
+  transformBlock,
   type Block,
   type Breakpoint,
   type FieldDef,
@@ -213,6 +220,78 @@ function findParent(blocks: Block[], id: string): Block | null {
 
 /* ---------------------------------------------------------------- sortable */
 
+/**
+ * Anything that can start a canvas drag (library tile, row preset, toolbar
+ * grip). dnd-kit owns the pointer tracking; a plain click still reaches
+ * `onClick` because the drag only begins after a few pixels of movement.
+ */
+function DragSource({
+  id,
+  data,
+  disabled,
+  title,
+  ariaLabel,
+  className,
+  onClick,
+  children,
+}: {
+  id: string;
+  data: DragPayload;
+  disabled?: boolean;
+  title?: string;
+  ariaLabel?: string;
+  className?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const { listeners, setNodeRef } = useDraggable({ id, data, disabled });
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      title={title}
+      aria-label={ariaLabel}
+      className={className}
+      onClick={onClick}
+      onPointerDown={listeners?.onPointerDown as React.PointerEventHandler<HTMLButtonElement> | undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The hover/selection surface over a node. It also starts a drag, so a module
+ * (or column/row) can be grabbed anywhere on its body, Elementor-style — not
+ * only by the toolbar grip. A plain click still just selects it.
+ */
+function DragSurface({
+  id,
+  data,
+  disabled,
+  className,
+  style,
+  onClick,
+}: {
+  id: string;
+  data: DragPayload;
+  disabled?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+}) {
+  const { listeners, setNodeRef } = useDraggable({ id, data, disabled });
+  return (
+    <div
+      ref={setNodeRef}
+      className={className}
+      style={style}
+      onClick={onClick}
+      onPointerDown={listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement> | undefined}
+    />
+  );
+}
+
 function SortableCard({
   block,
   selected,
@@ -347,6 +426,47 @@ function FieldControl({
           />
         </div>
       );
+
+    case 'link': {
+      const listId = `link-options-${field.key}`;
+      const routes: Array<[string, string]> = [
+        ['/home', L('Home page')],
+        ['/home/products', L('All products')],
+        ['/home/blogs', L('Blog')],
+        ['/home/about-us', L('About us')],
+        ['/home/contact', L('Contact')],
+        ['/home/cart', L('Cart')],
+        ['/home/checkout', L('Checkout')],
+        ['/home/account', L('My account')],
+      ];
+      return (
+        <div>
+          {label}
+          <input
+            className={inputClass}
+            value={String(value ?? '')}
+            placeholder={field.placeholder}
+            list={listId}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <datalist id={listId}>
+            {routes.map(([url, name]) => (
+              <option key={url} value={url}>
+                {name}
+              </option>
+            ))}
+            {products.slice(0, 200).map((product) => (
+              <option key={product.id} value={`/home/products/${product.id}`}>
+                {product.name}
+              </option>
+            ))}
+          </datalist>
+          <p className="mt-1 text-[10px] text-zinc-400">
+            {L('Pick a page or product, or paste any address.')}
+          </p>
+        </div>
+      );
+    }
 
     case 'textarea':
       return (
@@ -1008,13 +1128,23 @@ export default function PageBuilder({
   const [panelTab, setPanelTab] = useState<PanelTab>('modules');
   const [settingsTab, setSettingsTab] = useState<FieldTab>('general');
   const [moduleGroup, setModuleGroup] = useState('all');
+  /** Node whose "Transform to" menu is open. */
+  const [transformMenuFor, setTransformMenuFor] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   /** Live drag over the canvas: what is dragged and where it would land. */
   const [drag, setDrag] = useState<DragState | null>(null);
   /** True right after a drop, so the source tile's `click` does not also fire. */
   const justDroppedRef = useRef(false);
-  /** Set by Escape to abandon the drag in progress. */
-  const dragCancelRef = useRef(false);
+  /** Latest pointer position and payload of the drag dnd-kit is running. */
+  const dragPointRef = useRef<{ x: number; y: number } | null>(null);
+  const dragPayloadRef = useRef<DragPayload | null>(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  /** Scrollable canvas, auto-scrolled while a drag nears its top/bottom edge. */
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  /** Where the selected module's toolbar floats, in canvas-content coordinates. */
+  const [moduleToolbarBox, setModuleToolbarBox] = useState<{ top: number; left: number } | null>(null);
 
   /* -------------------------------------------------------------- history */
   const historyRef = useRef<Block[][]>([blocks]);
@@ -1172,8 +1302,8 @@ export default function PageBuilder({
       }
       if (typing) return;
       if (event.key === 'Escape') {
-        dragCancelRef.current = true;
         setDrag(null);
+        setTransformMenuFor(null);
         setSelectedId(null);
         if (previewMode) setPreviewMode(false);
         return;
@@ -1186,6 +1316,157 @@ export default function PageBuilder({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
+
+/**
+   * One click "make this a carousel": the row's current layout (e.g. image |
+   * text) becomes slide 1, nested inside a full-width column, and the row is
+   * switched to carousel mode. More slides are copies of the last one.
+   */
+  function makeCarousel(rowId: string) {
+    const tree = blocksRef.current;
+    const row = findBlock(tree, rowId);
+    if (!row || row.type !== 'row') return;
+    const inner = createRow(1);
+    inner.props = {
+      ...inner.props,
+      valign: row.props.valign ?? 'center',
+      gap: row.props.gap ?? 24,
+    };
+    inner.children = row.children || [];
+    const slide = createColumn(100, [inner]);
+    commit(
+      mapTree(tree, rowId, (entry) => ({
+        ...entry,
+        props: {
+          ...entry.props,
+          layout: 'carousel',
+          slidesPerView: 1,
+          autoplay: true,
+          intervalSeconds: Number(entry.props.intervalSeconds) || 5,
+          arrows: true,
+          dots: true,
+        },
+        children: [slide],
+      })),
+    );
+    setSelectedId(rowId);
+  }
+
+  /** Carousel rows: append a copy of the last slide (fresh ids), ready to edit. */
+  function addSlide(rowId: string) {
+    const tree = blocksRef.current;
+    const row = findBlock(tree, rowId);
+    const slides = row?.children || [];
+    if (!row || !slides.length) return;
+    const copy = cloneBlock(slides[slides.length - 1]);
+    commit(mapTree(tree, rowId, (entry) => ({ ...entry, children: [...slides, copy] })));
+    showFlash(L('Slide added — use the arrows on the canvas to reach it.'));
+  }
+
+  /** Re-shape a row to `widths` columns; content of removed columns moves into the last one kept. */
+  function setRowLayout(rowId: string, widths: number[]) {
+    const tree = blocksRef.current;
+    const row = findBlock(tree, rowId);
+    if (!row || row.type !== 'row') return;
+    const columns = [...(row.children || [])];
+    let next: Block[];
+    if (widths.length >= columns.length) {
+      next = widths.map((width, index) =>
+        columns[index]
+          ? { ...columns[index], props: { ...columns[index].props, width } }
+          : createColumn(width),
+      );
+    } else {
+      const kept = columns.slice(0, widths.length);
+      const spill = columns.slice(widths.length).flatMap((column) => column.children || []);
+      next = kept.map((column, index) => ({
+        ...column,
+        props: { ...column.props, width: widths[index] },
+        children:
+          index === kept.length - 1 ? [...(column.children || []), ...spill] : column.children,
+      }));
+    }
+    commit(mapTree(tree, rowId, (entry) => ({ ...entry, children: next })));
+  }
+
+  /** WordPress-style "Transform to": same block, new type, text kept. */
+  function transformNode(id: string, target: { type: NodeType; level?: string }) {
+    const current = findBlock(blocksRef.current, id);
+    setTransformMenuFor(null);
+    if (!current) return;
+    const next = transformBlock(current, target);
+    commit(mapTree(blocksRef.current, id, () => next));
+    setSelectedId(id);
+  }
+
+  // Follow the selected module (scroll, resize, carousel paging, edits) so its
+  // floating toolbar stays glued just above it.
+  const selectedIsModule = Boolean(
+    selectedId && !previewMode && (() => {
+      const node = findBlock(blocks, selectedId);
+      return node && node.type !== 'row' && node.type !== 'column';
+    })(),
+  );
+  useEffect(() => {
+    // Nothing to follow: the toolbar is simply not rendered (see the canvas).
+    if (!selectedIsModule || !selectedId) return;
+    let frame = 0;
+    let last = '';
+    const measure = () => {
+      const canvas = canvasRef.current;
+      const target = canvas?.querySelector(`[data-node="${selectedId}"]`) as HTMLElement | null;
+      if (canvas && target) {
+        const rect = target.getBoundingClientRect();
+        const base = canvas.getBoundingClientRect();
+        let top = rect.top - base.top + canvas.scrollTop - 34;
+        // At the very top of the canvas, tuck it inside the module instead.
+        if (top < canvas.scrollTop) top = rect.top - base.top + canvas.scrollTop + 4;
+        const left = Math.max(4, rect.left - base.left + canvas.scrollLeft);
+        const key = `${Math.round(top)}:${Math.round(left)}`;
+        if (key !== last) {
+          last = key;
+          setModuleToolbarBox({ top, left });
+        }
+      }
+      frame = window.requestAnimationFrame(measure);
+    };
+    frame = window.requestAnimationFrame(measure);
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedIsModule, selectedId]);
+
+  // The canvas is not an ancestor of the library tiles, so dnd-kit's own
+  // auto-scroll never reaches it: scroll it while the pointer rests near an edge.
+  const dragging = drag !== null;
+  useEffect(() => {
+    if (!dragging) return;
+    let frame = 0;
+    const tick = () => {
+      const canvas = canvasRef.current;
+      const point = dragPointRef.current;
+      const payload = dragPayloadRef.current;
+      if (canvas && point && payload) {
+        const rect = canvas.getBoundingClientRect();
+        const edge = 64;
+        let dy = 0;
+        if (point.x >= rect.left && point.x <= rect.right) {
+          if (point.y < rect.top + edge) {
+            dy = -Math.min(24, Math.ceil((rect.top + edge - point.y) / 3));
+          } else if (point.y > rect.bottom - edge) {
+            dy = Math.min(24, Math.ceil((point.y - (rect.bottom - edge)) / 3));
+          }
+        }
+        if (dy !== 0) {
+          const before = canvas.scrollTop;
+          canvas.scrollTop += dy;
+          if (canvas.scrollTop !== before) setDrag(computeDrag(payload, point));
+        }
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragging]);
 
   function addBlock(type: NodeType, parentId?: string | null) {
     // The old flat `columns_N` blocks are expressed as real rows now.
@@ -1283,14 +1564,28 @@ export default function PageBuilder({
 
   /* ------------------------------------------------------------ drag & drop */
 
+  /** Short name for the floating drag label. */
+  function dragLabel(payload: DragPayload): string {
+    if (payload.kind === 'new-row') return L('Row');
+    const type =
+      payload.kind === 'new-module'
+        ? payload.blockType
+        : findBlock(blocks, payload.id)?.type;
+    const def = type ? BLOCK_DEFS[type] : null;
+    return def ? L(def.label) : L('Row');
+  }
+
   /** Where would `payload` land if dropped at `point` right now? */
   function computeDrag(
     payload: DragPayload,
     point: { x: number; y: number },
   ): DragState {
     const empty: DragState = { payload, hint: null, box: null, point };
-    const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
-    const host = element?.closest('[data-node]') as HTMLElement | null;
+    const host =
+      (document
+        .elementsFromPoint(point.x, point.y)
+        .map((entry) => (entry as HTMLElement).closest?.('[data-node]'))
+        .find(Boolean) as HTMLElement | undefined) ?? null;
     if (!host) return empty;
 
     const tree = blocksRef.current;
@@ -1331,8 +1626,11 @@ export default function PageBuilder({
 
     // Moving a column: reposition it horizontally inside a row.
     if (moving?.type === 'column') {
-      const row = node.type === 'row' ? node : findParent(tree, node.id);
-      if (!row || row.type !== 'row') return empty;
+      // Over a module (or a nested row) the pointer is deeper than the row the
+      // column lives in: walk up until the row that holds columns.
+      let row: Block | null = node.type === 'row' ? node : findParent(tree, node.id);
+      while (row && row.type !== 'row') row = findParent(tree, row.id);
+      if (!row) return empty;
       return {
         payload,
         hint: {
@@ -1521,47 +1819,56 @@ export default function PageBuilder({
     }
   }
 
-  /** Start a pointer drag from the toolbar grip or a panel tile. */
-  function startDrag(
-    payload: DragPayload,
-    event: React.PointerEvent,
-    cancelDefault = false,
-  ) {
-    if (previewMode) return;
-    if (cancelDefault) event.preventDefault();
-    event.stopPropagation();
-    dragCancelRef.current = false;
-    setDrag(computeDrag(payload, { x: event.clientX, y: event.clientY }));
+  /* dnd-kit drives the gesture (sensors, Escape-to-cancel, overlay); the layout
+     maths above turns the pointer position into a drop target. */
+  function pointOf(event: { activatorEvent: Event; delta: { x: number; y: number } }) {
+    const origin = event.activatorEvent as PointerEvent;
+    return { x: origin.clientX + event.delta.x, y: origin.clientY + event.delta.y };
+  }
 
-    const onMove = (moveEvent: PointerEvent) =>
-      setDrag(computeDrag(payload, { x: moveEvent.clientX, y: moveEvent.clientY }));
+  function endGesture() {
+    dragPayloadRef.current = null;
+    dragPointRef.current = null;
+    document.body.classList.remove('select-none');
+  }
 
-    const onCancel = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      setDrag(null);
-    };
+  function handleDragStart(event: DragStartEvent) {
+    const payload = event.active.data.current as DragPayload | undefined;
+    if (!payload || previewMode) return;
+    const origin = event.activatorEvent as PointerEvent;
+    dragPayloadRef.current = payload;
+    dragPointRef.current = { x: origin.clientX, y: origin.clientY };
+    document.body.classList.add('select-none');
+    setDrag(computeDrag(payload, dragPointRef.current));
+  }
 
-    const onUp = (upEvent: PointerEvent) => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointercancel', onCancel);
-      const final = dragCancelRef.current
-        ? null
-        : computeDrag(payload, { x: upEvent.clientX, y: upEvent.clientY });
-      setDrag(null);
-      if (final?.hint) {
-        justDroppedRef.current = true;
-        window.setTimeout(() => {
-          justDroppedRef.current = false;
-        }, 0);
-        window.getSelection()?.removeAllRanges();
-        applyDrag(payload, final.hint);
-      }
-    };
+  function handleDragMove(event: DragMoveEvent) {
+    const payload = dragPayloadRef.current;
+    if (!payload) return;
+    const point = pointOf(event);
+    dragPointRef.current = point;
+    setDrag(computeDrag(payload, point));
+  }
 
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp, { once: true });
-    window.addEventListener('pointercancel', onCancel, { once: true });
+  function handleDragEnd(event: DragEndEvent) {
+    const payload = dragPayloadRef.current;
+    const point = pointOf(event);
+    endGesture();
+    setDrag(null);
+    if (!payload) return;
+    const final = computeDrag(payload, point);
+    if (!final.hint) return;
+    justDroppedRef.current = true;
+    window.setTimeout(() => {
+      justDroppedRef.current = false;
+    }, 0);
+    window.getSelection()?.removeAllRanges();
+    applyDrag(payload, final.hint);
+  }
+
+  function handleDragCancel() {
+    endGesture();
+    setDrag(null);
   }
 
   function addRow(widths: number[]) {
@@ -1738,7 +2045,9 @@ export default function PageBuilder({
 
     return (
       <>
-        <style>{`.bb-${node.id}:hover>.bb-chrome{opacity:1}`}</style>
+        {/* Only the innermost hovered node lights up, so a row's and a column's
+            toolbars never pile up over the module the pointer is on. */}
+        <style>{`.bb-${node.id}:hover:not(:has([data-node]:hover))>.bb-chrome{opacity:1}.bb-${node.id}:hover:not(:has([data-node]:hover))>.bb-toolbar{pointer-events:auto}`}</style>
         {/* Keyboard entry point: focus selects the node. */}
         <button
           type="button"
@@ -1750,20 +2059,62 @@ export default function PageBuilder({
         >
           {t('cmscontent.builder.selectNode', { label })}
         </button>
-        <div
+        <DragSurface
+          id={`surface:${node.id}`}
+          data={{ kind: 'move', id: node.id }}
+          disabled={previewMode}
           className={cn(
-            'bb-chrome absolute inset-0 cursor-pointer opacity-0 ring-2 ring-inset transition-opacity',
+            'bb-chrome absolute inset-0 cursor-grab touch-none opacity-0 ring-2 ring-inset transition-opacity active:cursor-grabbing',
             accent.ring,
+            // Above a module's own positioned content (image, cards) so it gets the
+            // click and the drag; rows/columns stay below their children.
+            kind === 'module' && 'z-10',
           )}
-          style={selection}
+          style={isSelected ? { opacity: 1, pointerEvents: 'none' } : undefined}
           onClick={(event) => {
             event.stopPropagation();
             setSelectedId(node.id);
           }}
         />
+        {kind === 'module' ? null : renderToolbar(node, false)}
+      </>
+    );
+  }
+
+  /**
+   * The node's action bar (label, transform, drag grip, settings, move,
+   * duplicate, delete). Rows and columns show it inside their corner on hover;
+   * a selected module gets it floating above it on the canvas (see
+   * `moduleToolbarBox`), where no carousel or column can clip it and it never
+   * covers the text being edited.
+   */
+  function renderToolbar(node: Block, floating: boolean): React.ReactNode {
+    const kind: NodeKind =
+      node.type === 'row' ? 'row' : node.type === 'column' ? 'column' : 'module';
+    const accent = KIND_ACCENT[kind];
+    const def = BLOCK_DEFS[node.type];
+    const label = def ? L(def.label) : node.type;
+    const isSelected = selectedId === node.id;
+    const parent = findParent(blocks, node.id);
+    const siblings = parent ? parent.children || [] : blocks;
+    const index = siblings.findIndex((entry) => entry.id === node.id);
+    const moveLabels =
+      kind === 'column'
+        ? [L('Move left'), L('Move right')]
+        : [L('Move up'), L('Move down')];
+
+    return (
         <div
-          className="bb-chrome absolute left-1 top-1 z-30 flex items-center gap-0.5 rounded-md bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity"
-          style={selection}
+          className={cn(
+            'z-30 flex items-center gap-0.5 whitespace-nowrap rounded-md bg-white/95 p-0.5 shadow-sm ring-1 ring-black/10',
+            floating
+              ? 'relative'
+              : cn(
+                  'bb-chrome bb-toolbar pointer-events-none absolute opacity-0 transition-opacity',
+                  kind === 'row' ? 'right-1 top-1' : 'left-1 top-1',
+                ),
+          )}
+          style={!floating && isSelected ? { opacity: 1, pointerEvents: 'auto' } : undefined}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
@@ -1775,15 +2126,63 @@ export default function PageBuilder({
           >
             {label}
           </span>
-          <button
-            type="button"
+          {kind === 'module' && getTransformTargets(node).length > 0 ? (
+            <div className="relative">
+              <button
+                type="button"
+                title={L('Transform to')}
+                aria-label={L('Transform to')}
+                aria-haspopup="menu"
+                aria-expanded={transformMenuFor === node.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setTransformMenuFor(transformMenuFor === node.id ? null : node.id);
+                }}
+                className="flex items-center gap-0.5 rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+              >
+                {def ? <def.icon size={12} /> : null}
+                <ChevronDown size={10} />
+              </button>
+              {transformMenuFor === node.id ? (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full z-50 mt-1 max-h-72 w-44 overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 text-left shadow-lg"
+                >
+                  <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                    {L('Transform to')}
+                  </p>
+                  {getTransformTargets(node).map((target) => {
+                    const TargetIcon = BLOCK_DEFS[target.type].icon;
+                    return (
+                      <button
+                        key={`${target.type}-${target.level || ''}`}
+                        type="button"
+                        role="menuitem"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          transformNode(node.id, target);
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
+                      >
+                        <TargetIcon size={13} className="shrink-0 text-zinc-400" />
+                        {L(target.label)}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <DragSource
+            id={`move:${node.id}`}
+            data={{ kind: 'move', id: node.id }}
+            disabled={previewMode}
             title={L('Drag to move')}
-            aria-label={t('cmscontent.builder.dragNode', { label })}
-            onPointerDown={(event) => startDrag({ kind: 'move', id: node.id }, event, true)}
-            className="cursor-grab rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 active:cursor-grabbing"
+            ariaLabel={t('cmscontent.builder.dragNode', { label })}
+            className="cursor-grab touch-none rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 active:cursor-grabbing"
           >
             <GripVertical size={12} />
-          </button>
+          </DragSource>
           <button
             type="button"
             title={L('Settings')}
@@ -1847,7 +2246,6 @@ export default function PageBuilder({
             <Trash2 size={12} />
           </button>
         </div>
-      </>
     );
   }
 
@@ -1855,6 +2253,14 @@ export default function PageBuilder({
     breakpoint === 'desktop' ? '100%' : breakpoint === 'tablet' ? '834px' : '390px';
 
   return (
+    <DndContext
+      id="page-builder"
+      sensors={dndSensors}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
     <div
       className={cn(
         'bb-shell flex flex-col overflow-hidden bg-white',
@@ -1987,6 +2393,7 @@ export default function PageBuilder({
       <div className="flex min-h-0 flex-1">
         {/* ------------------------------------------------------- canvas */}
         <div
+          ref={canvasRef}
           className={cn(
             'relative min-w-0 flex-1 overflow-y-auto',
             previewMode ? 'bg-white' : 'bg-zinc-100/60',
@@ -2016,6 +2423,9 @@ export default function PageBuilder({
           onClick={(event) => {
             // Link clicks keep the selection the capture handler made.
             if ((event.target as Element | null)?.closest?.('a')) return;
+            setTransformMenuFor(null);
+            const host = (event.target as Element | null)?.closest?.('[data-node]') as HTMLElement | null;
+            if (host && host.dataset.node && host.dataset.node === selectedId) return;
             setSelectedId(null);
           }}
         >
@@ -2065,10 +2475,21 @@ export default function PageBuilder({
                   categories={categories}
                   editChrome={previewMode ? undefined : renderChrome}
                   editGutter={previewMode ? undefined : renderGutter}
+                  onInlineEdit={previewMode ? undefined : (id, key, value) => patchProps(id, key, value)}
+                  selectedId={previewMode ? null : selectedId}
                 />
               ))
             )}
           </div>
+
+          {selectedIsModule && moduleToolbarBox && selected && !drag ? (
+            <div
+              className="absolute z-40"
+              style={{ top: moduleToolbarBox.top, left: moduleToolbarBox.left }}
+            >
+              {renderToolbar(selected, true)}
+            </div>
+          ) : null}
 
           {drag && drag.hint && drag.box ? (
             <div className="pointer-events-none fixed inset-0 z-[65]">
@@ -2161,6 +2582,83 @@ export default function PageBuilder({
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                  {selected.type === 'row' && settingsTab === 'general' ? (
+                    <div>
+                      <span className="mb-1.5 block text-xs font-medium text-zinc-600">
+                        {L('Columns')} ({(selected.children || []).length})
+                      </span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {ROW_PRESETS.map((preset) => {
+                          const current =
+                            (selected.children || []).length === preset.widths.length &&
+                            (selected.children || []).every(
+                              (column, index) =>
+                                Math.abs(Number(column.props.width) - preset.widths[index]) < 1,
+                            );
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              title={L(preset.label)}
+                              aria-label={L(preset.label)}
+                              aria-pressed={current}
+                              onClick={() => setRowLayout(selected.id, preset.widths)}
+                              className={cn(
+                                'rounded border bg-white p-1 transition',
+                                current
+                                  ? 'border-[#6d6be8] ring-1 ring-[#6d6be8]'
+                                  : 'border-zinc-200 hover:border-[#6d6be8]',
+                              )}
+                            >
+                              <span className="flex h-6 gap-0.5">
+                                {preset.widths.map((width, position) => (
+                                  <span
+                                    key={position}
+                                    className="rounded-sm bg-zinc-300"
+                                    style={{ width: `${width}%` }}
+                                  />
+                                ))}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-400">
+                        {L('Fewer columns keep their content: it moves into the last column.')}
+                      </p>
+                      <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5">
+                        <p className="mb-1.5 text-xs font-semibold text-zinc-700">{L('Carousel')}</p>
+                        {selected.props.layout === 'carousel' ? (
+                          <>
+                            <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+                              {L('Each column is one slide. Edit a slide on the canvas, page with the arrows.')}{' '}
+                              ({(selected.children || []).length} {L('slides')})
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => addSlide(selected.id)}
+                              className="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-700"
+                            >
+                              {L('+ Add slide (copy of the last one)')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+                              {L('Turn this row into a slider: its current layout becomes slide 1.')}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => makeCarousel(selected.id)}
+                              className="w-full rounded-md bg-[#6d6be8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#5b59d6]"
+                            >
+                              {L('Make carousel')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                   {settingsFields.length ? (
                     settingsFields.map((field) => (
                       <FieldControl
@@ -2307,9 +2805,11 @@ export default function PageBuilder({
                         {groupDefs.map((def) => {
                           const Icon = def.icon;
                           return (
-                            <button
+                            <DragSource
                               key={def.type}
-                              type="button"
+                              id={`new:${def.type}`}
+                              data={{ kind: 'new-module', blockType: def.type }}
+                              disabled={previewMode}
                               title={def.description ? L(def.description) : undefined}
                               onClick={() => {
                                 if (justDroppedRef.current) return;
@@ -2318,16 +2818,13 @@ export default function PageBuilder({
                                   selectedDef?.hasChildren ? selectedId : null,
                                 );
                               }}
-                              onPointerDown={(event) =>
-                                startDrag({ kind: 'new-module', blockType: def.type }, event)
-                              }
-                              className="flex cursor-grab flex-col items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2.5 text-center transition hover:border-[#6d6be8]/60 hover:bg-[#6d6be8]/5 hover:shadow-sm active:cursor-grabbing"
+                              className="flex cursor-grab touch-none flex-col items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-2.5 text-center transition hover:border-[#6d6be8]/60 hover:bg-[#6d6be8]/5 hover:shadow-sm active:cursor-grabbing"
                             >
                               <Icon size={18} className={cn('shrink-0', def.accent)} />
                               <span className="w-full truncate text-[11px] font-medium text-zinc-700">
                                 {L(def.label)}
                               </span>
-                            </button>
+                            </DragSource>
                           );
                         })}
                       </div>
@@ -2348,17 +2845,16 @@ export default function PageBuilder({
                     <div>
                       <div className="grid grid-cols-2 gap-2">
                         {ROW_PRESETS.map((preset) => (
-                          <button
+                          <DragSource
                             key={preset.id}
-                            type="button"
+                            id={`row:${preset.id}`}
+                            data={{ kind: 'new-row', widths: preset.widths }}
+                            disabled={previewMode}
                             onClick={() => {
                               if (justDroppedRef.current) return;
                               addRow(preset.widths);
                             }}
-                            onPointerDown={(event) =>
-                              startDrag({ kind: 'new-row', widths: preset.widths }, event)
-                            }
-                            className="group cursor-grab rounded-lg border border-zinc-200 bg-white p-2 text-left transition hover:border-[#6d6be8] hover:shadow-sm active:cursor-grabbing"
+                            className="group cursor-grab touch-none rounded-lg border border-zinc-200 bg-white p-2 text-left transition hover:border-[#6d6be8] hover:shadow-sm active:cursor-grabbing"
                           >
                             <span className="mb-1.5 flex h-8 gap-0.5 rounded border border-zinc-200 bg-zinc-50 p-0.5">
                               {preset.widths.map((width, position) => (
@@ -2372,7 +2868,7 @@ export default function PageBuilder({
                             <span className="block truncate text-[11px] font-medium text-zinc-600">
                               {L(preset.label)}
                             </span>
-                          </button>
+                          </DragSource>
                         ))}
                       </div>
                       <p className="mt-3 text-[10px] leading-relaxed text-zinc-400">
@@ -2437,5 +2933,13 @@ export default function PageBuilder({
         </div>
       ) : null}
     </div>
+    <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
+      {drag ? (
+        <div className="pointer-events-none rounded-md bg-zinc-900/90 px-2 py-1 text-[11px] font-semibold text-white shadow-lg">
+          {dragLabel(drag.payload)}
+        </div>
+      ) : null}
+    </DragOverlay>
+    </DndContext>
   );
 }

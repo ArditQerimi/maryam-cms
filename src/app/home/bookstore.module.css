@@ -440,36 +440,42 @@
    SECTION TITLES
    ========================================================= */
 
+/* Eyebrow + title, measured from the reference (÷1.35 → CSS px): olive serif
+   caps with open tracking over a large, tracked serif title. */
 .sectionEyebrow {
-  color: var(--gold);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  font-weight: 700;
-  margin: 0 0 0.6rem;
-  text-align: center;
-  font-style: italic;
+  margin: 0 0 0.5rem;
+  color: #6b5a22;
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 0.95rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .sectionEyebrowLeft {
-  color: var(--gold);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  font-weight: 700;
   margin: 0 0 0.75rem;
-  font-style: italic;
+  color: #6b5a22;
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 0.95rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
 .sectionTitle {
-  text-align: center;
-  font-size: clamp(1.8rem, 3.4vw, 2.6rem);
-  line-height: 1.1;
-  margin: 0 0 3rem;
+  margin: 0 0 2.2rem;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
   font-weight: 400;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 /* buildThemeCss injects `.shopWrapper h1..h6 { color: var(--cms-text) }` at
@@ -4343,131 +4349,142 @@
 
 /* =========================================================
    CONTACT PAGE
+   Measured from the reference screenshot (1388px wide, ratios kept
+   as clamp() so it scales). Content and labels are the store's own.
    ========================================================= */
 
 .contactPage {
   --ink: #1a1611;
   --paper: #ffffff;
-  --cream: #f1efec;
+  --cream: #f0efec;
   --gold: #8a6f2b;
+  --olive: #6b5e2b;
   --muted: #6b6355;
-  --line: #e0d8c8;
+  --line: #e6e4df;
+  --sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: var(--font-spectral), 'Spectral', Georgia, serif;
 
   display: flex;
   flex-direction: column;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-family: var(--serif);
 }
 
 .contactPage :where(h1, h2, h3, h4) {
-  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
-  color: var(--ink);
+  font-family: var(--serif);
   margin: 0;
 }
 
-.contactBreadcrumb {
-  padding: 1rem 0 0.25rem;
-  font-size: 0.8rem;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+/* buildThemeCss injects `.shopWrapper.shopWrapper h1..h6 { color: var(--cms-text) }`
+   at (0,2,1); a dark theme's cream text would vanish on this light page. */
+.contactPage.contactPage.contactPage :is(h1, h2, h3, h4) {
+  color: var(--ink);
 }
-.contactBreadcrumb a { color: var(--muted); text-decoration: none; }
-.contactBreadcrumb a:hover { color: var(--gold); }
 
-.contactPageHeader {
-  text-align: center;
-  padding: 1.25rem 0 2.5rem;
-  border-bottom: 1px solid var(--line);
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  letter-spacing: -0.02em;
+/* One wide container for every section below the banner. */
+.contactMain > .container,
+.contactMapSection > .container,
+.contactFaq > .container {
+  width: min(1744px, calc(100% - clamp(2rem, 4.6vw, 4.4rem)));
 }
 
 /* ---- Main two-column ---- */
 .contactMain {
-  padding: 4rem 0;
+  padding: clamp(3rem, 6.5vw, 6.25rem) 0 clamp(3rem, 5vw, 5rem);
 }
 .contactGrid {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 3rem;
+  grid-template-columns: minmax(280px, 26.5%) minmax(0, 1fr);
+  gap: clamp(2rem, 3.6vw, 3.95rem);
   align-items: start;
 }
 
-/* ---- Left: info panel ---- */
+/* ---- Left: contact information ---- */
 .contactInfo {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  font-family: var(--sans);
 }
 .contactInfoTitle {
-  font-size: 1rem;
-  font-weight: 700;
+  margin: 0 0 1.7rem;
+  font-size: clamp(1.45rem, 1.6vw, 1.7rem);
+  font-weight: 400;
   letter-spacing: 0.02em;
+  line-height: 1.2;
   color: var(--ink);
-  margin-bottom: 0.25rem;
 }
-.contactInfoText,
-.contactFormText {
-  margin: 0;
+.contactInfoItem {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: start;
+  padding: 1.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.contactInfoItem:first-of-type {
+  padding-top: 0;
+}
+.contactInfoItem:last-of-type {
+  border-bottom: 0;
+}
+.contactInfoItem > svg {
+  margin-top: 0.15rem;
+  color: var(--ink);
+}
+.contactInfoPin circle {
+  fill: #fff;
+  stroke: #fff;
+}
+.contactInfoBody h3 {
+  font-family: var(--sans);
+  font-size: clamp(1.25rem, 1.45vw, 1.55rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+.contactInfoBody p {
+  margin: 0.55rem 0 0;
+  color: var(--ink);
+  font-size: 1.03rem;
+  letter-spacing: 0.03em;
+  line-height: 2;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.contactInfoText {
+  margin: 1.25rem 0 0;
   color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.7;
-}
-.contactInfoItem {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-.contactInfoItem svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0;
-  color: var(--gold);
-  margin-top: 0.15rem;
-}
-.contactInfoBody h3 {
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 0 0 0.25rem;
-}
-.contactInfoBody p {
-  font-size: 0.8rem;
-  color: var(--muted);
-  margin: 0;
-  line-height: 1.6;
-}
-.contactInfoImage {
-  margin-top: 0.5rem;
-  overflow: hidden;
-}
-.contactInfoImage img {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  display: block;
 }
 
 /* ---- Right: form panel ---- */
 .contactFormPanel {
   background: var(--cream);
-  padding: 2.5rem;
+  padding: clamp(1.75rem, 4vw, 4rem) clamp(1.25rem, 3.9vw, 3.9rem) clamp(2rem, 5.5vw, 6.25rem);
+  font-family: var(--sans);
 }
 .contactFormTitle {
-  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
-  font-size: 1.125rem;
-  font-weight: 600;
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.45rem, 1.6vw, 1.7rem);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
   color: var(--ink);
-  margin: 0 0 1.5rem;
+}
+.contactFormText {
+  margin: 0 0 1.7rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.contactFormPanel > .contactFormText:last-child {
+  margin: 2rem 0 0;
 }
 .contactForm {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: clamp(1.5rem, 2.7vw, 2.6rem);
 }
 .contactForm fieldset {
   display: flex;
@@ -4478,6 +4495,11 @@
   margin: 0;
   min-width: 0;
 }
+/* The reference stacks name, email and subject — the wrapper steps aside so
+   its two groups join the form's own vertical rhythm. */
+.contactForm .contactFormRow {
+  display: contents;
+}
 .contactFormRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4486,47 +4508,71 @@
 .contactFormGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.2rem;
 }
 .contactFormGroup label {
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: 1.08rem;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  font-weight: 400;
 }
+/* Flat white fields without an outline. Name, email and subject stop at
+   ~40% of the panel; the message runs its full width. */
 .contactFormGroup input,
 .contactFormGroup textarea {
   background: #fff;
-  border: 1px solid var(--line);
-  padding: 0.65rem 0.875rem;
-  font-size: 0.875rem;
-  font-family: inherit;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
   outline: none;
-  transition: border-color 0.15s;
   resize: none;
 }
-.contactFormGroup input:focus,
-.contactFormGroup textarea:focus {
-  border-color: var(--gold);
+.contactFormGroup input {
+  width: min(100%, 458px);
+  height: 3.75rem;
+  padding: 0 1rem;
 }
 .contactFormGroup textarea {
-  min-height: 130px;
+  width: 100%;
+  min-height: clamp(11rem, 20vw, 20.6rem);
+  padding: 1rem;
+}
+.contactFormGroup input::placeholder,
+.contactFormGroup textarea::placeholder {
+  color: #9b968d;
+}
+.contactFormGroup input:focus-visible,
+.contactFormGroup textarea:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
 }
 .contactSubmitBtn {
   align-self: flex-start;
-  padding: 0.75rem 2.25rem;
-  background: var(--gold);
+  padding: 1.15rem 3rem;
+  background: var(--olive);
   color: #fff;
   border: none;
-  font-family: inherit;
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
+  font-family: var(--sans);
+  font-weight: 400;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s;
 }
-.contactSubmitBtn:hover:not(:disabled) { background: var(--ink); }
+/* After a click the button keeps focus, and the theme's `button:focus` would
+   turn it the theme accent — hold the olive. */
+.contactSubmitBtn:focus,
+.contactSubmitBtn:active {
+  background: var(--olive);
+  color: #fff;
+}
+.contactSubmitBtn:hover:not(:disabled) {
+  background: var(--ink);
+}
 .contactSubmitBtn:disabled,
 .contactForm :disabled {
   cursor: not-allowed;
@@ -4535,11 +4581,11 @@
 
 /* ---- Map ---- */
 .contactMapSection {
-  padding-bottom: 3rem;
+  padding-top: clamp(0rem, 4.7vw, 6.8rem);
 }
 .contactMap {
   width: 100%;
-  height: 380px;
+  height: clamp(16rem, 19.8vw, 24rem);
   overflow: hidden;
   border: 0;
   display: block;
@@ -4560,61 +4606,97 @@
 
 /* ---- FAQ ---- */
 .contactFaq {
-  padding: 4rem 0 5rem;
+  padding: clamp(3rem, 10vw, 11.8rem) 0 5rem;
 }
 .contactFaqTitle {
+  margin: 0 0 3rem;
   text-align: center;
-  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: clamp(1.9rem, 3.7vw, 4.2rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
   text-transform: uppercase;
-  margin-bottom: 2.5rem;
 }
 .contactFaqList {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
-}
-.contactFaqItem {
-  border-bottom: 1px solid var(--line);
+  padding-inline: clamp(0rem, 1.3vw, 1.5rem);
 }
 .contactFaqBtn {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 0;
+  gap: 1rem;
+  min-height: 4.4rem;
+  padding: 0.5rem 0;
   background: none;
   border: none;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-family: var(--serif);
+  font-size: clamp(1.15rem, 1.4vw, 1.6rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
   color: var(--ink);
   text-align: left;
 }
-.contactFaqBtn[data-open="true"] { color: var(--gold); }
+/* base-theme.css recolours every `button:hover/:focus/:active` (0,1,1). The
+   reference rows never change colour, so pin them above it. Keyboard focus
+   keeps a visible outline instead. */
+.contactFaqBtn:hover,
+.contactFaqBtn:focus,
+.contactFaqBtn:active {
+  background: none;
+  color: var(--ink);
+}
+.contactFaqBtn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 .contactFaqIcon {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: var(--gold);
   flex-shrink: 0;
-  width: 1rem;
+  width: 1.2rem;
+  font-family: var(--sans);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
   text-align: center;
+  color: var(--ink);
 }
 .contactFaqAnswer {
-  font-size: 0.875rem;
-  color: var(--muted);
-  line-height: 1.75;
-  padding: 0 0 1rem 1.75rem;
+  margin: 0;
+  padding: 0 0 1rem 2.2rem;
+  font-family: var(--sans);
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem);
+  letter-spacing: 0.02em;
+  line-height: 1.85;
+  color: #2b2b2b;
 }
 
 /* ---- Responsive ---- */
 @media (max-width: 860px) {
   .contactGrid { grid-template-columns: 1fr; }
-  .contactFormPanel { padding: 1.75rem; }
 }
 @media (max-width: 540px) {
   .contactFormRow { grid-template-columns: 1fr; }
-  .contactMap { height: 260px; }
+}
+
+/* `.shopWrapper h2 { font-weight: 700 }` (base-globals) outranks the plain
+   `.sectionTitle` rule, which made section titles heavy. Pin the regular weight. */
+:global(.shopWrapper.shopWrapper) .sectionTitle {
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+/* Contact map fallback when the address can't be placed on the OSM map. */
+.contactMapFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  border: 1px solid #ebe9e5;
+  background: #f0efec;
+  color: #6b5a22;
+  font-size: 0.95rem;
+  text-decoration: underline;
 }

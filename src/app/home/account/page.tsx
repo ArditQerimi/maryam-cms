@@ -1,41 +1,43 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { logoutCustomer } from '@/lib/account/actions';
 import { requireAccountCustomer } from '@/lib/account/data';
+import { getT } from '@/lib/i18n/server';
 import styles from './account.module.css';
 
 export const metadata: Metadata = {
-  title: 'Overview',
+  title: 'Dashboard',
   robots: {
     index: false,
     follow: false,
   },
 };
 
-function getFirstName(name: string) {
-  return name.trim().split(/\s+/u)[0] || name;
-}
-
-export default async function AccountOverviewPage() {
+export default async function AccountDashboardPage() {
   const customer = await requireAccountCustomer('/home/account');
-  const firstName = getFirstName(customer.name);
+  const t = await getT();
+  const name = customer.name.trim();
 
   return (
     <div className={styles.pageStack}>
-      <div className={styles.dashboardNotice}>
-        <p>
-          Your account with Collethor is using a temporary password. We emailed you a link to change your password.
-        </p>
+      <div className={styles.dashboardGreeting}>
+        {t('account.dashboard.hello')} <strong>{name}</strong> ({t('account.dashboard.notPrefix')}{' '}
+        <strong>{name}</strong>?{' '}
+        <form action={logoutCustomer} className={styles.inlineForm}>
+          <button type="submit" className={styles.inlineLogoutLink}>
+            {t('account.nav.logOut')}
+          </button>
+        </form>
+        )
       </div>
 
-      <p className={styles.dashboardGreeting}>
-        Hello {firstName}{' '}
-        <span>(</span>
-        <Link href="/home" className={styles.inlineLogoutLink}>Log out</Link>
-        <span>)</span>
-      </p>
-
       <p className={styles.dashboardCopy}>
-        From your account dashboard you can view your recent orders, manage your shipping and billing addresses, and edit your password and account details.
+        {t('account.dashboard.copy1')}{' '}
+        <Link href="/home/account/orders">{t('account.dashboard.link1')}</Link>,{' '}
+        {t('account.dashboard.copy2')}{' '}
+        <Link href="/home/account/addresses">{t('account.dashboard.link2')}</Link>,{' '}
+        {t('account.dashboard.copy3')}{' '}
+        <Link href="/home/account/profile">{t('account.dashboard.link3')}</Link>.
       </p>
     </div>
   );

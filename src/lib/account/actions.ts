@@ -58,7 +58,7 @@ export async function changeAccountPassword(
   if (!result.ok) {
     if (result.passwordChanged) {
       await clearSession();
-      redirect(getAccountLoginUrl('/home/account/security', 'password-changed'));
+      redirect(getAccountLoginUrl('/home/account/profile', 'password-changed'));
     }
 
     return {
@@ -68,7 +68,7 @@ export async function changeAccountPassword(
     };
   }
 
-  revalidatePath('/home/account/security');
+  revalidatePath('/home/account/profile');
   return {
     status: 'success',
     message: 'Your password has been changed and this browser has received a new session.',

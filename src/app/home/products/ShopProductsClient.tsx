@@ -36,6 +36,7 @@ import type { QvProduct } from '../components/QuickViewModal';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import styles from './home-products.module.css';
+import { foldSearchText } from '@/lib/search-text';
 
 export type CatalogProduct = {
   id: number;
@@ -552,7 +553,8 @@ export default function ShopProductsClient({
   }, [searchParams, colorFacets]);
 
   const searchQuery = searchParams.get('q')?.trim() ?? '';
-  const normalizedSearchQuery = searchQuery.toLocaleLowerCase('en');
+  // Case- and accent-insensitive (ë = e, ç = c); every typed word must match.
+  const normalizedSearchQuery = foldSearchText(searchQuery);
   const stockParam = searchParams.get('stock');
   const sortParam = searchParams.get('sort');
   const viewParam = searchParams.get('view');
@@ -714,10 +716,9 @@ export default function ShopProductsClient({
     const filtered = products.filter((product) => {
       if (
         normalizedSearchQuery &&
-        !product.name.toLocaleLowerCase('en').includes(normalizedSearchQuery) &&
-        !product.sku.toLocaleLowerCase('en').includes(normalizedSearchQuery) &&
-        !product.description.toLocaleLowerCase('en').includes(normalizedSearchQuery) &&
-        !product.categoryName.toLocaleLowerCase('en').includes(normalizedSearchQuery)
+        !normalizedSearchQuery.split(' ').every((word) =>
+          foldSearchText(`${product.name} ${product.sku} ${product.description} ${product.categoryName}`).includes(word),
+        )
       ) {
         return false;
       }

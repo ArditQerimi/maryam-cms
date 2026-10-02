@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm';
 import type { CheckoutCurrency } from '@/app/home/checkout/checkout-contract';
 import * as schema from '@/db/schema-tenant';
-import { getStorefrontContext } from './context';
+import { getStorefrontContext, type StorefrontContext } from './context';
+
+type StorefrontDb = StorefrontContext['db'];
 import { getRequestAuthority, getRequestProtocol } from './host';
 import {
   ORDER_CONFIRMATION_PATH,
@@ -21,7 +23,37 @@ export type StorefrontOrderConfirmation = {
   deliveryMethodId: string;
   paymentMethodId: string;
   access: 'customer' | 'guest';
+  /** Merchandise subtotal before coupon, shipping and tax. */
+  subtotal: string;
+  discount: string;
+  tax: string;
+  contactPhone: string | null;
+  shippingAddress: Record<string, string>;
+  billingAddress: Record<string, string>;
+  lines: Array<{ name: string; variant: string | null; quantity: number; total: string }>;
 };
+
+/** The order's own line items (names as stored in the catalogue). */
+async function orderLines(db: StorefrontDb, saleId: number) {
+  const rows = await db
+    .select({
+      productName: schema.products.name,
+      variantName: schema.productVariants.name,
+      quantity: schema.saleItems.quantity,
+      subtotal: schema.saleItems.subtotal,
+    })
+    .from(schema.saleItems)
+    .innerJoin(schema.productVariants, eq(schema.productVariants.id, schema.saleItems.variantId))
+    .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+    .where(eq(schema.saleItems.saleId, saleId))
+    .orderBy(asc(schema.saleItems.id));
+  return rows.map((row) => ({
+    name: row.productName,
+    variant: row.variantName && row.variantName !== row.productName ? row.variantName : null,
+    quantity: Number(row.quantity),
+    total: String(row.subtotal),
+  }));
+}
 
 export function requestForOrderConfirmation(headers: Headers) {
   const protocol = getRequestProtocol(headers, 'https:');
@@ -42,8 +74,14 @@ export async function getStorefrontOrderConfirmation(
         reference: schema.sales.reference,
         status: schema.sales.status,
         grandTotal: schema.sales.grandTotal,
+        totalAmount: schema.sales.totalAmount,
+        discount: schema.sales.discount,
+        tax: schema.sales.tax,
         createdAt: schema.sales.createdAt,
         contactEmail: schema.storefrontOrderDetails.contactEmail,
+        contactPhone: schema.storefrontOrderDetails.contactPhone,
+        shippingAddress: schema.storefrontOrderDetails.shippingAddress,
+        billingAddress: schema.storefrontOrderDetails.billingAddress,
         currency: schema.storefrontOrderDetails.currency,
         deliveryMethodId: schema.storefrontOrderDetails.deliveryMethodId,
         paymentMethodId: schema.storefrontOrderDetails.paymentMethodId,
@@ -71,6 +109,13 @@ export async function getStorefrontOrderConfirmation(
       deliveryMethodId: row.deliveryMethodId,
       paymentMethodId: row.paymentMethodId,
       access: 'customer',
+      subtotal: String(row.totalAmount),
+      discount: String(row.discount ?? '0'),
+      tax: String(row.tax ?? '0'),
+      contactPhone: row.contactPhone,
+      shippingAddress: row.shippingAddress,
+      billingAddress: row.billingAddress,
+      lines: await orderLines(context.db, row.id),
     } : null;
   }
 
@@ -93,8 +138,14 @@ export async function getStorefrontOrderConfirmation(
       reference: schema.sales.reference,
       status: schema.sales.status,
       grandTotal: schema.sales.grandTotal,
+      totalAmount: schema.sales.totalAmount,
+      discount: schema.sales.discount,
+      tax: schema.sales.tax,
       createdAt: schema.sales.createdAt,
       contactEmail: schema.storefrontOrderDetails.contactEmail,
+      contactPhone: schema.storefrontOrderDetails.contactPhone,
+      shippingAddress: schema.storefrontOrderDetails.shippingAddress,
+      billingAddress: schema.storefrontOrderDetails.billingAddress,
       currency: schema.storefrontOrderDetails.currency,
       deliveryMethodId: schema.storefrontOrderDetails.deliveryMethodId,
       paymentMethodId: schema.storefrontOrderDetails.paymentMethodId,
@@ -121,5 +172,12 @@ export async function getStorefrontOrderConfirmation(
     deliveryMethodId: row.deliveryMethodId,
     paymentMethodId: row.paymentMethodId,
     access: 'guest',
+    subtotal: String(row.totalAmount),
+    discount: String(row.discount ?? '0'),
+    tax: String(row.tax ?? '0'),
+    contactPhone: row.contactPhone,
+    shippingAddress: row.shippingAddress,
+    billingAddress: row.billingAddress,
+    lines: await orderLines(context.db, row.id),
   } : null;
 }

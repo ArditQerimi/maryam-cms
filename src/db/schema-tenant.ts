@@ -844,6 +844,17 @@ export const compareItems = pgTable('compare_items', {
   userCreatedIdx: index('compare_items_user_created_idx').on(table.userId, table.createdAt),
 }));
 
+// Saved billing/shipping address per signed-in shopper (migration 009).
+export const customerAddresses = pgTable('customer_addresses', {
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 16 }).$type<'billing' | 'shipping'>().notNull(),
+  address: jsonb('address').$type<Record<string, string>>().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.kind] }),
+  kindCheck: check('customer_addresses_kind_check', sql`${table.kind} IN ('billing', 'shipping')`),
+}));
+
 // Public product reviews written by signed-in shoppers (migration 006). One
 // row per (product, customer): re-submitting replaces that customer's own
 // review instead of stacking duplicates. status defaults to 'approved'

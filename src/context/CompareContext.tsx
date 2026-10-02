@@ -602,9 +602,12 @@ function findSelectedIndex(items: readonly CompareItem[], selector: CompareItemS
 export function CompareProvider({
   children,
   maxItems = DEFAULT_COMPARE_LIMIT,
+  customerSession = true,
 }: {
   children: ReactNode;
   maxItems?: number;
+  /** False for signed-out shoppers: the list stays local, no 401 probe. */
+  customerSession?: boolean;
 }) {
   const resolvedMaxItems = Number.isInteger(maxItems) && maxItems > 0 ? maxItems : DEFAULT_COMPARE_LIMIT;
   const { t } = useLocale();
@@ -634,6 +637,12 @@ export function CompareProvider({
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingServerOpsRef = useRef<Map<number, 'add' | 'remove'>>(new Map());
   const [probeNonce, setProbeNonce] = useState(0);
+  const [probedAsCustomer, setProbedAsCustomer] = useState(customerSession);
+  if (customerSession !== probedAsCustomer) {
+    // Adjust during render (no effect): a fresh sign-in re-runs the probe.
+    setProbedAsCustomer(customerSession);
+    if (customerSession) setProbeNonce((value) => value + 1);
+  }
 
   const persist = useCallback((next: CompareItem[]): boolean => {
     if (!hydratedRef.current) return false;
@@ -847,6 +856,12 @@ export function CompareProvider({
   // resulting snapshot.
   useEffect(() => {
     if (!isHydrated || serverProbedRef.current) return;
+    if (!customerSession) {
+      // Signed out: stay local and don't mark the probe done, so signing in
+      // later runs the real account probe.
+      serverModeRef.current = 'guest';
+      return;
+    }
     serverProbedRef.current = true;
     let cancelled = false;
 
@@ -892,7 +907,7 @@ export function CompareProvider({
     return () => {
       cancelled = true;
     };
-  }, [isHydrated, probeNonce, adoptServerSnapshot, enqueueServerSync, syncLoadError]);
+  }, [isHydrated, probeNonce, customerSession, adoptServerSnapshot, enqueueServerSync, syncLoadError]);
 
   const addToCompare = useCallback(
     (input: CompareItemInput): CompareMutationResult => {

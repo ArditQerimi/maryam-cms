@@ -6,7 +6,6 @@ import * as schema from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
 import { getProductById, getProducts } from '@/lib/actions';
 import ProductDetailsClient, {
-  type DetailPromo,
   type DetailProduct,
   type DetailVariantOption,
   type RelatedProduct,
@@ -221,43 +220,6 @@ function metadataImageUrl(imageUrl: string): string | undefined {
   }
 }
 
-/**
- * Optional merchandising banner from tenant settings (`pdp_banner_*` keys the
- * admin fills under Settings). Hidden entirely until both image and title
- * exist so the page never shows placeholder marketing copy.
- */
-async function loadPromoSettings(): Promise<DetailPromo | null> {
-  try {
-    const db = await getContextDb();
-    const rows = await db
-      .select({ key: schema.settingsStore.key, value: schema.settingsStore.value })
-      .from(schema.settingsStore)
-      .where(inArray(schema.settingsStore.key, [
-        'pdp_banner_image',
-        'pdp_banner_title',
-        'pdp_banner_text',
-        'pdp_banner_cta_label',
-        'pdp_banner_cta_href',
-      ]));
-    const values = Object.fromEntries(
-      rows.map((row) => [row.key, (row.value ?? '').trim()]),
-    );
-    const image = values.pdp_banner_image ?? '';
-    const title = values.pdp_banner_title ?? '';
-    if (!image || !title) return null;
-    return {
-      image,
-      title,
-      text: values.pdp_banner_text || null,
-      ctaLabel: values.pdp_banner_cta_label || null,
-      ctaHref: values.pdp_banner_cta_href || null,
-    };
-  } catch (error) {
-    console.error('[Product page] Promo settings load failed', error);
-    return null;
-  }
-}
-
 async function getVariantOptionRows(variantIds: number[]): Promise<VariantOptionRow[]> {
   if (variantIds.length === 0) return [];
 
@@ -381,6 +343,7 @@ function normalizeRelatedProduct(product: RawProduct): RelatedProduct {
     variantId: defaultVariant?.id ?? null,
     defaultVariantId: normalized.defaultVariantId,
     variants: normalized.variants,
+    rating: 0,
   };
 }
 
@@ -589,6 +552,7 @@ export default async function ShopProductDetailsPage({
         ...normalized,
         price: priced.price,
         compareAtPrice: priced.compareAtPrice,
+        rating: sectionData.ratings.get(candidate.id) ?? 0,
       };
     });
 
@@ -639,10 +603,7 @@ export default async function ShopProductDetailsPage({
       ? reviewStatusRaw
       : null;
 
-  const [promo, reviews] = await Promise.all([
-    loadPromoSettings(),
-    loadProductReviews(detail.id, reviewsQuery, reviewNotice),
-  ]);
+  const reviews = await loadProductReviews(detail.id, reviewsQuery, reviewNotice);
 
   return (
     <ProductDetailsClient
@@ -650,7 +611,6 @@ export default async function ShopProductDetailsPage({
       product={detail}
       related={related}
       reviews={reviews}
-      promo={promo}
       initialTab={initialTab}
     />
   );

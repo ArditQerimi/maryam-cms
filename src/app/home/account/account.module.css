@@ -906,3 +906,579 @@
     transform: none;
   }
 }
+
+/* --- My account: reference layout (sidebar, notices, tables, forms) --- */
+.sidebar {
+  border-right: 1px solid rgba(22, 23, 22, 0.15);
+}
+
+.accountNavList > li {
+  position: relative;
+}
+
+.accountNavLink {
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.accountNavLink::before {
+  left: auto;
+  right: -1px;
+  top: 0;
+  height: 100%;
+  width: 3px;
+}
+
+.accountNavLink[data-active='true']::before {
+  background: #6b5e2b;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--account-muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.primaryButton,
+.secondaryButton,
+.noticeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 1.3rem;
+  border: 0;
+  border-radius: 0;
+  background: #6b5e2b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.primaryButton:hover,
+.primaryButton:focus,
+.primaryButton:active,
+.secondaryButton:hover,
+.secondaryButton:focus,
+.secondaryButton:active,
+.noticeButton:hover,
+.noticeButton:focus,
+.noticeButton:active {
+  background: #574c22;
+  color: #fff;
+}
+
+.accountNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem 1.2rem;
+  padding: 1rem 1.3rem;
+  border-left: 3px solid #6b5e2b;
+  background: #f0efec;
+  color: var(--account-ink);
+  font-size: 1rem;
+}
+
+.plainNote,
+.mutedItalic {
+  margin: 0;
+  color: var(--account-ink);
+  font-size: 1.02rem;
+}
+
+.mutedItalic {
+  color: var(--account-muted);
+  font-style: italic;
+}
+
+.inlineForm {
+  display: inline;
+  margin: 0;
+}
+
+.inlineLogoutLink,
+.inlineTextLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6b5e2b;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.inlineLogoutLink:hover,
+.inlineLogoutLink:focus,
+.inlineTextLink:hover,
+.inlineTextLink:focus {
+  background: none;
+  color: #6b5e2b;
+  text-decoration: underline;
+}
+
+.dashboardGreeting,
+.dashboardCopy {
+  color: var(--account-ink);
+}
+
+.dashboardCopy a {
+  color: #6b5e2b;
+}
+
+.sectionTitle {
+  margin: 0 0 0.8rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.orderLead {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.ordersTable,
+.detailTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.98rem;
+}
+
+.ordersTable th,
+.ordersTable td,
+.detailTable th,
+.detailTable td {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--account-line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ordersTable thead th,
+.detailTable thead th {
+  background: #f0efec;
+  font-weight: 700;
+}
+
+.ordersTable td a:not(.noticeButton),
+.detailTable td a {
+  color: #6b5e2b;
+  text-decoration: none;
+}
+
+.addressColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+.addressBox {
+  margin: 0;
+  font-style: normal;
+  line-height: 1.7;
+}
+
+.detailsForm {
+  display: grid;
+  gap: 1.2rem;
+  max-width: 44rem;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.field input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #d8d2cc;
+  border-radius: 0;
+  background: #fff;
+  color: var(--account-ink);
+  font-size: 1rem;
+}
+
+.field input:focus {
+  border-color: #6b5e2b;
+  outline: none;
+}
+
+.field input[readonly] {
+  background: #f7f5f3;
+}
+
+.requiredMark {
+  color: #b03a2e;
+}
+
+.fieldHint {
+  color: var(--account-muted);
+  font-size: 0.85rem;
+}
+
+.passwordFieldset {
+  display: grid;
+  gap: 1.1rem;
+  margin: 0;
+  padding: 1.2rem 1.3rem 1.4rem;
+  border: 1px solid var(--account-line);
+}
+
+.passwordFieldset legend {
+  padding: 0 0.5rem;
+  font-weight: 600;
+}
+
+.passwordControl {
+  position: relative;
+}
+
+.passwordControl input {
+  padding-right: 3rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--account-muted);
+  cursor: pointer;
+}
+
+.passwordToggle:hover,
+.passwordToggle:focus,
+.passwordToggle:active {
+  background: transparent;
+  color: var(--account-ink);
+}
+
+.formMessage {
+  padding: 0.8rem 1rem;
+  background: var(--account-success-soft);
+  color: var(--account-success);
+}
+
+.formMessage[data-tone='error'] {
+  background: var(--account-danger-soft);
+  color: var(--account-danger);
+}
+
+.saveButton {
+  background: #6b5e2b;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.saveButton:hover,
+.saveButton:focus,
+.saveButton:active {
+  background: #574c22;
+  color: #fff;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(22, 23, 22, 0.15);
+  }
+
+  .accountNavLink::before {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .fieldRow,
+  .addressColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .ordersTable thead {
+    display: none;
+  }
+
+  .ordersTable,
+  .ordersTable tbody,
+  .ordersTable tr,
+  .ordersTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .ordersTable tr {
+    margin-bottom: 1rem;
+  }
+
+  .ordersTable td::before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 700;
+  }
+}
+
+/* --- Reference match: white page, sans body, inset olive eye buttons --- */
+.accountPage {
+  --account-canvas: #ffffff;
+  background: #ffffff;
+}
+
+.accountContent,
+.sidebar {
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.accountNavLink,
+.accountNavLink span {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.field label,
+.passwordFieldset legend,
+.detailsForm input,
+.fieldHint {
+  font-family: inherit;
+}
+
+.field label {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.passwordFieldset {
+  background: #ffffff;
+  border: 1px solid #ebe9e5;
+}
+
+.passwordFieldset legend {
+  font-weight: 700;
+  color: #000;
+}
+
+.field input,
+.field input[readonly] {
+  background: #ffffff;
+  border: 1px solid #ebe9e5;
+}
+
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:hover,
+.field input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #000;
+  caret-color: #000;
+}
+
+.passwordControl input {
+  padding-right: 6.5rem;
+}
+
+.passwordToggle {
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  width: 107px;
+  height: auto;
+  background: #6b5a22;
+  color: #ffffff;
+}
+
+.passwordToggle:hover,
+.passwordToggle:focus,
+.passwordToggle:active {
+  background: #6b5a22;
+  color: #ffffff;
+}
+
+.fieldHint {
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* --- Addresses (reference) and nav hover: no color change --- */
+.addressTitle {
+  margin: 0 0 1.2rem;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.accountPage .addressTitle {
+  color: var(--account-ink);
+}
+
+.addressEdit {
+  display: block;
+  margin-bottom: 1.1rem;
+  color: #6b5a22;
+  font-size: 1rem;
+  text-align: right;
+  text-decoration: none;
+}
+
+.addressEdit:hover,
+.addressEdit:focus,
+.addressEdit:active {
+  color: #6b5a22;
+  text-decoration: none;
+}
+
+.addressBox {
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.85;
+}
+
+.addressBox span {
+  display: block;
+}
+
+.accountNavLink:hover,
+.accountNavLink:focus,
+.accountNavLink:active {
+  background: transparent;
+  color: var(--account-ink);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.accountNavLink[data-active='true']:hover,
+.accountNavLink[data-active='true']:focus,
+.accountNavLink[data-active='true']:active {
+  font-weight: 700;
+}
+
+/* --- Edit address form + readable section titles --- */
+.accountPage.accountPage .addressTitle,
+.accountPage.accountPage .sectionTitle {
+  color: #1d1d1b;
+}
+
+.addressForm {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.addressFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem 5rem;
+}
+
+.addressFormGrid > .field:not([data-half]) {
+  grid-column: 1 / -1;
+}
+
+.field select {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #ebe9e5;
+  border-radius: 0;
+  background-color: #ffffff;
+  color: var(--account-ink);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.field select:focus {
+  border-color: #6b5e2b;
+  outline: none;
+}
+
+@media (max-width: 680px) {
+  .addressFormGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shared FormField column helpers */
+.addressFieldFull {
+  grid-column: 1 / -1;
+}
+
+.addressFieldHalf {
+  grid-column: auto;
+}
+
+/* Hover/focus/active never change colors: re-assert each link's own color above
+   the theme's `.shopWrapper a:hover` rule. */
+.accountPage.accountPage .accountNavLink:hover,
+.accountPage.accountPage .accountNavLink:focus,
+.accountPage.accountPage .accountNavLink:active {
+  color: var(--account-ink);
+  background: transparent;
+  text-decoration: none;
+}
+
+.accountPage.accountPage .addressEdit:hover,
+.accountPage.accountPage .addressEdit:focus,
+.accountPage.accountPage .addressEdit:active,
+.accountPage.accountPage .inlineTextLink:hover,
+.accountPage.accountPage .inlineTextLink:focus,
+.accountPage.accountPage .inlineLogoutLink:hover,
+.accountPage.accountPage .inlineLogoutLink:focus,
+.accountPage.accountPage .dashboardCopy a:hover,
+.accountPage.accountPage .dashboardCopy a:focus,
+.accountPage.accountPage .ordersTable td a:not(.noticeButton):hover,
+.accountPage.accountPage .detailTable td a:hover {
+  color: #6b5e2b;
+}
+
+.accountPage.accountPage .noticeButton:hover,
+.accountPage.accountPage .noticeButton:focus,
+.accountPage.accountPage .noticeButton:active,
+.accountPage.accountPage .primaryButton:hover,
+.accountPage.accountPage .secondaryButton:hover,
+.accountPage.accountPage .saveButton:hover,
+.accountPage.accountPage .saveButton:focus,
+.accountPage.accountPage .saveButton:active {
+  background: #6b5e2b;
+  color: #ffffff;
+}
+
+.accountPage.accountPage .passwordToggle:hover,
+.accountPage.accountPage .passwordToggle:focus,
+.accountPage.accountPage .passwordToggle:active {
+  background: #6b5a22;
+  color: #ffffff;
+}

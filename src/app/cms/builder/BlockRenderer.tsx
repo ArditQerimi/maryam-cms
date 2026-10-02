@@ -2,10 +2,12 @@ import Image from 'next/image';
 import BookstoreHero from '@/app/home/components/BookstoreHero';
 import ProductStars from '@/app/home/components/ProductStars';
 import bookstore from '@/app/home/bookstore.module.css';
-import { Eye, Heart, Layers3 } from 'lucide-react';
+import { Eye, Heart, Layers3, ShoppingBag } from 'lucide-react';
 import { BLOCK_DEFS, isLayoutType, type Block, type Breakpoint, type BlockType } from './blocks';
 import { isDiscounted, selectSourceProducts } from './product-sources';
 import { L, SourceCopy, T } from './Copy';
+import InlineText from './InlineText';
+import RowCarousel from './RowCarousel';
 
 export type RendererProduct = {
   id: number;
@@ -44,6 +46,23 @@ function formatEur(value: string | number | null | undefined): string {
 
 export type BlockRendererProps = {
   block: Block;
+  /** Set by a row on its columns: the row's gap and column count, for exact widths. */
+  rowGap?: number;
+  rowColumns?: number;
+  /** Set on a carousel row's columns: each one is a slide of this width. */
+  slideBasis?: string;
+  /**
+   * Builder canvas only: commit text typed directly into a module
+   * (`key` is the prop that holds it, e.g. `text`).
+   */
+  onInlineEdit?: (id: string, key: string, value: string) => void;
+  /** Builder canvas only: the module currently selected (its text becomes editable). */
+  selectedId?: string | null;
+  /**
+   * Builder canvas only: the module's wrapper already carries its width and
+   * alignment (so the selection box hugs the module), so render at 100%.
+   */
+  fillWidth?: boolean;
   /** `edit` is the builder canvas, `live` is what shoppers see. */
   mode?: 'edit' | 'live';
   products?: RendererProduct[];
@@ -203,36 +222,76 @@ function ButtonLink({
   url,
   variant,
   newTab,
+  icon,
+  color,
+  interactive = true,
+  editableText,
 }: {
   text: string;
   url: string;
   variant?: string;
   newTab?: boolean;
+  icon?: string;
+  color?: string;
+  /** False in the builder canvas: same look, but not a live link. */
+  interactive?: boolean;
+  /** Builder canvas: an editable label replacing the static text. */
+  editableText?: React.ReactNode;
 }) {
+  if (!text && !interactive) text = 'Button';
   if (!text) return null;
-  const base =
-    'inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition';
+  const isLink = variant === 'link';
+  const base = isLink
+    ? 'inline-flex items-center gap-2 transition'
+    : 'inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold transition';
+  const accent = color || '';
   const styles: Record<string, React.CSSProperties> = {
-    primary: { background: 'var(--cms-primary, #6d6be8)', color: '#fff' },
+    primary: { background: accent || 'var(--cms-primary, #6d6be8)', color: '#fff' },
     secondary: {
-      background: 'var(--cms-secondary, #1a1a1a)',
+      background: accent || 'var(--cms-secondary, #1a1a1a)',
       color: '#fff',
     },
     outline: {
       background: 'transparent',
-      color: 'var(--cms-text, #18181b)',
+      color: accent || 'var(--cms-text, #18181b)',
       boxShadow: 'inset 0 0 0 1.5px currentColor',
     },
+    link: {
+      background: 'transparent',
+      color: accent || '#1a1611',
+      borderBottom: '1px solid currentColor',
+      padding: '0 0 0.2rem',
+      fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      textDecoration: 'none',
+    },
   };
+  const style = styles[variant || 'primary'] || styles.primary;
+  const content = (
+    <>
+      {icon === 'cart' ? <ShoppingBag size={16} aria-hidden="true" /> : null}
+      {editableText ?? text}
+    </>
+  );
+  if (!interactive) {
+    return (
+      <span className={base} style={style}>
+        {content}
+      </span>
+    );
+  }
   return (
     <a
       href={url || '#'}
       target={newTab ? '_blank' : undefined}
       rel={newTab ? 'noreferrer noopener' : undefined}
       className={base}
-      style={styles[variant || 'primary'] || styles.primary}
+      style={style}
     >
-      {text}
+      {content}
     </a>
   );
 }
@@ -586,10 +645,15 @@ function responsiveAttrs(node: Block, breakpoint?: Breakpoint): { className: str
   return { className: classes.join(' '), css: rules.join('') };
 }
 
-/** Percentage basis that leaves room for the row's gap so columns never wrap. */
-function columnBasis(width: number, gap: number): string {
+/**
+ * Width of one column: its share of the row *after* the gaps between columns
+ * are taken out, so columns that add up to 100% fill the row exactly (a single
+ * 100% column spans the whole row, with no gap-sized strip left over).
+ */
+function columnBasis(width: number, rowGap: number, columns: number): string {
   const clamped = Math.min(100, Math.max(0, width));
-  return `calc(${round2(clamped)}% - ${round2((gap * clamped) / 100)}px)`;
+  const gaps = Math.max(0, columns - 1) * rowGap;
+  return `calc((100% - ${round2(gaps)}px) * ${round2(clamped / 100)})`;
 }
 
 function round2(value: number): number {
@@ -605,10 +669,21 @@ export default function BlockRenderer({
   editChrome,
   editGutter,
   breakpoint,
+  rowGap,
+  rowColumns,
+  slideBasis,
+  onInlineEdit,
+  selectedId,
+  fillWidth,
 }: BlockRendererProps) {
   const p = block.props || {};
   const interactive = mode === 'live';
   const editing = mode === 'edit';
+  /** The selected module's text is typed straight into the canvas. */
+  const inline = editing && onInlineEdit && selectedId === block.id;
+  const commit = (key: string) => (value: string) => onInlineEdit?.(block.id, key, value);
+  const sized = (width?: string, align?: string): React.CSSProperties =>
+    fillWidth ? { width: '100%', maxWidth: '100%' } : widthStyle(width, align);
 
   const renderColumns = () => {
     const count = block.type === 'columns_2' ? 2 : block.type === 'columns_3' ? 3 : 4;
@@ -626,6 +701,8 @@ export default function BlockRenderer({
                 categories={categories}
                 renderStoreBlock={renderStoreBlock}
                 editChrome={editChrome}
+                onInlineEdit={onInlineEdit}
+                selectedId={selectedId}
                 breakpoint={breakpoint}
               />
             ) : mode === 'edit' ? (
@@ -738,6 +815,37 @@ export default function BlockRenderer({
                 : {}),
             }}
           >
+            {p.layout === 'carousel' && children.length ? (
+              <RowCarousel
+                perView={Math.max(1, Math.min(4, Number(p.slidesPerView) || 1))}
+                gap={gap}
+                autoplay={p.autoplay === true}
+                intervalSeconds={Number(p.intervalSeconds) || 5}
+                arrows={p.arrows !== false}
+                dots={p.dots !== false}
+                editing={editing}
+                valign={valign}
+              >
+                {children.map((child) => (
+                  <BlockRenderer
+                    key={child.id}
+                    block={child}
+                    rowGap={gap}
+                    rowColumns={children.length}
+                    slideBasis={`calc((100% - ${gap * (Math.max(1, Math.min(4, Number(p.slidesPerView) || 1)) - 1)}px) / ${Math.max(1, Math.min(4, Number(p.slidesPerView) || 1))})`}
+                    mode={mode}
+                    products={products}
+                    categories={categories}
+                    renderStoreBlock={renderStoreBlock}
+                    editChrome={editChrome}
+                    onInlineEdit={onInlineEdit}
+                    selectedId={selectedId}
+                    editGutter={editGutter}
+                    breakpoint={breakpoint}
+                  />
+                ))}
+              </RowCarousel>
+            ) : (
             <div
               className="bb-row-inner"
               style={{
@@ -757,11 +865,15 @@ export default function BlockRenderer({
                   <BlockRenderer
                     key={child.id}
                     block={child}
+                    rowGap={gap}
+                    rowColumns={children.length}
                     mode={mode}
                     products={products}
                     categories={categories}
                     renderStoreBlock={renderStoreBlock}
                     editChrome={editChrome}
+                onInlineEdit={onInlineEdit}
+                selectedId={selectedId}
                     editGutter={editGutter}
                     breakpoint={breakpoint}
                   />
@@ -772,6 +884,7 @@ export default function BlockRenderer({
                 </div>
               ) : null}
             </div>
+            )}
           </div>
         </section>
       );
@@ -787,7 +900,11 @@ export default function BlockRenderer({
       const cls = String(className).split(' ')[0];
 
       const style: React.CSSProperties = {
-        flex: Number.isFinite(width) && width > 0 ? `0 0 ${columnBasis(width, gap)}` : '1 1 0',
+        flex: slideBasis
+          ? `0 0 ${slideBasis}`
+          : Number.isFinite(width) && width > 0
+            ? `0 0 ${columnBasis(width, rowGap ?? 0, rowColumns ?? 1)}`
+            : '1 1 0',
         minWidth: 0,
         boxSizing: 'border-box',
         display: 'flex',
@@ -829,8 +946,11 @@ export default function BlockRenderer({
                   categories={categories}
                   renderStoreBlock={renderStoreBlock}
                   editChrome={editChrome}
+                onInlineEdit={onInlineEdit}
+                selectedId={selectedId}
                   editGutter={editGutter}
                   breakpoint={breakpoint}
+                  fillWidth={editing && Boolean(editChrome) && !isLayoutType(child.type)}
                 />
               );
               // Storefront rendering stays exactly as it was — no extra wrappers.
@@ -839,7 +959,14 @@ export default function BlockRenderer({
               // layout nodes render their own chrome inside themselves.
               if (isLayoutType(child.type)) return <div key={child.id} className="w-full">{rendered}</div>;
               return (
-                <div key={child.id} data-node={child.id} className={`relative w-full bb-${child.id}`}>
+                <div
+                  key={child.id}
+                  data-node={child.id}
+                  className={`relative w-full bb-${child.id}`}
+                  // Same width/alignment the module has on the storefront, so the
+                  // selection box hugs it instead of spanning the whole column.
+                  style={widthStyle(child.props?.width, child.props?.align)}
+                >
                   {editChrome(child)}
                   {rendered}
                 </div>
@@ -875,19 +1002,36 @@ export default function BlockRenderer({
         h6: '1rem',
       };
       return (
-        <div style={widthStyle(p.width, p.align)}>
+        <div style={sized(p.width, p.align)}>
           <Tag
-            style={{
-              textAlign: p.align || 'left',
-              color: p.color || 'var(--cms-text, #18181b)',
-              fontSize: sizes[p.level] || sizes.h2,
-              lineHeight: 1.15,
-              fontWeight: 700,
-              margin: 0,
-              overflowWrap: 'anywhere',
-            }}
+            style={
+              p.style === 'display'
+                ? {
+                    textAlign: p.align || 'left',
+                    color: p.color || '#1a1611',
+                    fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
+                    fontSize: 'clamp(1.9rem, 3.2vw, 3rem)',
+                    lineHeight: 1.15,
+                    fontWeight: 400,
+                    margin: 0,
+                    overflowWrap: 'anywhere',
+                  }
+                : {
+                    textAlign: p.align || 'left',
+                    color: p.color || 'var(--cms-text, #18181b)',
+                    fontSize: sizes[p.level] || sizes.h2,
+                    lineHeight: 1.15,
+                    fontWeight: 700,
+                    margin: 0,
+                    overflowWrap: 'anywhere',
+                  }
+            }
           >
-            {plainOrHtml(p.text)}
+            {inline ? (
+              <InlineText value={String(p.text ?? '')} onCommit={commit('text')} />
+            ) : (
+              plainOrHtml(p.text)
+            )}
           </Tag>
         </div>
       );
@@ -896,38 +1040,79 @@ export default function BlockRenderer({
     case 'paragraph': {
       const sizes: Record<string, string> = { small: '0.875rem', medium: '1rem', large: '1.175rem' };
       return (
-        <div style={widthStyle(p.width, p.align)}>
-          <div
-            className="rich-text"
-            style={{
-              textAlign: p.align || 'left',
-              fontSize: sizes[p.size] || sizes.medium,
-              lineHeight: 1.75,
-              color: p.color || 'var(--cms-muted, #52525b)',
-            }}
-            dangerouslySetInnerHTML={{ __html: textAsHtml(p.text) }}
-          />
+        <div style={sized(p.width, p.align)}>
+          {inline ? (
+            <InlineText
+              as="div"
+              html
+              className="rich-text"
+              style={{
+                textAlign: p.align || 'left',
+                fontSize: sizes[p.size] || sizes.medium,
+                lineHeight: 1.75,
+                color: p.color || 'var(--cms-muted, #52525b)',
+              }}
+              value={textAsHtml(p.text)}
+              onCommit={commit('text')}
+            />
+          ) : (
+            <div
+              className="rich-text"
+              style={{
+                textAlign: p.align || 'left',
+                fontSize: sizes[p.size] || sizes.medium,
+                lineHeight: 1.75,
+                color: p.color || 'var(--cms-muted, #52525b)',
+              }}
+              dangerouslySetInnerHTML={{ __html: textAsHtml(p.text) }}
+            />
+          )}
         </div>
       );
     }
 
     case 'button':
       return (
-        <div style={{ ...widthStyle(p.width, p.align), textAlign: p.align || 'left' }}>
-          {interactive ? (
-            <ButtonLink text={p.text} url={p.url} variant={p.variant} newTab={p.openNewTab} />
-          ) : (
-            <span
-              className="inline-flex items-center rounded-lg px-6 py-3 text-sm font-semibold"
-              style={{
-                background: p.variant === 'outline' ? 'transparent' : 'var(--cms-primary, #6d6be8)',
-                color: p.variant === 'outline' ? 'var(--cms-text, #18181b)' : '#fff',
-                boxShadow: p.variant === 'outline' ? 'inset 0 0 0 1.5px currentColor' : undefined,
-              }}
-            >
-              {p.text || 'Button'}
-            </span>
-          )}
+        <div style={{ ...sized(p.width, p.align), textAlign: p.align || 'left' }}>
+          <ButtonLink
+            text={p.text}
+            url={p.url}
+            variant={p.variant}
+            newTab={p.openNewTab}
+            icon={p.icon}
+            color={p.color}
+            interactive={interactive}
+            editableText={
+              inline ? <InlineText value={String(p.text ?? '')} onCommit={commit('text')} /> : undefined
+            }
+          />
+        </div>
+      );
+
+    case 'badge':
+      return (
+        <div style={{ textAlign: p.align || 'left' }}>
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '0.28rem 0.7rem',
+              border: '1px solid currentColor',
+              borderRadius: 2,
+              color: p.color || '#6b5a22',
+              fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              lineHeight: 1.4,
+              textTransform: 'uppercase',
+            }}
+          >
+            {inline ? (
+              <InlineText value={String(p.text ?? '')} onCommit={commit('text')} />
+            ) : (
+              p.text || 'Label'
+            )}
+          </span>
         </div>
       );
 
@@ -951,15 +1136,27 @@ export default function BlockRenderer({
     case 'image': {
       const radius = p.rounded === 'full' ? '50%' : p.rounded === 'medium' ? '12px' : '0';
       const image = (
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 10', borderRadius: radius }}>
-          <Img src={String(p.src || '')} alt={String(p.alt || '')} fill className="object-cover" />
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            aspectRatio: String(p.ratio || '16 / 10'),
+            borderRadius: radius,
+            background: p.background ? String(p.background) : undefined,
+          }}
+        >
+          <Img
+            src={String(p.src || '')}
+            alt={String(p.alt || '')}
+            fill
+            className={p.fit === 'contain' ? 'object-contain' : 'object-cover'}
+          />
         </div>
       );
       const caption = p.caption ? (
         <figcaption className="mt-2 text-center text-xs text-zinc-500">{p.caption}</figcaption>
       ) : null;
       return (
-        <figure style={widthStyle(p.width, p.align)}>
+        <figure style={sized(p.width, p.align)}>
           {interactive && p.link ? <a href={p.link}>{image}</a> : image}
           {caption}
         </figure>

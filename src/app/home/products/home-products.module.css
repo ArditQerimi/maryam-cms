@@ -785,20 +785,22 @@
   color: var(--catalog-ink);
 }
 
-
+/* Reference card: no frame, no shadow, no lift. Every size inside is a share of
+   the card's own width (cqw, measured on the 412px reference card), so it
+   matches the reference at any column width. */
 .productCard {
   position: relative;
   display: flex;
   height: 100%;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #e8e2d8;
-  transition: box-shadow 180ms ease, transform 180ms ease;
+  background: transparent;
+  border: 0;
+  container-type: inline-size;
 }
 
-.productCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(26, 22, 17, 0.10);
+.productCard.productCard:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* SALE badge — shown when the product has a discount */
@@ -829,7 +831,27 @@
 
 /* No fixed ratio — the image's own proportions decide the height. */
 .mediaWrap {
-  margin-bottom: 0.9rem;
+  margin-bottom: 4.4cqw;
+}
+
+/* Quick-action circles (heart / compare / eye), top right of the artwork. */
+.mediaWrap > div {
+  top: 3.9cqw;
+  right: 3.9cqw;
+  gap: 1.45cqw;
+}
+
+.mediaWrap > div button {
+  width: 11.65cqw;
+  height: 11.65cqw;
+  border: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.mediaWrap > div button svg {
+  width: 5.8cqw;
+  height: 5.8cqw;
 }
 
 .mediaLink {
@@ -944,7 +966,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0.85rem 0.85rem 1rem;
+  padding: 0 0 1rem;
 }
 
 .productCategory,
@@ -979,8 +1001,9 @@
 }
 
 .productTitle {
-  font-size: clamp(1.05rem, 1.35vw, 1.25rem);
+  font-size: 6.4cqw;
   font-weight: 400;
+  letter-spacing: 0;
   line-height: 1.3;
 }
 
@@ -1001,6 +1024,13 @@
   color: var(--catalog-accent-dark);
 }
 
+/* Stars come from the shared ProductStars (a role="img" div in the card body). */
+.cardBody > div[role='img'] {
+  gap: 0.8cqw;
+  margin: 3.9cqw 0 0;
+  font-size: 6.3cqw;
+}
+
 .productSku {
   margin-top: 0.35rem;
   color: #9a9287;
@@ -1010,33 +1040,44 @@
 }
 
 .priceRow {
-  margin-top: 0.3rem;
+  margin-top: 2.4cqw;
 }
 
 .productPrice {
   /* buildThemeCss injects colour overrides at (0,2,1); re-assert with !important */
-  color: #7e6f38 !important;
+  color: #6b5e2b !important;
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
   font-size: 1.25rem;
-  font-weight: 500;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+}
+
+/* cqw only inside a card: the list view has no container, where cqw would
+   fall back to the viewport. */
+.productCard .productPrice {
+  font-size: 6.3cqw;
 }
 
 .pricePair {
   display: inline-flex;
   align-items: baseline;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.4rem;
 }
 
 .oldPrice {
   color: #9a9287;
   font-size: 0.85rem;
-  font-weight: 650;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   text-decoration: line-through;
   text-decoration-thickness: 1px;
+}
+
+.productCard .oldPrice {
+  font-size: 4cqw;
 }
 
 .attributeList {
@@ -1059,7 +1100,8 @@
   line-height: 1.2;
 }
 
-/* The reference button is inset and centred, not edge-to-edge. */
+/* Reference button: olive, sans, centred. The cqw sizing (220×63 on the 412px
+   reference card) is scoped to `.productCard` below; the list view gets rem. */
 .addToCartSlot {
   display: flex;
   width: 100%;
@@ -1068,30 +1110,52 @@
   padding-top: 0.9rem;
 }
 
+.productCard .addToCartSlot {
+  padding-top: 4.6cqw;
+}
+
 .addToCartSlot button {
   width: auto;
   min-width: 58%;
   min-height: 2.9rem;
   margin: 0;
   padding: 0.85rem 2rem;
-  border: 1px solid #7e6f38;
-  border-radius: 2px;
-  background: #7e6f38;
+  border: 0;
+  border-radius: 0;
+  background: #6b5e2b;
   color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   opacity: 1;
   text-transform: uppercase;
   visibility: visible;
   transform: none;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  pointer-events: auto;
+  transition: background 160ms ease;
+}
+
+.productCard .addToCartSlot button {
+  width: 53.4cqw;
+  min-width: 0;
+  min-height: 15.3cqw;
+  padding: 0;
+  font-size: 4.4cqw;
+}
+
+/* base-theme.css recolours every `button:hover/:focus/:active` (0,1,1) —
+   pin the olive above it and darken only on hover. */
+.addToCartSlot button:focus,
+.addToCartSlot button:active {
+  background: #6b5e2b;
+  color: #fff;
 }
 
 .addToCartSlot button:hover {
-  border-color: #5c5129;
-  background: #5c5129;
-  transform: translateY(-1px);
+  background: var(--catalog-ink);
+  color: #fff;
+  transform: none;
 }
 
 .outOfStock {
@@ -1710,15 +1774,53 @@
     font-size: 0.98rem;
   }
 
-  .productPrice {
+  .productPrice,
+  .productCard .productPrice {
     font-size: 0.98rem;
   }
 
-  .addToCartSlot button {
+  .productCard .oldPrice {
+    font-size: 0.75rem;
+  }
+
+  .addToCartSlot button,
+  .productCard .addToCartSlot button {
+    width: auto;
+    min-width: 70%;
     min-height: 2.55rem;
-    padding-inline: 0.45rem;
-    font-size: 0.64rem;
-    letter-spacing: 0.08em;
+    padding: 0 0.45rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+  }
+
+  .productCard .addToCartSlot {
+    padding-top: 0.6rem;
+  }
+
+  .priceRow {
+    margin-top: 0.25rem;
+  }
+
+  .cardBody > div[role='img'] {
+    gap: 2px;
+    margin-top: 0.35rem;
+    font-size: 1rem;
+  }
+
+  .mediaWrap > div {
+    top: 0.5rem;
+    right: 0.5rem;
+    gap: 4px;
+  }
+
+  .mediaWrap > div button {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+
+  .mediaWrap > div button svg {
+    width: 1.1rem;
+    height: 1.1rem;
   }
 
   .productAttribute {

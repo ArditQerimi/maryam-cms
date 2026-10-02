@@ -139,15 +139,21 @@
   letter-spacing: 0.04em;
   text-decoration: none;
   text-transform: uppercase;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
-.site-nav-link:hover,
-.site-nav-link.is-active {
+/* Hover never recolours the link: it only gains an underline in its own colour.
+   The current page keeps the accent colour + accent underline. */
+.site-header .site-nav-link:hover,
+.site-header .site-nav-link:focus-visible {
+  color: #000000;
+  border-bottom-color: currentColor;
+}
+
+.site-header .site-nav-link.is-active,
+.site-header .site-nav-link.is-active:hover,
+.site-header .site-nav-link.is-active:focus-visible {
   color: var(--site-header-accent);
-}
-
-.site-nav-link.is-active {
   border-bottom-color: var(--site-header-accent);
 }
 
@@ -246,13 +252,34 @@
   padding: 0;
   background: transparent;
   color: var(--site-header-ink);
-  border-radius: 3px;
-  transition: color 0.15s ease;
+  border-radius: 50%;
+  transition: background-color 0.15s ease;
 }
 
-.site-icon-btn:hover {
-  color: var(--site-header-accent);
-  background: transparent;
+/* Header icons never change colour (no gold on hover, focus or after a click):
+   hover/focus shows a soft round backdrop behind the unchanged black icon. */
+.site-header .site-icon-btn,
+.site-header .site-icon-btn:hover,
+.site-header .site-icon-btn:focus,
+.site-header .site-icon-btn:active,
+.site-header .site-icon-btn:visited {
+  color: var(--site-header-ink);
+  border-radius: 50%;
+  transition: background-color 0.15s ease;
+}
+
+.site-header .site-icon-btn:hover,
+.site-header .site-icon-btn:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.site-header .site-icon-btn:focus {
+  outline: none;
+}
+
+.site-header .site-icon-btn:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
 }
 
 .site-badge {
@@ -322,27 +349,13 @@
 }
 
 .store-map-pin {
-  box-sizing: border-box;
-  position: relative;
-  width: 22px;
-  height: 22px;
-  background: #d93025;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  border: 0;
 }
 
-.store-map-pin::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 17px;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 10px solid #d93025;
+.store-map-pin svg {
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
 }
 
 .store-map-popup {
@@ -383,69 +396,211 @@
 }
 
 /* Search overlay */
+/* Search: a white bar across the top of the page, measured from the
+   reference (÷1.35 → CSS px); the rest of the page is dimmed. No colour
+   changes on hover/focus. */
 .site-search-overlay {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(15, 23, 32, 0.55);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 12vh var(--global-content-edge-padding) 0;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .site-search-panel {
   position: relative;
-  width: min(640px, 100%);
-  background: var(--global-palette9);
-  border-radius: 3px;
-  padding: 1rem;
-  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.35);
-}
-
-.site-search-close {
-  position: absolute;
-  top: -2.6rem;
-  right: 0;
-  display: inline-flex;
-  padding: 0.4rem;
-  background: transparent;
-  color: #fff;
-  font-size: 1.2rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5.4rem;
+  padding: 1.25rem 4.5rem;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .site-search-form {
   display: flex;
-  gap: 0.5rem;
+  width: min(740px, 100%);
 }
 
 .site-search-form input[type='search'] {
   flex: 1;
+  min-width: 0;
+  min-height: 2.9rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0;
+  background: #f0f0f0;
+  color: #1d1d1b;
+  font: inherit;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  box-shadow: none;
 }
 
-/* Cart sidebar — WooCommerce-style drawer: olive head bar, gray subtotal band,
-   olive uppercase CTAs (matches the reference screenshots). */
+.site-search-form input[type='search']::placeholder {
+  color: #7a7a7a;
+  opacity: 1;
+}
+
+.site-search-form button,
+.site-search-form button:hover,
+.site-search-form button:focus,
+.site-search-form button:active {
+  min-height: 2.9rem;
+  padding: 0 1.6rem;
+  border: 0;
+  border-radius: 0;
+  background: #6b5a22;
+  color: #ffffff;
+  cursor: pointer;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.site-search-box {
+  position: relative;
+  width: min(740px, 100%);
+}
+
+.site-search-box .site-search-form {
+  width: 100%;
+}
+
+/* Live suggestions under the field. */
+.site-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
+  border: 1px solid #ebe9e5;
+  border-top: 0;
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.site-search-result,
+.site-search-result:hover,
+.site-search-result:focus,
+.site-search-result:active {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #f0efec;
+  color: #1d1d1b;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.site-search-result:hover,
+.site-search-result:focus-visible {
+  background: #f7f6f3;
+}
+
+.site-search-result img,
+.site-search-result-thumb {
+  width: 2.6rem;
+  height: 3.2rem;
+  background: #f0efec;
+  object-fit: contain;
+}
+
+.site-search-result-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-search-result-price {
+  color: #6b5a22;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.site-search-empty {
+  margin: 0;
+  padding: 1rem;
+  color: #6e6d6a;
+  font-size: 0.9rem;
+}
+
+.site-search-all,
+.site-search-all:hover,
+.site-search-all:focus,
+.site-search-all:active {
+  display: block;
+  padding: 0.75rem 1rem;
+  color: #6b5a22;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: underline;
+}
+
+.site-search-close,
+.site-search-close:hover,
+.site-search-close:focus,
+.site-search-close:active {
+  position: absolute;
+  top: 50%;
+  right: 1.5rem;
+  display: inline-flex;
+  padding: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: #000000;
+  cursor: pointer;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+@media screen and (max-width: 719px) {
+  .site-search-panel {
+    padding: 1rem 3.25rem 1rem 1rem;
+  }
+
+  .site-search-close {
+    right: 0.6rem;
+  }
+}
+
+/* Cart sidebar — olive head bar, flat item rows, gray subtotal band, olive
+   uppercase CTAs. Measured from the reference screenshot (÷1.35 → CSS px).
+   No color changes on hover/focus/active anywhere in the panel. */
 .site-cart-backdrop {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(15, 23, 32, 0.55);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .site-cart-panel {
-  --site-cart-olive: #7c6c1e;
-  --site-cart-olive-dark: #66591a;
+  --site-cart-olive: #6b5a22;
+  --site-cart-ink: #1d1d1b;
+  --site-cart-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   z-index: 95;
-  width: min(400px, 92vw);
-  background: var(--global-palette9);
   display: flex;
   flex-direction: column;
+  width: min(325px, 92vw);
+  overflow: hidden;
+  border-top-left-radius: 8px;
+  background: #ffffff;
+  color: var(--site-cart-ink);
+  font-family: var(--site-cart-sans);
   box-shadow: -20px 0 50px -20px rgba(0, 0, 0, 0.35);
 }
 
@@ -454,149 +609,159 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
-  background: var(--site-cart-olive);
+  min-height: 2.75rem;
+  padding: 0.5rem 1.2rem 0.5rem 1.3rem;
   border-bottom: 0;
+  background: var(--site-cart-olive);
 }
 
-.site-cart-title {
+.site-cart-panel .site-cart-title {
   margin: 0;
   color: #ffffff;
-  font-family: var(--shop-font);
-  font-size: 1.3rem;
-  font-weight: 600;
+  font-family: var(--font-spectral), "Spectral", Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
-.site-cart-close {
+.site-cart-panel .site-cart-close,
+.site-cart-panel .site-cart-close:hover,
+.site-cart-panel .site-cart-close:focus,
+.site-cart-panel .site-cart-close:active {
   display: inline-flex;
-  padding: 0.35rem;
+  padding: 0.2rem;
+  border: 0;
   background: transparent;
   color: #ffffff;
   line-height: 1;
 }
 
-.site-cart-close:hover {
-  color: #f1e7c4;
-  background: transparent;
-}
-
 .site-cart-items {
-  flex: 1;
-  overflow-y: auto;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  padding: 0.5rem 1.25rem;
+  overflow-y: auto;
+  padding: 1.1rem 1.1rem 0.5rem 0.85rem;
 }
 
 .site-cart-empty {
   margin: auto;
   padding: 2.5rem 1rem;
-  color: var(--global-palette3);
-  font-size: 0.98rem;
+  color: var(--site-cart-ink);
+  font-size: 0.9rem;
   text-align: center;
 }
 
 .site-cart-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.85rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--global-palette8);
+  gap: 0.5rem;
+  padding: 0 0 1rem;
+  border-bottom: 0;
 }
 
 .site-cart-item-img {
-  width: 4.4rem;
+  flex: 0 0 auto;
+  width: 4.6rem;
   height: 5rem;
+  border: 0;
+  border-radius: 0;
+  background: #f0efec;
   object-fit: cover;
-  border-radius: 3px;
-  border: 1px solid var(--global-gray-400);
 }
 
 .site-cart-item-body {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
   flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
   min-width: 0;
-  padding-top: 0.15rem;
+  padding-top: 0.1rem;
 }
 
 .site-cart-item-name {
-  color: var(--global-palette3);
-  font-weight: 500;
-  font-size: 0.95rem;
-  line-height: 1.35;
+  color: var(--site-cart-ink);
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .site-cart-item-meta {
+  padding-left: 0.1rem;
   color: var(--site-cart-olive);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 400;
 }
 
-.site-cart-remove {
+.site-cart-panel .site-cart-remove,
+.site-cart-panel .site-cart-remove:hover,
+.site-cart-panel .site-cart-remove:focus,
+.site-cart-panel .site-cart-remove:active {
   margin-left: auto;
-  padding: 0.1rem 0.3rem;
+  padding: 0 0.2rem;
+  border: 0;
   background: transparent;
-  color: #d9534f;
-  font-size: 1.15rem;
-  font-weight: 700;
+  color: #e0463f;
+  font-size: 1rem;
+  font-weight: 400;
   line-height: 1;
 }
 
-.site-cart-remove:hover {
-  color: #b93a35;
-  background: transparent;
-}
-
 .site-cart-foot {
-  border-top: 0;
   padding: 0;
+  border-top: 0;
 }
 
 .site-cart-subtotal {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0;
-  padding: 0.95rem 1.25rem;
-  background: #f2f2f2;
-  color: var(--global-palette3);
-  font-size: 0.95rem;
-  font-weight: 700;
+  min-height: 2.8rem;
+  margin: 0;
+  padding: 0 1.2rem 0 1.15rem;
+  background: #f0f0f0;
+  color: var(--site-cart-ink);
+  font-size: 0.85rem;
+  font-weight: 400;
 }
 
 .site-cart-actions {
   display: flex;
-  gap: 0.6rem;
-  padding: 1rem 1.25rem;
-  background: var(--global-palette9);
+  gap: 0.3rem;
+  padding: 1rem 1rem 0.75rem;
+  background: #ffffff;
 }
 
-.site-cart-actions .button,
-.site-cart-actions .button.is-outline {
+.site-cart-panel .site-cart-actions .button,
+.site-cart-panel .site-cart-actions .button.is-outline,
+.site-cart-panel .site-cart-actions .button:hover,
+.site-cart-panel .site-cart-actions .button:focus,
+.site-cart-panel .site-cart-actions .button:active,
+.site-cart-panel .site-cart-actions .button:visited,
+.site-cart-panel .site-cart-actions .button.is-outline:hover,
+.site-cart-panel .site-cart-actions .button.is-outline:focus,
+.site-cart-panel .site-cart-actions .button.is-outline:active {
+  display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
   margin: 0;
-  padding: 0.85rem 0.9rem;
-  border: 1px solid var(--site-cart-olive);
+  padding: 0.5rem 0.6rem;
+  border: 0;
   border-radius: 0;
   background: var(--site-cart-olive);
+  box-shadow: none;
   color: #ffffff;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-family: var(--site-cart-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.3;
   text-align: center;
+  text-decoration: none;
   text-transform: uppercase;
-}
-
-.site-cart-actions .button:hover,
-.site-cart-actions .button:visited,
-.site-cart-actions .button.is-outline:hover,
-.site-cart-actions .button.is-outline:visited {
-  border-color: var(--site-cart-olive-dark);
-  background: var(--site-cart-olive-dark);
-  color: #ffffff;
 }
 
 /* Mobile drawer */
@@ -635,143 +800,160 @@
   color: var(--global-palette-highlight);
 }
 
-/* ============================ Footer ============================ */
+/* ============================ Footer ============================
+   Black band, four-part grid (info · link columns · newsletter), white social
+   discs and an olive subscribe button. Measured from the reference screenshot
+   (÷1.35 → CSS px). Nothing in here changes colour on hover/focus. */
 
 .site-footer {
-  margin-top: 4rem;
-  background: var(--global-palette2);
-  color: var(--global-palette8);
+  margin-top: 0;
+  background: #000000;
+  color: #ffffff;
 }
 
-.footer-subscribe-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  padding: 1.4rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.footer-subscribe-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--global-palette9);
-  font-size: 1.05rem;
-}
-
-.footer-subscribe-copy svg {
-  color: var(--global-palette-highlight);
-}
-
-.footer-subscribe-form {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: 0 1.5rem;
-  border: 1px solid var(--global-palette-highlight);
-  background: var(--global-palette-highlight);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.footer-subscribe-form:hover {
-  border-color: #fff;
-  background: #fff;
-  color: var(--global-palette-text, #0f2d4d);
+.site-footer .site-container {
+  max-width: 1400px;
+  padding-right: 3.1rem;
+  padding-left: 3.1rem;
 }
 
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.6fr repeat(3, minmax(0, 1fr));
-  gap: 2.5rem;
-  padding: 3rem 0;
+  grid-template-columns: 1.9fr repeat(var(--footer-link-cols, 2), minmax(0, 1fr)) 0.9fr;
+  gap: 2rem;
+  padding: 9.5rem 0 8rem;
 }
 
 .footer-heading {
-  margin: 0 0 1rem;
-  color: var(--global-palette9);
-  font-size: 1rem;
-  font-weight: 700;
+  margin: 0 0 1.2rem;
+  color: #ffffff;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.shopWrapper .site-footer .footer-heading {
+  color: #ffffff;
+  font-weight: 400;
 }
 
 .footer-col p {
-  color: var(--global-palette6);
-  font-size: 0.92rem;
+  margin: 0 0 1rem;
+  color: #ffffff;
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .footer-links {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
 
-.footer-links a {
-  color: var(--global-palette6);
-  font-size: 0.92rem;
+.footer-links a,
+.footer-links a:hover,
+.footer-links a:focus,
+.footer-links a:active {
+  color: #ffffff;
+  font-size: 0.95rem;
   text-decoration: none;
-}
-
-.footer-links a:hover {
-  color: var(--global-palette-highlight);
 }
 
 .footer-contact-list {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  margin-top: 1rem;
-  color: var(--global-palette6);
-  font-size: 0.92rem;
+  margin-top: 0.5rem;
+  color: #ffffff;
+  font-size: 0.95rem;
 }
 
-.footer-contact-item {
+.footer-contact-item,
+.footer-contact-item:hover,
+.footer-contact-item:focus,
+.footer-contact-item:active {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.footer-contact-item svg {
+  display: none;
 }
 
 .footer-socials {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.4rem;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
 }
 
-.footer-socials a {
+.footer-socials a,
+.footer-socials a:hover,
+.footer-socials a:focus,
+.footer-socials a:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--global-palette8);
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #000000;
 }
 
-.footer-socials a:hover {
-  color: var(--global-palette-highlight);
-  border-color: var(--global-palette-highlight);
-}
-
-.footer-app-buttons {
+.footer-newsletter-form {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.95rem;
+  margin-top: 1.3rem;
 }
 
-.footer-app-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 3px;
-  color: var(--global-palette9);
-  font-size: 0.85rem;
+.footer-newsletter-form input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0 0.95rem;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  color: #1d1d1b;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.footer-newsletter-form input::placeholder {
+  color: #1d1d1b;
+  opacity: 1;
+}
+
+.footer-newsletter-form button,
+.footer-newsletter-form button:hover,
+.footer-newsletter-form button:focus,
+.footer-newsletter-form button:active {
+  min-height: 2.9rem;
+  padding: 0 1.7rem;
+  border: 0;
+  border-radius: 0;
+  background: #6b5a22;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.footer-newsletter-form .footer-newsletter-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .footer-bottom {
@@ -780,10 +962,20 @@
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
-  padding: 1.2rem 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--global-palette6);
+  padding: 1.7rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.footer-bottom p {
+  margin: 0;
+}
+
+.footer-bottom > div:last-child {
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.85rem;
+  text-align: right;
 }
 
 /* ============================ Responsive ============================ */
@@ -801,6 +993,7 @@
 @media screen and (max-width: 1024px) {
   .footer-grid {
     grid-template-columns: 1fr 1fr;
+    padding: 4rem 0;
   }
 }
 
@@ -1108,4 +1301,13 @@
     grid-template-columns: 1fr;
     gap: 1.75rem;
   }
+}
+
+/* Leaflet gives its panes/controls z-indexes up to 1000. Keep the whole map in
+   its own stacking context so header overlays (search bar, cart drawer, mobile
+   menu) always cover it instead of the map bleeding through. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
 }

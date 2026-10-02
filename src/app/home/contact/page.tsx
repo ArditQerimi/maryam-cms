@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { inArray } from 'drizzle-orm';
 import { settingsStore } from '@/db/schema-tenant';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
+import { geocodeAddress } from '@/lib/geocode';
 import ContactClient from './ContactClient';
 
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,12 @@ export default async function ShopContactPage() {
     if (fallbackAddress) {
       merchant = { ...merchant, address: fallbackAddress };
     }
+  }
+
+  // No saved pin: look the address up on OpenStreetMap (free, no API key) so
+  // the contact map is always the keyless Leaflet/OSM map.
+  if (!merchant.mapCoordinates && merchant.address) {
+    merchant = { ...merchant, mapCoordinates: await geocodeAddress(merchant.address) };
   }
 
   return <ContactClient merchant={merchant} />;

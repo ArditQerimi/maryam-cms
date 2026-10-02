@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, DatabaseZap, MapPin, Store } from 'lucide-react';
-import { requireAccountCustomer } from '@/lib/account/data';
+import { connection } from 'next/server';
+import { requireAccountPrincipal } from '@/lib/account/data';
+import { addressLines, getAccountAddresses } from '@/lib/account/addresses';
 import { getT } from '@/lib/i18n/server';
 import styles from '../account.module.css';
 
@@ -14,39 +15,47 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountAddressesPage() {
-  await requireAccountCustomer('/home/account/addresses');
+  await connection();
+  const principal = await requireAccountPrincipal('/home/account/addresses');
   const t = await getT();
+  const saved = await getAccountAddresses(principal);
+
+  const columns = [
+    {
+      kind: 'billing',
+      title: t('account.addresses.billing'),
+      edit: t('account.addresses.editBilling'),
+      lines: addressLines(saved.billing),
+    },
+    {
+      kind: 'shipping',
+      title: t('account.addresses.shipping'),
+      edit: t('account.addresses.editShipping'),
+      lines: addressLines(saved.shipping),
+    },
+  ];
 
   return (
     <div className={styles.pageStack}>
-      <header className={styles.pageHeader}>
-        <span className={styles.pageIcon} aria-hidden="true"><MapPin size={23} /></span>
-        <div>
-          <p className={styles.eyebrow}>{t('account.addresses.eyebrow')}</p>
-          <h2>{t('account.addresses.title')}</h2>
-          <p>{t('account.addresses.lead')}</p>
-        </div>
-      </header>
-
-      <section className={styles.emptyState} aria-labelledby="addresses-unavailable-title">
-        <span className={styles.emptyIcon} aria-hidden="true"><DatabaseZap size={26} /></span>
-        <div>
-          <p className={styles.cardKicker}>{t('account.addresses.notConnected')}</p>
-          <h3 id="addresses-unavailable-title">{t('account.addresses.emptyTitle')}</h3>
-          <p>
-            {t('account.addresses.emptyBody')}
-          </p>
-        </div>
-        <Link href="/home" className={styles.secondaryButton}>
-          {t('account.addresses.return')} <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </section>
-
-      <div className={styles.infoNote} role="note">
-        <Store size={18} aria-hidden="true" />
-        <p>
-          {t('account.addresses.note')}
-        </p>
+      <p className={styles.plainNote}>{t('account.addresses.intro')}</p>
+      <div className={styles.addressColumns}>
+        {columns.map((column) => (
+          <section key={column.kind}>
+            <h2 className={styles.addressTitle}>{column.title}</h2>
+            <Link className={styles.addressEdit} href={`/home/account/edit-address/${column.kind}`}>
+              {column.edit}
+            </Link>
+            {column.lines.length > 0 ? (
+              <address className={styles.addressBox}>
+                {column.lines.map((line, index) => (
+                  <span key={`${index}-${line}`}>{line}</span>
+                ))}
+              </address>
+            ) : (
+              <p className={styles.mutedItalic}>{t('account.addresses.none')}</p>
+            )}
+          </section>
+        ))}
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 import type { ComponentProps, CSSProperties } from 'react';
 import Link from 'next/link';
-import { Mail, MessageCircle, Phone, Send, Share2 } from 'lucide-react';
+import { Mail, MessageCircle, Phone, Share2 } from 'lucide-react';
 import { getContextCompany } from '@/lib/tenant';
 import { getT, type Dictionary } from '@/lib/i18n/server';
 import type { PublicStorefrontPresentation } from '@/lib/storefront-settings/contracts';
 import { DEFAULT_FOOTER, type FooterCustomizations } from '@/lib/theme/types';
+import NewsletterForm from './NewsletterForm';
 import WidgetArea from './WidgetArea';
 
 function safeExternalUrl(value: string | undefined): string {
@@ -102,9 +103,10 @@ export default async function ShopFooter({
     .slice(0, footer.columns)
     .filter((column) => column.title.trim() || column.links.length > 0);
   const hasCustomColumns = customColumns.length > 0;
-  const gridStyle = hasCustomColumns
-    ? ({ '--footer-custom-cols': String(customColumns.length) } as CSSProperties)
-    : undefined;
+  // Default groups: Information + Policies (account links live in the header).
+  const defaultGroups = footerGroups.filter((group) => group.titleKey !== 'footer.group.account');
+  const linkColumnCount = hasCustomColumns ? customColumns.length : defaultGroups.length;
+  const gridStyle = { '--footer-link-cols': String(linkColumnCount) } as CSSProperties;
   const persistedPresentation = presentation?.status === 'ready' ? presentation.config : null;
   const socialLinks = [
     { href: store.website, label: t('footer.social.website'), icon: GlobeIcon },
@@ -118,18 +120,8 @@ export default async function ShopFooter({
       style={background ? { backgroundColor: background } : undefined}
     >
       <div className="site-container">
-        <div className="footer-subscribe-bar">
-          <div className="footer-subscribe-copy">
-            <Send size={18} aria-hidden="true" />
-            <strong>{t('footer.help.title')}</strong>
-          </div>
-          <Link className="footer-subscribe-form" href="/home/contact">
-            {t('footer.help.contact')}
-          </Link>
-        </div>
-
         <div
-          className={hasCustomColumns ? 'footer-grid has-custom-columns' : 'footer-grid'}
+          className="footer-grid"
           style={gridStyle}
         >
           <div className="footer-col">
@@ -175,7 +167,7 @@ export default async function ShopFooter({
                   </div>
                 </div>
               ))
-            : footerGroups.map((group) => (
+            : defaultGroups.map((group) => (
                 <div key={group.titleKey} className="footer-col">
                   <h4 className="footer-heading">{t(group.titleKey)}</h4>
                   <div className="footer-links">
@@ -185,6 +177,12 @@ export default async function ShopFooter({
                   </div>
                 </div>
               ))}
+
+          <div className="footer-col footer-newsletter">
+            <h4 className="footer-heading">{t('footer.newsletter.title')}</h4>
+            <p>{t('footer.newsletter.copy')}</p>
+            <NewsletterForm inputId="footer-newsletter-email" variant="footer" />
+          </div>
         </div>
 
         <WidgetArea area="footer" />

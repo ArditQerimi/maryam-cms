@@ -48,6 +48,7 @@ export const checkout = {
   'checkout.delivery.fallbackLabel': 'Delivery',
   'checkout.delivery.loading': 'Loading…',
   'checkout.delivery.serverQuote': 'Server quote',
+  'checkout.payment.check.label': 'Check payments',
   'checkout.payment.cashOnDelivery.label': 'Cash on delivery',
   'checkout.payment.cashOnDelivery.detail': 'Pay when the order is delivered',
   'checkout.shippingType.flat_rate': 'Flat Rate',
@@ -105,6 +106,8 @@ export const checkout = {
   'checkout.login.promptCopy': 'Sign in to keep your checkout details with you.',
   'checkout.login.link': 'Log in',
   'checkout.contact.email': 'Email address',
+  'checkout.notes.label': 'Order notes',
+  'checkout.notes.placeholder': 'Notes about your order, e.g. special notes for delivery.',
   'checkout.contact.phone': 'Phone number',
   'checkout.contact.phoneHint': 'For delivery questions',
   'checkout.contact.marketing':

@@ -28,7 +28,7 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Interactive store map: a Leaflet view (OpenStreetMap/CARTO tiles, no API
+ * Interactive store map: a Leaflet view (OpenStreetMap tiles, no API
  * key) pinned on the exact saved coordinates. Clicking — or keyboard-focusing
  * and pressing Enter on — the pin opens a popup with the address and a link
  * out to Google Maps, the interaction Google's keyless embed could not
@@ -76,23 +76,27 @@ export default function StoreMap({
       // Titles live on the control, not the map options.
       L.control.zoom({ zoomInTitle: zoomInLabel, zoomOutTitle: zoomOutLabel }).addTo(map);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
+      // Standard OpenStreetMap tiles: free and keyless (CARTO now needs a key).
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
-          + 'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
 
+      // Classic teardrop map pin (SVG), tip anchored exactly on the location.
       const pin = L.divIcon({
         className: 'store-map-pin',
-        html: '',
-        iconSize: [22, 31],
-        iconAnchor: [11, 31],
-        popupAnchor: [0, -30],
+        html:
+          '<svg viewBox="0 0 24 36" width="30" height="45" aria-hidden="true">'
+          + '<path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24C24 5.37 18.63 0 12 0z" fill="#d93025" stroke="#a52714" stroke-width="1"/>'
+          + '<circle cx="12" cy="12" r="4.6" fill="#ffffff"/>'
+          + '</svg>',
+        iconSize: [30, 45],
+        iconAnchor: [15, 45],
+        popupAnchor: [0, -40],
       });
 
-      const externalUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      const externalUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`;
       const popupHtml =
         '<div class="store-map-popup">'
         + `<strong>${escapeHtml(infoTitle)}</strong>`
@@ -103,7 +107,9 @@ export default function StoreMap({
 
       L.marker([lat, lng], { icon: pin, title: infoTitle, alt: infoTitle, keyboard: true })
         .addTo(map)
-        .bindPopup(popupHtml);
+        .bindPopup(popupHtml)
+        // Shown by default; the map pans so the whole card fits.
+        .openPopup();
     })();
 
     return () => {

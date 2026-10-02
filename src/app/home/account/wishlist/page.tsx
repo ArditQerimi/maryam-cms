@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
-import { ArrowRight, Heart, Info } from 'lucide-react';
 import { getTenantDb } from '@/db/index';
 import * as tenantSchema from '@/db/schema-tenant';
 import { requireAccountPrincipal } from '@/lib/account/data';
@@ -50,67 +49,50 @@ export default async function AccountWishlistPage() {
     .orderBy(desc(tenantSchema.wishlistItems.createdAt))
     .limit(MAX_PREVIEW_ITEMS);
 
+  if (items.length === 0) {
+    return (
+      <div className={styles.pageStack}>
+        <p className={styles.plainNote}>{t('account.wishlist.empty')}</p>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.pageStack}>
-      <header className={styles.pageHeader}>
-        <span className={styles.pageIcon} aria-hidden="true"><Heart size={23} /></span>
-        <div>
-          <p className={styles.eyebrow}>{t('account.wishlist.eyebrow')}</p>
-          <h2>{t('account.wishlist.title')}</h2>
-          <p>
-            {items.length > 0
-              ? items.length === 1
-                ? t('account.wishlist.leadOne', { count: items.length })
-                : t('account.wishlist.leadOther', { count: items.length })
-              : t('account.wishlist.leadEmpty')}
-          </p>
-        </div>
-      </header>
-
-      {items.length === 0 ? (
-        <section className={styles.emptyState} aria-labelledby="wishlist-empty-title">
-          <span className={styles.emptyIcon} aria-hidden="true"><Heart size={34} /></span>
-          <div>
-            <h3 id="wishlist-empty-title">{t('account.wishlist.emptyTitle')}</h3>
-            <p>
-              {t('account.wishlist.emptyBody')}
-            </p>
-          </div>
-          <Link className={styles.primaryButton} href="/home/products">
-            {t('account.wishlist.browse')} <ArrowRight size={17} aria-hidden="true" />
-          </Link>
-        </section>
-      ) : (
-        <section className={styles.wishlistSummary} aria-label={t('account.wishlist.summaryAria')}>
-          <div className={styles.wishlistMiniGrid}>
+      <div className={styles.tableWrap}>
+        <table className={styles.ordersTable}>
+          <thead>
+            <tr>
+              <th scope="col">{t('account.compare.product')}</th>
+              <th scope="col">{t('account.compare.price')}</th>
+              <th scope="col">{t('account.orders.colActions')}</th>
+            </tr>
+          </thead>
+          <tbody>
             {items.map((item) => {
               const price = formatPrice(item.price);
               return (
-                <Link
-                  key={item.productId}
-                  className={styles.wishlistMiniCard}
-                  href={`/home/products/${item.productId}`}
-                >
-                  <span className={styles.wishlistMiniName}>{item.name}</span>
-                  {price ? <span className={styles.wishlistMiniPrice}>{price}</span> : null}
-                </Link>
+                <tr key={item.productId}>
+                  <td data-label={t('account.compare.product')}>
+                    <Link href={`/home/products/${item.productId}`}>{item.name}</Link>
+                  </td>
+                  <td data-label={t('account.compare.price')}>{price ?? '—'}</td>
+                  <td data-label={t('account.orders.colActions')}>
+                    <Link className={styles.noticeButton} href={`/home/products/${item.productId}`}>
+                      {t('account.orders.view')}
+                    </Link>
+                  </td>
+                </tr>
               );
             })}
-          </div>
-          <div>
-            <Link href="/home/wishlist" className={styles.primaryButton}>
-              {t('account.wishlist.openFull')} <ArrowRight size={17} aria-hidden="true" />
-            </Link>
-          </div>
-        </section>
-      )}
-
-      <div className={styles.infoNote} role="note">
-        <Info size={18} aria-hidden="true" />
-        <p>
-          {t('account.wishlist.note')}
-        </p>
+          </tbody>
+        </table>
       </div>
+      <p>
+        <Link className={styles.inlineTextLink} href="/home/wishlist">
+          {t('account.wishlist.openFull')}
+        </Link>
+      </p>
     </div>
   );
 }

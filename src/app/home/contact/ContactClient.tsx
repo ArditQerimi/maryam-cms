@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import Link from 'next/link';
-import { MapPin } from 'lucide-react';
+import { Mail, MapPin, Phone } from 'lucide-react';
 import styles from '../bookstore.module.css';
 import ShopPageHeader from '../components/ShopPageHeader';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
@@ -109,21 +108,24 @@ export default function ContactClient({ merchant }: { merchant: MerchantContact 
               <p className={styles.contactInfoTitle}>{t('contact.info.title')}</p>
 
               <div className={styles.contactInfoItem}>
+                <MapPin className={styles.contactInfoPin} size={26} fill="currentColor" aria-hidden="true" />
                 <div className={styles.contactInfoBody}>
-                  <h3>{t('contact.info.email')}</h3>
-                  <p>{merchant.email ?? t('contact.info.email.placeholder')}</p>
+                  <h3>{t('contact.info.address')}</h3>
+                  <p>{merchant.address ?? t('contact.info.address.placeholder')}</p>
                 </div>
               </div>
               <div className={styles.contactInfoItem}>
+                <Phone size={26} fill="currentColor" aria-hidden="true" />
                 <div className={styles.contactInfoBody}>
                   <h3>{t('contact.info.phone')}</h3>
                   <p>{merchant.phone ?? t('contact.info.phone.placeholder')}</p>
                 </div>
               </div>
               <div className={styles.contactInfoItem}>
+                <Mail size={26} aria-hidden="true" />
                 <div className={styles.contactInfoBody}>
-                  <h3>{t('contact.info.address')}</h3>
-                  <p>{merchant.address ?? t('contact.info.address.placeholder')}</p>
+                  <h3>{t('contact.info.email')}</h3>
+                  <p>{merchant.email ?? t('contact.info.email.placeholder')}</p>
                 </div>
               </div>
 
@@ -264,14 +266,16 @@ export default function ContactClient({ merchant }: { merchant: MerchantContact 
                 zoomOutLabel={t('contact.map.zoomOut')}
               />
             ) : (
-              <iframe
-                className={styles.contactMap}
-                title={t('contact.map.title', { address: merchant.address })}
-                src={`https://www.google.com/maps?q=${encodeURIComponent(merchant.address)}&output=embed`}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
+              // Address could not be placed on the map (e.g. offline): link out to
+              // OpenStreetMap instead of embedding a keyed/third-party map.
+              <a
+                className={styles.contactMapFallback}
+                href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(merchant.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('contact.map.openExternal')}
+              </a>
             )}
             <p className={styles.contactMapCaption}>
               <MapPin size={16} aria-hidden="true" />
@@ -300,12 +304,6 @@ export default function ContactClient({ merchant }: { merchant: MerchantContact 
                 {open === index ? <p className={styles.contactFaqAnswer}>{t(faq.a)}</p> : null}
               </div>
             ))}
-          </div>
-
-          <div className={styles.contactFormRow}>
-            <Link href="/home/shipping-policy">{t('contact.policy.shipping')}</Link>
-            <Link href="/home/refund-policy">{t('contact.policy.refund')}</Link>
-            <Link href="/home/terms-conditions">{t('contact.policy.terms')}</Link>
           </div>
         </div>
       </section>

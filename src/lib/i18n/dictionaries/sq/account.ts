@@ -199,4 +199,83 @@ export const account: typeof accountEn = {
   'account.strength.fair': 'Mesatar',
   'account.strength.good': 'I mirë',
   'account.strength.strong': 'I fortë',
+
+  // Faqet e llogarisë sime (sidebar + faqet)
+  'account.nav.dashboard': 'Paneli',
+  'account.nav.downloads': 'Shkarkimet',
+  'account.nav.compare': 'Krahasimi',
+  'account.nav.logOut': 'Dil',
+
+  // Paneli
+  'account.dashboard.hello': 'Përshëndetje',
+  'account.dashboard.notPrefix': 'jo',
+  'account.dashboard.copy1': 'Nga paneli i llogarisë mund të shihni',
+  'account.dashboard.link1': 'porositë e fundit',
+  'account.dashboard.copy2': 'të menaxhoni',
+  'account.dashboard.link2': 'adresat e dërgesës dhe të faturimit',
+  'account.dashboard.copy3': 'dhe',
+  'account.dashboard.link3': 'të ndryshoni fjalëkalimin dhe detajet e llogarisë',
+
+  // Tabela e porosive
+  'account.orders.colOrder': 'Porosia',
+  'account.orders.colDate': 'Data',
+  'account.orders.colStatus': 'Statusi',
+  'account.orders.colTotal': 'Totali',
+  'account.orders.colActions': 'Veprime',
+  'account.orders.view': 'Shiko',
+  'account.orders.totalForItem': '{total} për {count} artikull',
+  'account.orders.totalForItems': '{total} për {count} artikuj',
+  'account.orders.emptyNotice': 'Nuk është bërë asnjë porosi ende.',
+  'account.orders.browse': 'Shfleto produktet',
+
+  // Një porosi
+  'account.order.prefix': 'Porosia',
+  'account.order.placedOn': 'u bë më',
+  'account.order.andIs': 'dhe aktualisht është',
+  'account.order.details': 'Detajet e porosisë',
+  'account.order.product': 'Produkti',
+  'account.order.total': 'Totali',
+  'account.order.subtotal': 'Nëntotali:',
+  'account.order.shipping': 'Dërgesa:',
+  'account.order.payment': 'Mënyra e pagesës:',
+  'account.order.grandTotal': 'Totali:',
+  'account.order.billing': 'Adresa e faturimit',
+  'account.order.shippingAddress': 'Adresa e dërgesës',
+
+  // Shkarkimet
+  'account.downloads.empty': 'Nuk ka shkarkime të disponueshme ende.',
+
+  // Adresat
+  'account.addresses.billing': 'Adresa e faturimit',
+  'account.addresses.shipping': 'Adresa e dërgesës',
+  'account.addresses.none': 'Nuk e keni vendosur ende këtë lloj adrese.',
+  'account.addresses.intro': 'Adresat e mëposhtme do të përdoren si parazgjedhje në faqen e pagesës.',
+  'account.addresses.save': 'Ruaj adresën',
+  'account.addresses.editBilling': 'Ndrysho adresën e faturimit',
+  'account.addresses.editShipping': 'Ndrysho adresën e dërgesës',
+
+  // Forma e detajeve të llogarisë
+  'account.form.firstName': 'Emri',
+  'account.form.lastName': 'Mbiemri',
+  'account.form.displayName': 'Emri i shfaqur',
+  'account.form.displayNameHint':
+    'Kështu do të shfaqet emri juaj në seksionin e llogarisë dhe në vlerësime',
+  'account.form.email': 'Adresa e email-it',
+  'account.form.phone': 'Telefoni',
+  'account.form.passwordChange': 'Ndryshimi i fjalëkalimit',
+  'account.form.currentPassword': 'Fjalëkalimi aktual (lëreni bosh për ta mbajtur)',
+  'account.form.newPassword': 'Fjalëkalimi i ri (lëreni bosh për ta mbajtur)',
+  'account.form.confirmPassword': 'Konfirmoni fjalëkalimin e ri',
+  'account.form.showPassword': 'Shfaq fjalëkalimin',
+  'account.form.hidePassword': 'Fshih fjalëkalimin',
+  'account.form.save': 'Ruaj ndryshimet',
+  'account.form.saving': 'Duke ruajtur…',
+
+  // Krahasimi / lista e dëshirave brenda llogarisë
+  'account.compare.empty': 'Asnjë produkt nuk është shtuar në tabelën e krahasimit.',
+  'account.compare.product': 'Produkti',
+  'account.compare.price': 'Çmimi',
+  'account.compare.remove': 'Hiq',
+  'account.compare.open': 'Hap krahasimin e plotë',
+  'account.wishlist.empty': 'Nuk ka produkte në listën e dëshirave!',
 };

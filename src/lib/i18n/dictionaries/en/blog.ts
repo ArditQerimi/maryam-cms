@@ -3,6 +3,15 @@ export const blog = {
   'blog.title': 'Blog',
   'blog.crumb.home': 'Home',
   'blog.card.read': 'Read {title}',
+  'blog.card.by': 'By {name}',
+  'blog.reply.loggedInAs': 'Logged in as {name}.',
+  'blog.reply.editProfile': 'Edit your profile.',
+  'blog.reply.required': 'Required fields are marked',
+  'blog.reply.name': 'Name',
+  'blog.reply.comment': 'Comment',
+  'blog.reply.post': 'Post comment',
+  'blog.reply.posting': 'Posting…',
+  'blog.reply.count': '{count} comments',
 
   // Listing results
   'blog.results.filteredKicker': 'Filtered results',

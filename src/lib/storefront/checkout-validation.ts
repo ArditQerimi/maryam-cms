@@ -7,6 +7,7 @@ import type {
   CheckoutRequest,
 } from '@/app/home/checkout/checkout-contract';
 
+const ORDER_NOTES_MAX_LENGTH = 1000;
 const CONTACT_KEYS = ['email', 'phone', 'marketingOptIn'] as const;
 const BILLING_KEYS = ['sameAsShipping', 'address'] as const;
 const DELIVERY_KEYS = ['methodId'] as const;
@@ -260,7 +261,7 @@ export function parseCheckoutRequest(value: unknown): CheckoutRequest {
   }
 
   const errors: CheckoutFieldErrors = {};
-  if (Object.keys(value).some((key) => !(REQUEST_KEYS as readonly string[]).includes(key))) {
+  if (Object.keys(value).some((key) => key !== 'orderNotes' && !(REQUEST_KEYS as readonly string[]).includes(key))) {
     throw new CheckoutValidationError('Request body contains unsupported fields.');
   }
   for (const key of REQUEST_KEYS) {
@@ -339,6 +340,14 @@ export function parseCheckoutRequest(value: unknown): CheckoutRequest {
     }
   }
 
+  let orderNotes = '';
+  if (Object.prototype.hasOwnProperty.call(value, 'orderNotes')) {
+    if (typeof value.orderNotes !== 'string' || value.orderNotes.length > ORDER_NOTES_MAX_LENGTH) {
+      throw new CheckoutValidationError('Order notes must be text of at most 1000 characters.');
+    }
+    orderNotes = value.orderNotes.trim();
+  }
+
   if (!isRecord(value.terms)) {
     errors['terms.accepted'] = 'Accept the terms before placing your order.';
   } else {
@@ -359,6 +368,7 @@ export function parseCheckoutRequest(value: unknown): CheckoutRequest {
     delivery: { methodId: deliveryMethodId },
     payment: { methodId: paymentMethodId },
     promotionCode,
+    ...(orderNotes ? { orderNotes } : {}),
     terms: { accepted: true },
   };
 }

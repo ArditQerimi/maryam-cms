@@ -1,5 +1,6 @@
 'use client';
 
+import { SelectField, TextField } from '@/app/home/components/FormField';
 import { useLocale, type Translator } from '@/lib/i18n/LocaleProvider';
 import type { CheckoutAddress } from './checkout-contract';
 import styles from './checkout.module.css';
@@ -16,6 +17,7 @@ type AddressFieldConfig = {
   type?: 'text' | 'tel';
   inputMode?: 'text' | 'numeric' | 'tel';
   placeholder?: Parameters<Translator>[0];
+  hideLabel?: boolean;
 };
 
 type AddressFieldsProps = {
@@ -33,14 +35,14 @@ const FIELD_CONFIG: readonly AddressFieldConfig[] = [
   { key: 'company', label: 'checkout.address.company', autoComplete: 'organization', optional: true, wide: true },
   { key: 'country', label: 'checkout.address.country', autoComplete: 'country-name', wide: true },
   { key: 'address1', label: 'checkout.address.address1', autoComplete: 'address-line1', wide: true, placeholder: 'checkout.address.address1Placeholder' },
-  { key: 'address2', label: 'checkout.address.address2', autoComplete: 'address-line2', optional: true, wide: true },
+  { key: 'address2', label: 'checkout.address.address2', autoComplete: 'address-line2', optional: true, wide: true, hideLabel: true },
   { key: 'city', label: 'checkout.address.city', autoComplete: 'address-level2', wide: true },
-  { key: 'region', label: 'checkout.address.region', autoComplete: 'address-level1' },
-  { key: 'postalCode', label: 'checkout.address.postalCode', autoComplete: 'postal-code', inputMode: 'text' },
+  { key: 'region', label: 'checkout.address.region', autoComplete: 'address-level1', wide: true },
+  { key: 'postalCode', label: 'checkout.address.postalCode', autoComplete: 'postal-code', inputMode: 'text', wide: true },
 ];
 
 /** ISO code → dictionary key; the visible label translates, the value never does. */
-const COUNTRIES: ReadonlyArray<readonly [string, Parameters<Translator>[0]]> = [
+export const COUNTRIES: ReadonlyArray<readonly [string, Parameters<Translator>[0]]> = [
   ['AL', 'checkout.country.AL'],
   ['AT', 'checkout.country.AT'],
   ['BE', 'checkout.country.BE'],
@@ -66,72 +68,59 @@ export default function AddressFields({
   onFieldChange,
 }: AddressFieldsProps) {
   const { t } = useLocale();
+  const optionalText = t('checkout.address.optional');
 
   return (
     <div className={styles.addressGrid}>
       {FIELD_CONFIG.map((field) => {
         const id = addressInputId(prefix, field.key);
-        const error = errors[field.key];
-        const describedBy = error ? `${id}-error` : undefined;
-        const className = [
-          styles.field,
-          field.wide ? styles.fieldWide : '',
-          error ? styles.fieldInvalid : '',
-        ]
-          .filter(Boolean)
-          .join(' ');
+        const common = {
+          id,
+          name: `${prefix}.${field.key}`,
+          label: t(field.label),
+          required: !field.optional,
+          suffix: field.optional && !field.hideLabel ? optionalText : undefined,
+          hideLabel: field.hideLabel,
+          error: errors[field.key],
+          className: [field.wide ? styles.fieldWide : '', field.key === 'address2' ? styles.fieldTight : ''].filter(Boolean).join(' ') || undefined,
+          disabled,
+          autoComplete: field.autoComplete,
+        };
+
+        if (field.key === 'country') {
+          return (
+            <SelectField
+              key={field.key}
+              {...common}
+              onChange={(event) => onFieldChange(field.key, event.target.value)}
+              value={value[field.key]}
+            >
+              <option value="">{t('checkout.address.selectCountry')}</option>
+              {COUNTRIES.map(([code, label]) => (
+                <option key={code} value={code}>{t(label)}</option>
+              ))}
+            </SelectField>
+          );
+        }
 
         return (
-          <div className={className} key={field.key}>
-            <label className={styles.label} htmlFor={id}>
-              {t(field.label)}
-              {field.optional ? (
-                <span className={styles.optional}>{t('checkout.address.optional')}</span>
-              ) : (
-                <span className={styles.requiredMark} aria-hidden="true">*</span>
-              )}
-            </label>
-
-            {field.key === 'country' ? (
-              <select
-                aria-describedby={describedBy}
-                aria-invalid={error ? true : undefined}
-                autoComplete={field.autoComplete}
-                className={styles.control}
-                disabled={disabled}
-                id={id}
-                name={`${prefix}.${field.key}`}
-                onChange={(event) => onFieldChange(field.key, event.target.value)}
-                required
-                value={value[field.key]}
-              >
-                <option value="">{t('checkout.address.selectCountry')}</option>
-                {COUNTRIES.map(([code, label]) => (
-                  <option key={code} value={code}>{t(label)}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                aria-describedby={describedBy}
-                aria-invalid={error ? true : undefined}
-                autoCapitalize={field.key === 'address1' || field.key === 'address2' ? 'sentences' : 'words'}
-                autoComplete={field.autoComplete}
-                className={styles.control}
-                disabled={disabled}
-                id={id}
-                inputMode={field.inputMode}
-                name={`${prefix}.${field.key}`}
-                onChange={(event) => onFieldChange(field.key, event.target.value)}
-                placeholder={field.placeholder ? t(field.placeholder) : undefined}
-                required={!field.optional}
-                spellCheck={field.key === 'company' ? false : true}
-                type={field.type ?? 'text'}
-                value={value[field.key]}
-              />
-            )}
-
-            {error ? <p className={styles.fieldError} id={`${id}-error`}>{error}</p> : null}
-          </div>
+          <TextField
+            key={field.key}
+            {...common}
+            autoCapitalize={field.key === 'address1' || field.key === 'address2' ? 'sentences' : 'words'}
+            inputMode={field.inputMode}
+            onChange={(event) => onFieldChange(field.key, event.target.value)}
+            placeholder={
+              field.placeholder
+                ? t(field.placeholder)
+                : field.hideLabel
+                  ? `${t(field.label)} (${optionalText.toLowerCase()})`
+                  : undefined
+            }
+            spellCheck={field.key === 'company' ? false : true}
+            type={field.type ?? 'text'}
+            value={value[field.key]}
+          />
         );
       })}
     </div>

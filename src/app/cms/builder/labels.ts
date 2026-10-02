@@ -24,5 +24,7 @@ export function labelKey(text: string): keyof Dictionary | null {
 /** Translate a registry/UI string, falling back to the source text. */
 export function tr(t: Translate, text: string): string {
   const key = labelKey(text);
-  return key ? t(key) : text;
+  if (!key) return text;
+  const translated = t(key);
+  return typeof translated === 'string' && translated ? translated : text;
 }
