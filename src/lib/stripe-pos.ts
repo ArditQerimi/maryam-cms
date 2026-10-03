@@ -3,9 +3,15 @@
 import Stripe from 'stripe';
 import { getSession } from './session';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-04-22.dahlia',
-});
+// Built on first use (not at import) so the app builds and boots without
+// Stripe keys; only an actual payment needs STRIPE_SECRET_KEY.
+let stripeClient: Stripe | null = null;
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe is not configured (STRIPE_SECRET_KEY is missing).');
+  stripeClient ??= new Stripe(key, { apiVersion: '2026-04-22.dahlia' });
+  return stripeClient;
+}
 
 export async function createStripePaymentIntent(amount: number, currency: string = 'usd') {
   try {
@@ -20,7 +26,7 @@ export async function createStripePaymentIntent(amount: number, currency: string
       : '';
 
     // Create a PaymentIntent with the order amount and currency
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: Math.round(amount * 100), // Stripe uses cents
       currency,
       automatic_payment_methods: {
@@ -46,7 +52,7 @@ export async function createStripeCheckoutSession(items: { name: string; price: 
     const session = await getSession();
     if (!session) throw new Error('Unauthorized');
 
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const checkoutSession = await getStripe().checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: items.map(item => ({
         price_data: {

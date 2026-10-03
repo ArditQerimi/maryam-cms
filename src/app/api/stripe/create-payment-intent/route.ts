@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-04-22.dahlia',
-});
-
 export async function POST(request: NextRequest) {
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json(
@@ -14,6 +10,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // Created per request (not at import) so builds work without Stripe keys.
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2026-04-22.dahlia',
+  });
 
   try {
     const body = await request.json();
