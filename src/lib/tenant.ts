@@ -110,6 +110,20 @@ export function resolveTenantSubdomainFromHostname(
     throw new TenantResolutionError('invalid-host', 'A valid tenant hostname is required.');
   }
 
+  // Single-store deployments (e.g. a free *.onrender.com host with no
+  // wildcard domain): when SINGLE_TENANT_SUBDOMAIN is set, every host maps to
+  // that one tenant. Opt-in only; unset keeps strict host-based isolation.
+  const singleTenant = String(env.SINGLE_TENANT_SUBDOMAIN || '').trim().toLowerCase();
+  if (singleTenant) {
+    if (!TENANT_LABEL.test(singleTenant)) {
+      throw new TenantResolutionError(
+        'host-not-configured',
+        'SINGLE_TENANT_SUBDOMAIN must be one valid tenant hostname label.',
+      );
+    }
+    return singleTenant;
+  }
+
   const configuredBaseDomain = getConfiguredStorefrontBaseDomain(env);
   if (
     env.NODE_ENV === 'production' &&

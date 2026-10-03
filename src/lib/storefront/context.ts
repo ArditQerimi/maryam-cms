@@ -77,10 +77,12 @@ export async function getStorefrontContext(
     throw new StorefrontError(404, 'storefront-host-required', 'A valid storefront host is required.');
   }
 
+  // Single-store deployment (opt-in): every host is that one tenant's storefront.
+  const singleTenant = (process.env.SINGLE_TENANT_SUBDOMAIN || '').trim().toLowerCase();
   const configuredBase = getConfiguredStorefrontBaseDomain();
   const developmentBase = process.env.NODE_ENV === 'production' ? null : 'localhost';
   const baseDomain = configuredBase || developmentBase;
-  if (!baseDomain && process.env.NODE_ENV === 'production') {
+  if (!baseDomain && process.env.NODE_ENV === 'production' && !singleTenant) {
     throw new StorefrontError(
       500,
       'storefront-host-not-configured',
@@ -92,7 +94,7 @@ export async function getStorefrontContext(
   if (isAdminHost(hostname)) {
     throw new StorefrontError(404, 'storefront-host-required', 'A tenant storefront host is required.');
   }
-  let subdomain = extractStorefrontSubdomain(hostname, baseDomain);
+  let subdomain = singleTenant || extractStorefrontSubdomain(hostname, baseDomain);
   if (!subdomain && process.env.NODE_ENV !== 'production') {
     // Development-only convenience: plain `localhost`/`127.0.0.1` carry no
     // `<tenant>.` prefix, so every strict storefront API (cart, wishlist,
