@@ -1311,3 +1311,53 @@
   z-index: 0;
   isolation: isolate;
 }
+
+/* Footer widgets ("Visit us", "Follow along", "Newsletter"…) sit on the black
+   footer: titles, text and links are white. The theme's heading/link colour
+   rules (`.shopWrapper h1..h6`, `a:hover`) are outranked here, and nothing
+   changes colour on hover. */
+.shopWrapper.shopWrapper .site-footer .shop-widget-area,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area :is(p, li, span, label, small, div),
+.shopWrapper.shopWrapper .site-footer .shop-widget-area :is(h1, h2, h3, h4, h5, h6),
+.shopWrapper.shopWrapper .site-footer .shop-widget-area .shop-widget-title,
+.shopWrapper.shopWrapper .site-footer .shop-widget-html,
+.shopWrapper.shopWrapper .site-footer .shop-widget-html :is(p, li, span, h1, h2, h3, h4, h5, h6) {
+  color: #ffffff;
+}
+
+.shopWrapper.shopWrapper .site-footer .shop-widget-area a,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area a:hover,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area a:focus,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area a:active,
+.shopWrapper.shopWrapper .site-footer .shop-widget-html a,
+.shopWrapper.shopWrapper .site-footer .shop-widget-html a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.shopWrapper.shopWrapper .site-footer .shop-widget-area .shop-widget-title {
+  border-bottom-color: rgba(255, 255, 255, 0.25);
+}
+
+.shopWrapper.shopWrapper .site-footer .shop-widget-area .shop-widget-meta,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area .shop-widget-note {
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 1;
+}
+
+.shopWrapper.shopWrapper .site-footer .shop-widget-area input[type="email"],
+.shopWrapper.shopWrapper .site-footer .shop-widget-area input[type="text"] {
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  color: #1d1d1b;
+}
+
+.shopWrapper.shopWrapper .site-footer .shop-widget-area button,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area button:hover,
+.shopWrapper.shopWrapper .site-footer .shop-widget-area button:focus {
+  border: 0;
+  border-radius: 0;
+  background: #6b5a22;
+  color: #ffffff;
+}
