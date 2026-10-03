@@ -34,7 +34,14 @@ export function resolveSessionSecret(env: SessionSecretEnvironment = process.env
 
 // Fail application startup in production rather than importing a predictable
 // signing key. Development imports remain usable with the compatibility key.
-if (process.env.NODE_ENV === 'production') {
+// `next build` imports every route to collect page data, long before any
+// request and usually without runtime secrets. The check still runs when the
+// server starts, and `resolveSessionSecret()` enforces it on every sign/verify,
+// so a weak or missing secret can never actually be used.
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
   resolveSessionSecret(process.env);
 }
 
