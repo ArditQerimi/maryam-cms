@@ -361,7 +361,19 @@ export default function ShopHeader({
               </>
             )}
             <Link href={accountHref} onClick={() => setIsMenuOpen(false)}>{t('header.shop.account')}</Link>
+            {/* The phone header only keeps search + cart; the rest lives here. */}
+            <Link href="/home/wishlist" className="site-drawer-extra" onClick={() => setIsMenuOpen(false)}>
+              {t('header.wishlist')}
+              <span className="site-drawer-count">{wishlist.length}</span>
+            </Link>
+            <Link href="/home/compare" className="site-drawer-extra" onClick={() => setIsMenuOpen(false)}>
+              {t('header.compare')}
+              <span className="site-drawer-count">{compareItems.length}</span>
+            </Link>
           </nav>
+          <div className="site-drawer-lang">
+            <LanguageSwitcher />
+          </div>
         </div>
       ) : null}
     </>

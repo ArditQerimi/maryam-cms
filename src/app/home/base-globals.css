@@ -997,43 +997,119 @@
   }
 }
 
-@media screen and (max-width: 719px) {
+/* Header — tablet: same row, tighter spacing so brand + six actions fit. */
+@media screen and (max-width: 1100px) {
   .site-header-row {
-    min-height: 4.75rem;
-    column-gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    column-gap: 1rem;
+    padding-inline: 1.25rem;
   }
 
   .site-brand {
     min-width: 0;
   }
 
-  .site-brand-name {
+  .site-actions {
+    gap: 1rem;
+  }
+}
+
+/* Header — phone: burger | brand | search + cart. Account, wishlist, compare
+   and the language switch move into the drawer (see ShopHeader). */
+@media screen and (max-width: 719px) {
+  .site-header-row {
+    min-height: 4.25rem;
+    column-gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .site-burger {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-left: -0.35rem;
     font-size: 1.5rem;
+  }
+
+  .site-brand {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .site-brand-name {
+    font-size: 1.6rem;
     letter-spacing: 0.05em;
   }
 
+  .site-brand-name.is-compact {
+    font-size: 1.15rem;
+  }
+
+  .site-brand-logo {
+    max-height: 2.4rem;
+    max-width: 100%;
+  }
+
   .site-brand-tag {
-    padding-left: 0.24em;
-    font-size: 0.5rem;
-    letter-spacing: 0.24em;
+    padding-left: 0.22em;
+    font-size: 0.46rem;
+    letter-spacing: 0.22em;
   }
 
   .site-actions {
-    gap: 0.65rem;
+    gap: 0.15rem;
+    margin-right: -0.35rem;
   }
 
   .site-icon-btn {
-    width: 1.9rem;
-    height: 1.9rem;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .site-badge {
+    top: 0.1rem;
+    right: 0;
   }
 
   .site-actions .site-icon-btn:nth-child(2),
   .site-actions .site-icon-btn:nth-child(3),
-  .site-actions .site-icon-btn:nth-child(4) {
+  .site-actions .site-icon-btn:nth-child(4),
+  .site-actions .site-lang-switch {
     display: none;
   }
+}
 
+/* Drawer (opens below 1500px): scrolls, and carries the links the phone header drops. */
+.site-drawer {
+  overflow-y: auto;
+}
+
+.site-drawer-nav a.site-drawer-extra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-drawer-count {
+  min-width: 1.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--site-header-accent, #8a6f2b);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.site-drawer-lang {
+  padding: 1.25rem 0 2rem;
+}
+
+.site-drawer-lang .site-lang-switch button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+@media screen and (max-width: 719px) {
   .footer-grid {
     grid-template-columns: 1fr;
     gap: 1.75rem;
