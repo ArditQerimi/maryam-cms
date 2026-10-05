@@ -327,7 +327,11 @@ export default function ShopHeader({
       {isMenuOpen ? (
         <div className="site-drawer" role="dialog" aria-modal="true">
           <div className="site-drawer-head">
-            <span className="site-brand-name">{brandNameText}</span>
+            {brandLogo.trim() ? (
+              <img className="site-brand-logo" src={brandLogo.trim()} alt={brandNameText} />
+            ) : (
+              <span className="site-brand-name">{brandNameText}</span>
+            )}
             <button
               type="button"
               className="site-icon-btn"

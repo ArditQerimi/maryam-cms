@@ -1078,8 +1078,21 @@
 }
 
 /* Drawer (opens below 1500px): scrolls, and carries the links the phone header drops. */
+/* The drawer sits outside <header>, so it needs the header colour tokens itself
+   (without them the brand name falls back to the pale page colour). */
 .site-drawer {
+  --site-header-accent: #8a6f2b;
+  --site-header-ink: #1a1611;
   overflow-y: auto;
+}
+
+.site-drawer .site-brand-name {
+  color: var(--site-header-accent);
+  font-size: 1.9rem;
+}
+
+.site-drawer .site-icon-btn {
+  color: var(--site-header-ink);
 }
 
 .site-drawer-nav a.site-drawer-extra {
