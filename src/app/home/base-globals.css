@@ -1559,7 +1559,9 @@
 }
 
 .bb-carousel .bb-carousel-arrow svg {
-  stroke-width: 1.5;
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.6;
 }
 
 .bb-carousel:hover .bb-carousel-arrow,
