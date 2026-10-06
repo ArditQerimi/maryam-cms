@@ -75,9 +75,9 @@ async function post(url: string, init?: RequestInit) {
 
 /** Our own whatsapp-agent service (linked WhatsApp account, see the whatsapp-agent project). */
 async function sendWhatsAppAgent(text: string) {
-  const url = (process.env.WHATSAPP_AGENT_URL ?? '').replace(//+$/, '');
+  const url = (process.env.WHATSAPP_AGENT_URL ?? '').replace(/\/+$/, '');
   const token = process.env.WHATSAPP_AGENT_TOKEN ?? '';
-  const to = (process.env.WHATSAPP_AGENT_TO ?? '').replace(/D/g, '');
+  const to = (process.env.WHATSAPP_AGENT_TO ?? '').replace(/\D/g, '');
   if (!url || !token || !to) return 'skipped';
   await post(`${url}/send`, {
     method: 'POST',
