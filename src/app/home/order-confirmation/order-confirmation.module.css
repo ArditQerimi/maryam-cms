@@ -203,3 +203,41 @@
     padding: 0.9rem 0.2rem;
   }
 }
+
+/* "Send the order on WhatsApp" — shown once the order is stored. */
+.whatsappOrder {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border: 1px solid #d9d4c3;
+  background: #faf8f1;
+  text-align: center;
+}
+
+.whatsappBtn,
+.whatsappBtn:hover,
+.whatsappBtn:focus,
+.whatsappBtn:active,
+.whatsappBtn:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  min-height: 3rem;
+  padding: 0 1.75rem;
+  border-radius: 2px;
+  background: #25d366;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.whatsappNote {
+  margin: 0;
+  color: #5d5a4e;
+  font-size: 0.88rem;
+}

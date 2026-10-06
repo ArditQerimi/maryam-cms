@@ -27,6 +27,9 @@ export const cmssettings: typeof cmssettingsEn = {
   'cmssettings.general.mapCoordinatesLabel': 'Koordinatat e hartës së kontaktit (gjerësi, gjatësi)',
   'cmssettings.general.mapCoordinatesHint':
     'Pozicioni i saktë i pikës në hartën /home/contact. Kur është bosh, përdoret adresa e dyqanit.',
+  'cmssettings.general.whatsappLabel': 'Numri i WhatsApp për porositë',
+  'cmssettings.general.whatsappHint':
+    'Me kodin e shtetit (p.sh. +383…). Pasi porosia ruhet, klienti çohet në WhatsApp me mesazhin e porosisë të përgatitur nga porosia e ruajtur.',
   'cmssettings.general.timezoneLabel': 'Zona horare',
   'cmssettings.general.dateFormatLabel': 'Formati i datës',
   'cmssettings.general.timeFormatLabel': 'Formati i orës',

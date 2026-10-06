@@ -133,6 +133,7 @@ const GENERAL_KEYS = [
   'general_currency_position',
   'general_decimal_separator',
   'general_map_coordinates',
+  'general_whatsapp_number',
 ] as const;
 
 export async function saveGeneralSettings(values: SettingsValues): Promise<ActionResult> {

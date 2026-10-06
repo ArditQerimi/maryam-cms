@@ -9,6 +9,8 @@ import {
 } from '@/lib/storefront/checkout-order-confirmation';
 import { formatPersistedCheckoutMoney } from '@/lib/storefront/checkout-money';
 import { addressLines } from '@/lib/account/addresses';
+import { buildWhatsAppOrderUrl, getWhatsAppOrderNumber } from '@/lib/storefront/whatsapp-order';
+import OpenWhatsApp from './OpenWhatsApp';
 import styles from './order-confirmation.module.css';
 
 export const metadata: Metadata = {
@@ -51,7 +53,13 @@ async function ConfirmationUnavailable() {
   );
 }
 
-async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmation }) {
+async function ConfirmationDetails({
+  order,
+  whatsappUrl,
+}: {
+  order: StorefrontOrderConfirmation;
+  whatsappUrl: string | null;
+}) {
   const paymentMethod = formatCapability(order.paymentMethodId);
   const money = (value: string | number) => formatPersistedCheckoutMoney(String(value), order.currency);
   // Shipping is what remains of the grand total after merchandise, coupon and tax.
@@ -74,6 +82,14 @@ async function ConfirmationDetails({ order }: { order: StorefrontOrderConfirmati
 
         <div className={styles.confirmationWrap}>
           <p className={styles.successText}>Thank you. Your order has been received.</p>
+
+          {whatsappUrl ? (
+            <OpenWhatsApp
+              href={whatsappUrl}
+              orderNumber={order.orderNumber}
+              placedAt={order.createdAt.getTime()}
+            />
+          ) : null}
 
           <dl className={styles.metaGrid}>
             <div>
@@ -195,5 +211,9 @@ export default async function StorefrontOrderConfirmationPage() {
     }
   }
 
-  return order ? <ConfirmationDetails order={order} /> : <ConfirmationUnavailable />;
+  if (!order) return <ConfirmationUnavailable />;
+
+  const whatsappNumber = await getWhatsAppOrderNumber();
+  const whatsappUrl = whatsappNumber ? buildWhatsAppOrderUrl(order, whatsappNumber) : null;
+  return <ConfirmationDetails order={order} whatsappUrl={whatsappUrl} />;
 }

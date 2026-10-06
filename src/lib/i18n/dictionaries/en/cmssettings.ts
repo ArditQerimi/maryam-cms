@@ -25,6 +25,9 @@ export const cmssettings = {
   'cmssettings.general.mapCoordinatesLabel': 'Contact map coordinates (latitude, longitude)',
   'cmssettings.general.mapCoordinatesHint':
     'Exact pin position on the /home/contact map. Falls back to the store address when empty.',
+  'cmssettings.general.whatsappLabel': 'WhatsApp number for orders',
+  'cmssettings.general.whatsappHint':
+    'With country code (e.g. +383…). After an order is saved, customers are taken to WhatsApp with the order message prepared from the stored order.',
   'cmssettings.general.timezoneLabel': 'Timezone',
   'cmssettings.general.dateFormatLabel': 'Date format',
   'cmssettings.general.timeFormatLabel': 'Time format',

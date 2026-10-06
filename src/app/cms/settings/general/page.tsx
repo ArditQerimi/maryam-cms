@@ -28,6 +28,7 @@ const DEFAULTS: SettingsValues = {
   general_currency_position: 'before',
   general_decimal_separator: '.',
   general_map_coordinates: '',
+  general_whatsapp_number: '',
 };
 
 function buildFields(t: Translator): SettingField[] {
@@ -48,6 +49,13 @@ function buildFields(t: Translator): SettingField[] {
     label: t('cmssettings.general.adminEmailLabel'),
     inputType: 'email',
     placeholder: 'admin@example.com',
+  },
+  {
+    kind: 'text',
+    key: 'general_whatsapp_number',
+    label: t('cmssettings.general.whatsappLabel'),
+    placeholder: '+383 44 123 456',
+    hint: t('cmssettings.general.whatsappHint'),
   },
   {
     kind: 'text',
