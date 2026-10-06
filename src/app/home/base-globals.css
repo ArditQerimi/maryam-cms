@@ -1450,3 +1450,11 @@
   background: #6b5a22;
   color: #ffffff;
 }
+
+/* Builder carousels on phones: no arrows over the slide content — swipe or
+   use the dots instead (RowCarousel handles the swipe). */
+@media screen and (max-width: 767px) {
+  .bb-carousel .bb-carousel-arrow {
+    display: none !important;
+  }
+}

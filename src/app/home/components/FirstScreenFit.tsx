@@ -20,9 +20,22 @@ export default function FirstScreenFit({ targetId }: { targetId: string }) {
       wrapper.style.setProperty('--first-screen-h', `${height}px`);
     };
 
+    // Phones fire 'resize' when the address bar slides in/out while scrolling;
+    // only refit when the width changes so the page does not jump.
+    let width = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      fit();
+    };
+
     fit();
-    window.addEventListener('resize', fit);
-    return () => window.removeEventListener('resize', fit);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', fit);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', fit);
+    };
   }, [targetId]);
 
   return null;

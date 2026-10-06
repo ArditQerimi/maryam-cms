@@ -1,6 +1,6 @@
 'use client';
 
-import { Children, useEffect, useState, type ReactNode } from 'react';
+import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
@@ -49,9 +49,23 @@ export default function RowCarousel({
 
   const go = (next: number) => setIndex((next + pages) % pages);
 
+  // Phones: swipe left/right to page (arrows are hidden there, see base-globals.css).
+  const touchX = useRef<number | null>(null);
+  const onTouchStart = (event: React.TouchEvent) => {
+    touchX.current = event.touches[0]?.clientX ?? null;
+  };
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchX.current;
+    touchX.current = null;
+    const end = event.changedTouches[0]?.clientX;
+    if (start === null || end === undefined || pages < 2) return;
+    const dx = end - start;
+    if (Math.abs(dx) > 40) go(current + (dx < 0 ? 1 : -1));
+  };
+
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <div style={{ overflow: 'hidden', width: '100%' }}>
+    <div className="bb-carousel" style={{ position: 'relative', width: '100%' }}>
+      <div style={{ overflow: 'hidden', width: '100%' }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div
           className="bb-carousel-track"
           style={{
@@ -75,6 +89,7 @@ export default function RowCarousel({
               event.stopPropagation();
               go(current - 1);
             }}
+            className="bb-carousel-arrow"
             style={arrowStyle('left')}
           >
             <ChevronLeft size={18} aria-hidden="true" />
@@ -86,6 +101,7 @@ export default function RowCarousel({
               event.stopPropagation();
               go(current + 1);
             }}
+            className="bb-carousel-arrow"
             style={arrowStyle('right')}
           >
             <ChevronRight size={18} aria-hidden="true" />
