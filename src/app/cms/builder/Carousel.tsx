@@ -1,6 +1,7 @@
 'use client';
 
 import CarouselArrow, { CAROUSEL_HOVER_CLASS } from '@/components/CarouselArrow';
+import { useArrowTopOnImage } from '@/components/useArrowTopOnImage';
 import { Children, useCallback, useRef, type ReactNode } from 'react';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from './carousel.module.css';
@@ -22,6 +23,7 @@ type Props = {
 export default function Carousel({ children, columns, name = 'items' }: Props) {
   const { t } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
+  useArrowTopOnImage(trackRef);
 
   const scrollBy = useCallback((direction: -1 | 1) => {
     const track = trackRef.current;

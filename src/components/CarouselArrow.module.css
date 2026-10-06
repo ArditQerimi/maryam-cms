@@ -15,7 +15,8 @@
  */
 .arrow {
   position: absolute;
-  top: 50%;
+  /* Set by useArrowTopOnImage so arrows sit on the picture, not on the card text. */
+  top: var(--carousel-arrow-top, 50%);
   z-index: 20;
   display: flex;
   align-items: center;

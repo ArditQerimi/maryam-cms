@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import CarouselArrow, { CAROUSEL_HOVER_CLASS } from '@/components/CarouselArrow';
+import { useArrowTopOnImage } from '@/components/useArrowTopOnImage';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from '../bookstore.module.css';
 import ProductCard from './ProductCard';
@@ -18,6 +19,7 @@ type Props = {
 export default function ProductCarousel({ products, layout = 'carousel' }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const { t } = useLocale();
+  useArrowTopOnImage(trackRef);
 
   const scrollOneCard = useCallback((direction: 'prev' | 'next') => {
     const element = trackRef.current;
