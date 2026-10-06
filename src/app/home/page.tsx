@@ -11,6 +11,7 @@ import BookstoreStory from './components/BookstoreStory';
 import BookstoreMind from './components/BookstoreMind';
 import BookstoreBlog from './components/BookstoreBlog';
 import WidgetArea from './components/WidgetArea';
+import FirstScreenFit from './components/FirstScreenFit';
 import { getCategories, getProducts } from '@/lib/actions';
 import { getContextCompany } from '@/lib/tenant';
 import { getStorefrontHomepageBlocks } from '@/lib/theme/storefront-homepage';
@@ -205,7 +206,8 @@ export default async function ShopHomePage() {
   // The front page is whatever the builder says it is — an unbuilt `home`
   // document renders nothing rather than falling back to a fixed layout.
   return (
-    <div className={`${styles.page} ${styles.firstScreen}`}>
+    <div id="home-first-screen" className={`${styles.page} ${styles.firstScreen}`}>
+      <FirstScreenFit targetId="home-first-screen" />
       {homepageBlocks.map((row) => (
         <BlockRenderer
           key={row.id}

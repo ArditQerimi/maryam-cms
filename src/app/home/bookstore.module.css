@@ -4705,7 +4705,7 @@
    minus the sticky header — and centres its content, so no strip of the next
    white section shows underneath. The header is ~7.8rem tall on desktop. */
 .firstScreen > section:first-child {
-  min-height: calc(100dvh - 7.8rem);
+  min-height: var(--first-screen-h, calc(100dvh - 7.8rem));
 }
 
 .firstScreen > section:first-child > div {
@@ -4714,6 +4714,6 @@
 
 @media screen and (max-width: 719px) {
   .firstScreen > section:first-child {
-    min-height: calc(100dvh - 4.3rem);
+    min-height: var(--first-screen-h, calc(100dvh - 4.3rem));
   }
 }
