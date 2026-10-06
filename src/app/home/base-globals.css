@@ -1458,3 +1458,70 @@
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Mobile drawer — side panel over a dimmed page (measured from the reference):
+   ~90% wide, close button top-right, uppercase regular-weight rows 50px tall
+   split by thin lines, the current page in the olive accent.
+   ------------------------------------------------------------------------- */
+.site-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 94;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.site-drawer {
+  inset: 0 auto 0 0;
+  z-index: 95;
+  width: min(90vw, 560px);
+  padding: 0.75rem 0.75rem 2rem;
+  background: #ffffff;
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.18);
+}
+
+.site-drawer .site-drawer-head {
+  min-height: 3.1rem;
+  padding: 0 0.5rem 0.4rem;
+  border-bottom: 0;
+}
+
+.site-drawer .site-drawer-head .site-icon-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.site-drawer .site-drawer-nav {
+  padding-top: 0;
+}
+
+.site-drawer .site-drawer-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 3.15rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid #e3e3e3;
+  color: #111111;
+  font-size: 1.12rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.site-drawer .site-drawer-nav a:hover {
+  color: #111111;
+}
+
+.site-drawer .site-drawer-nav a.is-active,
+.site-drawer .site-drawer-nav a.is-active:hover {
+  color: var(--site-header-accent, #6b5a22);
+}
+
+.site-drawer .site-drawer-nav a.is-sub {
+  padding-left: 1.5rem;
+  font-size: 0.98rem;
+}
+
+.site-drawer .site-drawer-lang {
+  padding: 1rem 0.5rem 0;
+}

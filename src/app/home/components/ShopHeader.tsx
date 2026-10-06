@@ -325,6 +325,8 @@ export default function ShopHeader({
 
       {/* Mobile drawer */}
       {isMenuOpen ? (
+        <>
+        <div className="site-drawer-backdrop" onClick={() => setIsMenuOpen(false)} aria-hidden="true" />
         <div className="site-drawer" role="dialog" aria-modal="true">
           <div className="site-drawer-head">
             {brandLogo.trim() ? (
@@ -349,7 +351,9 @@ export default function ShopHeader({
                   <Link
                     key={item.id || `${item.url}-${item.label}`}
                     {...linkProps(item.url)}
-                    className={item.depth === 1 ? 'is-sub' : undefined}
+                    className={`${item.depth === 1 ? 'is-sub' : ''}${
+                      item.url.startsWith('/') && isActive(item.url) ? ' is-active' : ''
+                    }`.trim() || undefined}
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {navLabel(item.label)}
@@ -379,6 +383,7 @@ export default function ShopHeader({
             <LanguageSwitcher />
           </div>
         </div>
+        </>
       ) : null}
     </>
   );
