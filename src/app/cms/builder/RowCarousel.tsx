@@ -49,23 +49,43 @@ export default function RowCarousel({
 
   const go = (next: number) => setIndex((next + pages) % pages);
 
-  // Phones: swipe left/right to page (arrows are hidden there, see base-globals.css).
-  const touchX = useRef<number | null>(null);
-  const onTouchStart = (event: React.TouchEvent) => {
-    touchX.current = event.touches[0]?.clientX ?? null;
+  // Swipe / drag left-right to page (touch, pen and mouse). Vertical movement
+  // still scrolls the page (touch-action: pan-y on the viewport below).
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const dragged = useRef(false);
+  const onPointerDown = (event: React.PointerEvent) => {
+    drag.current = { x: event.clientX, y: event.clientY };
+    dragged.current = false;
   };
-  const onTouchEnd = (event: React.TouchEvent) => {
-    const start = touchX.current;
-    touchX.current = null;
-    const end = event.changedTouches[0]?.clientX;
-    if (start === null || end === undefined || pages < 2) return;
-    const dx = end - start;
-    if (Math.abs(dx) > 40) go(current + (dx < 0 ? 1 : -1));
+  const onPointerUp = (event: React.PointerEvent) => {
+    const start = drag.current;
+    drag.current = null;
+    if (!start || pages < 2 || editing) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      dragged.current = true;
+      go(current + (dx < 0 ? 1 : -1));
+    }
+  };
+  // A swipe that started on a link must not also open it.
+  const onClickCapture = (event: React.MouseEvent) => {
+    if (dragged.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      dragged.current = false;
+    }
   };
 
   return (
     <div className="bb-carousel" style={{ position: 'relative', width: '100%' }}>
-      <div style={{ overflow: 'hidden', width: '100%' }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div
+        style={{ overflow: 'hidden', width: '100%', touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (drag.current = null)}
+        onClickCapture={onClickCapture}
+      >
         <div
           className="bb-carousel-track"
           style={{
