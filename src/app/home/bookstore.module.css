@@ -4700,3 +4700,20 @@
   font-size: 0.95rem;
   text-decoration: underline;
 }
+
+/* Home: the first builder section (the hero) fills the first screen — viewport
+   minus the sticky header — and centres its content, so no strip of the next
+   white section shows underneath. The header is ~7.8rem tall on desktop. */
+.firstScreen > section:first-child {
+  min-height: calc(100dvh - 7.8rem);
+}
+
+.firstScreen > section:first-child > div {
+  align-items: center;
+}
+
+@media screen and (max-width: 719px) {
+  .firstScreen > section:first-child {
+    min-height: calc(100dvh - 4.3rem);
+  }
+}

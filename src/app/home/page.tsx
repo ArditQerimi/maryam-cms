@@ -205,7 +205,7 @@ export default async function ShopHomePage() {
   // The front page is whatever the builder says it is — an unbuilt `home`
   // document renders nothing rather than falling back to a fixed layout.
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.firstScreen}`}>
       {homepageBlocks.map((row) => (
         <BlockRenderer
           key={row.id}
