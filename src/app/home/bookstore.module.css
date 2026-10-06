@@ -591,11 +591,11 @@
 
 /* Arrow look lives in components/CarouselArrow; these only place it. */
 .carouselNavPrev {
-  left: -1rem;
+  left: 0.75rem;
 }
 
 .carouselNavNext {
-  right: 3rem;
+  right: 0.75rem;
 }
 
 @media (max-width: 1024px) {
