@@ -134,8 +134,8 @@ export default function RowCarousel({
           style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: 6,
-            marginTop: 16,
+            gap: 10,
+            marginTop: 20,
           }}
         >
           {Array.from({ length: pages }).map((_, page) => (
@@ -149,8 +149,8 @@ export default function RowCarousel({
                 go(page);
               }}
               style={{
-                width: 8,
-                height: 8,
+                width: 14,
+                height: 14,
                 padding: 0,
                 border: '2px solid #6b5e2b',
                 borderRadius: '50%',
