@@ -44,9 +44,15 @@
   background: var(--hero-bg, var(--cream));
   position: relative;
   overflow: hidden;
-  min-height: clamp(380px, 40vw, 500px);
+  /* Standard = the hero fills the first screen: viewport minus the sticky header. */
+  --hero-header-h: 6.25rem;
+  min-height: max(380px, calc(100svh - var(--hero-header-h)));
   display: flex;
   align-items: center;
+}
+
+@media screen and (max-width: 719px) {
+  .hero { --hero-header-h: 4.25rem; }
 }
 
 .hero[data-height='compact'] { min-height: clamp(300px, 30vw, 380px); }
@@ -103,7 +109,7 @@
   margin: 0 auto;
   padding: 2.5rem clamp(2rem, 5vw, 6rem);
   gap: 3rem;
-  min-height: clamp(380px, 40vw, 500px);
+  min-height: inherit;
 }
 
 .heroContent {
