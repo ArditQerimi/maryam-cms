@@ -1565,15 +1565,23 @@
 }
 
 .bb-carousel:hover .bb-carousel-arrow,
-.bb-carousel:focus-within .bb-carousel-arrow {
+.bb-carousel:has(.bb-carousel-arrow:focus-visible) .bb-carousel-arrow {
   opacity: 1;
   pointer-events: auto;
 }
 
-.bb-carousel .bb-carousel-arrow:hover,
-.bb-carousel .bb-carousel-arrow:focus,
-.bb-carousel .bb-carousel-arrow:active {
+.bb-carousel .bb-carousel-arrow:hover {
   background: #6b5a22 !important;
   color: #ffffff !important;
+}
+
+/* A click leaves focus on the button: it must not keep the olive colour. */
+.bb-carousel .bb-carousel-arrow:focus,
+.bb-carousel .bb-carousel-arrow:active {
   outline: none;
+}
+
+.bb-carousel .bb-carousel-arrow:focus-visible {
+  outline: 2px solid #6b5a22;
+  outline-offset: 2px;
 }
