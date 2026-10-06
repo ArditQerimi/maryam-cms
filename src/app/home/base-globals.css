@@ -1525,3 +1525,22 @@
 .site-drawer .site-drawer-lang {
   padding: 1rem 0.5rem 0;
 }
+
+/* Drawer close button and burger: never a coloured background (the theme's
+   button:hover/focus/active orange must not show through) — icon only. */
+.site-drawer .site-icon-btn,
+.site-drawer .site-icon-btn:hover,
+.site-drawer .site-icon-btn:focus,
+.site-drawer .site-icon-btn:focus-visible,
+.site-drawer .site-icon-btn:active,
+.site-burger,
+.site-burger:hover,
+.site-burger:focus,
+.site-burger:focus-visible,
+.site-burger:active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--site-header-ink, #1a1611);
+  box-shadow: none;
+  outline: none;
+}
