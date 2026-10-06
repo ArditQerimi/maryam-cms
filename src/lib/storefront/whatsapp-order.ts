@@ -49,7 +49,12 @@ export async function getWhatsAppOrderNumber() {
  * the text inside WhatsApp, which is why the order of record is the stored one:
  * the order number below identifies it in the CMS.
  */
-export function buildWhatsAppOrderMessage(order: StorefrontOrderConfirmation) {
+export type WhatsAppOrderSource = Pick<
+  StorefrontOrderConfirmation,
+  'orderNumber' | 'currency' | 'total' | 'lines' | 'shippingAddress' | 'contactPhone'
+>;
+
+export function buildWhatsAppOrderMessage(order: WhatsAppOrderSource) {
   const money = (value: string) => formatPersistedCheckoutMoney(value, order.currency);
   const shipping = order.shippingAddress ?? {};
   const name = [shipping.firstName, shipping.lastName].filter(Boolean).join(' ').trim();

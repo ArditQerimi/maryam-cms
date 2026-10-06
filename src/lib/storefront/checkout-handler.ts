@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import type {
   CheckoutFieldErrors,
   CheckoutSubmitResult,
@@ -17,6 +17,7 @@ import {
   parseIdempotencyKey,
 } from './checkout-idempotency';
 import { CheckoutServiceError, placeStorefrontCheckout } from './checkout-service';
+import { notifyNewOrder } from './order-notify';
 import {
   CheckoutValidationError,
   parseCheckoutRequest,
@@ -211,6 +212,13 @@ export async function handleStorefrontCheckout(request: NextRequest) {
       idempotencyKey,
       config,
     });
+
+    // Tell the shop (WhatsApp/Telegram, server to server) about a NEW order only —
+    // an idempotent replay of the same request must not notify twice.
+    if (!result.replayed) {
+      const saleId = Number(result.confirmation.orderId);
+      after(() => notifyNewOrder(context.db, saleId));
+    }
 
     const response = noStoreJson(
       {
