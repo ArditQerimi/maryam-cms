@@ -9,6 +9,8 @@ import { buildWhatsAppOrderMessage } from './whatsapp-order';
  * the way. Every channel is optional and configured with environment variables
  * (secrets never go into the code or the database):
  *
+ *  - WhatsApp via our own whatsapp-agent service (linked account, no third party):
+ *      WHATSAPP_AGENT_URL, WHATSAPP_AGENT_TOKEN, WHATSAPP_AGENT_TO
  *  - WhatsApp via CallMeBot (free, unofficial; notifies YOUR number):
  *      CALLMEBOT_PHONE   your number with country code, e.g. 38344123456
  *      CALLMEBOT_APIKEY  the key the bot sends you after you activate it
@@ -71,6 +73,20 @@ async function post(url: string, init?: RequestInit) {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
+/** Our own whatsapp-agent service (linked WhatsApp account, see the whatsapp-agent project). */
+async function sendWhatsAppAgent(text: string) {
+  const url = (process.env.WHATSAPP_AGENT_URL ?? '').replace(//+$/, '');
+  const token = process.env.WHATSAPP_AGENT_TOKEN ?? '';
+  const to = (process.env.WHATSAPP_AGENT_TO ?? '').replace(/D/g, '');
+  if (!url || !token || !to) return 'skipped';
+  await post(`${url}/send`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to, text }),
+  });
+  return 'sent';
+}
+
 async function sendCallMeBot(text: string) {
   const phone = (process.env.CALLMEBOT_PHONE ?? '').replace(/\D/g, '');
   const apikey = process.env.CALLMEBOT_APIKEY ?? '';
@@ -100,6 +116,7 @@ export async function notifyNewOrder(db: Db, saleId: number) {
     const text = `🛒 Porosi e re\n\n${buildWhatsAppOrderMessage(order)}`;
 
     const channels: Array<[string, (text: string) => Promise<string>]> = [
+      ['whatsapp-agent', sendWhatsAppAgent],
       ['whatsapp-callmebot', sendCallMeBot],
       ['telegram', sendTelegram],
     ];
