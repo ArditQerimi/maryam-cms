@@ -589,76 +589,13 @@
 }
 
 
-.carouselNavBtn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  border: 0;
-  /* Same look as every carousel: beige disc, white chevron, olive on hover. */
-  background: rgba(212, 207, 192, 0.92);
-  color: #ffffff;
-  box-shadow: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-  padding: 0;
-}
-
+/* Arrow look lives in components/CarouselArrow; these only place it. */
 .carouselNavPrev {
   left: -1rem;
-  transform: translateY(-50%) translateX(-8px);
 }
 
 .carouselNavNext {
   right: 3rem;
-  transform: translateY(-50%) translateX(8px);
-}
-
-.carouselContainer:hover .carouselNavBtn {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
-}
-
-.carouselNavBtn svg {
-  width: 28px;
-  height: 28px;
-  stroke-width: 1.6;
-}
-
-/* Theme button:focus/active colours must not stick after a click; only hover is olive. */
-.carouselNavBtn:focus,
-.carouselNavBtn:active {
-  background: rgba(212, 207, 192, 0.92) !important;
-  color: #ffffff !important;
-  box-shadow: none !important;
-  outline: none;
-}
-
-.carouselNavBtn:hover {
-  background: #6b5a22 !important;
-  color: #ffffff !important;
-}
-
-.carouselNavBtn:focus-visible {
-  outline: 2px solid #6b5a22;
-  outline-offset: 2px;
-}
-
-@media (hover: none) {
-  .carouselNavBtn {
-    opacity: 0.9;
-    pointer-events: auto;
-    transform: translateY(-50%) translateX(0);
-  }
 }
 
 @media (max-width: 1024px) {

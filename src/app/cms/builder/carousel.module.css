@@ -48,75 +48,12 @@
 }
 
 /* Round hover/focus arrows, matching the shop's carousel chrome. */
-.nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  /* Same look as every carousel: beige disc, white chevron, olive on hover. */
-  background: rgba(212, 207, 192, 0.92);
-  color: #ffffff;
-  box-shadow: none;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease, background 0.18s ease, color 0.18s ease;
-}
-
 .navPrev {
   left: -0.5rem;
 }
 
 .navNext {
   right: -0.5rem;
-}
-
-/* Reveal on hover AND on keyboard focus, so arrows stay reachable. */
-.container:hover .nav,
-.container:has(.nav:focus-visible) .nav {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.nav svg {
-  width: 28px;
-  height: 28px;
-  stroke-width: 1.6;
-}
-
-/* Theme button:focus/active colours must not stick after a click; only hover is olive. */
-.nav:focus,
-.nav:active {
-  background: rgba(212, 207, 192, 0.92) !important;
-  color: #ffffff !important;
-  box-shadow: none !important;
-  outline: none;
-}
-
-.nav:hover {
-  background: #6b5a22 !important;
-  color: #ffffff !important;
-}
-
-.nav:focus-visible {
-  outline: 2px solid #6b5a22;
-  outline-offset: 2px;
-}
-
-/* Touch devices have no hover: keep the arrows visible. */
-@media (hover: none) {
-  .nav {
-    opacity: 0.95;
-    pointer-events: auto;
-  }
 }
 
 @media (max-width: 1024px) {
@@ -161,7 +98,4 @@
     scroll-behavior: auto;
   }
 
-  .nav {
-    transition: none;
-  }
 }

@@ -1,0 +1,83 @@
+/*
+ * The one arrow every storefront carousel uses (hero/row carousel, builder
+ * carousel, product carousel).
+ *
+ *  - Hidden until the carousel is hovered. Add the `ui-carousel` class (exported
+ *    as CAROUSEL_HOVER_CLASS) to the carousel's wrapper; the wrapper must be
+ *    `position: relative`.
+ *  - Resting look: beige disc with a big white chevron.
+ *  - Olive only while the pointer is on the arrow — a click never leaves it
+ *    coloured (focus / active are pinned back to the resting colours).
+ *
+ * Where the arrow sits is the parent's business: pass a `className` that sets
+ * left / right (and nothing else). The defaults below use :where() so they have
+ * no specificity and any parent class wins.
+ */
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(212, 207, 192, 0.92);
+  color: #ffffff;
+  box-shadow: none;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+:where(.arrow.prev) {
+  left: 12px;
+}
+
+:where(.arrow.next) {
+  right: 12px;
+}
+
+.arrow svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.6;
+}
+
+:global(.ui-carousel):hover .arrow,
+:global(.ui-carousel):has(.arrow:focus-visible) .arrow {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Theme button:focus / :active colours must not stick after a click. */
+.arrow:focus,
+.arrow:active {
+  background: rgba(212, 207, 192, 0.92) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.arrow:hover {
+  background: #6b5a22 !important;
+  color: #ffffff !important;
+}
+
+.arrow:focus-visible {
+  outline: 2px solid #6b5a22;
+  outline-offset: 2px;
+}
+
+/* Touch screens have no hover: keep the arrows visible. */
+@media (hover: none) {
+  .arrow {
+    opacity: 0.95;
+    pointer-events: auto;
+  }
+}

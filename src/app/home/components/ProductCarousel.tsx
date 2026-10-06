@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import CarouselArrow, { CAROUSEL_HOVER_CLASS } from '@/components/CarouselArrow';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from '../bookstore.module.css';
 import ProductCard from './ProductCard';
@@ -62,25 +62,21 @@ export default function ProductCarousel({ products, layout = 'carousel' }: Props
   }
 
   return (
-    <div className={styles.carouselContainer}>
+    <div className={`${styles.carouselContainer} ${CAROUSEL_HOVER_CLASS}`}>
       {products.length > 1 ? (
         <>
-          <button
-            type="button"
-            className={`${styles.carouselNavBtn} ${styles.carouselNavPrev}`}
+          <CarouselArrow
+            direction="prev"
+            className={styles.carouselNavPrev}
             onClick={() => scrollOneCard('prev')}
-            aria-label={t('catalog.prev_products_aria')}
-          >
-            <ChevronLeft size={27} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`${styles.carouselNavBtn} ${styles.carouselNavNext}`}
+            label={t('catalog.prev_products_aria')}
+          />
+          <CarouselArrow
+            direction="next"
+            className={styles.carouselNavNext}
             onClick={() => scrollOneCard('next')}
-            aria-label={t('catalog.next_products_aria')}
-          >
-            <ChevronRight size={27} strokeWidth={1.5} aria-hidden="true" />
-          </button>
+            label={t('catalog.next_products_aria')}
+          />
         </>
       ) : null}
 

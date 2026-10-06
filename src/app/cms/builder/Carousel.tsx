@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import CarouselArrow, { CAROUSEL_HOVER_CLASS } from '@/components/CarouselArrow';
 import { Children, useCallback, useRef, type ReactNode } from 'react';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from './carousel.module.css';
@@ -51,25 +51,21 @@ export default function Carousel({ children, columns, name = 'items' }: Props) {
     columns === 2 ? styles.cols2 : columns === 3 ? styles.cols3 : styles.cols4;
 
   return (
-    <div className={`${styles.container} ${columnClass}`}>
+    <div className={`${styles.container} ${columnClass} ${CAROUSEL_HOVER_CLASS}`}>
       {slides > 1 ? (
         <>
-          <button
-            type="button"
-            className={`${styles.nav} ${styles.navPrev}`}
+          <CarouselArrow
+            direction="prev"
+            className={styles.navPrev}
             onClick={() => scrollBy(-1)}
-            aria-label={t('cmscontent.builder.carouselPrev', { name })}
-          >
-            <ChevronLeft size={26} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`${styles.nav} ${styles.navNext}`}
+            label={t('cmscontent.builder.carouselPrev', { name })}
+          />
+          <CarouselArrow
+            direction="next"
+            className={styles.navNext}
             onClick={() => scrollBy(1)}
-            aria-label={t('cmscontent.builder.carouselNext', { name })}
-          >
-            <ChevronRight size={26} strokeWidth={1.5} aria-hidden="true" />
-          </button>
+            label={t('cmscontent.builder.carouselNext', { name })}
+          />
         </>
       ) : null}
 

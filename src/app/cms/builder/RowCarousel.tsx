@@ -1,7 +1,7 @@
 'use client';
 
 import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import CarouselArrow, { CAROUSEL_HOVER_CLASS } from '@/components/CarouselArrow';
 
 /**
  * A row shown as a carousel: every column is one slide, so anything that can
@@ -78,7 +78,7 @@ export default function RowCarousel({
   };
 
   return (
-    <div className="bb-carousel" style={{ position: 'relative', width: '100%' }}>
+    <div className={`bb-carousel ${CAROUSEL_HOVER_CLASS}`} style={{ position: 'relative', width: '100%' }}>
       <div
         style={{ overflow: 'hidden', width: '100%', touchAction: 'pan-y' }}
         onPointerDown={onPointerDown}
@@ -102,30 +102,24 @@ export default function RowCarousel({
 
       {arrows && pages > 1 ? (
         <>
-          <button
-            type="button"
-            aria-label="Previous slide"
+          <CarouselArrow
+            direction="prev"
+            className="bb-carousel-arrow"
+            label="Previous slide"
             onClick={(event) => {
               event.stopPropagation();
               go(current - 1);
             }}
+          />
+          <CarouselArrow
+            direction="next"
             className="bb-carousel-arrow"
-            style={arrowStyle('left')}
-          >
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next slide"
+            label="Next slide"
             onClick={(event) => {
               event.stopPropagation();
               go(current + 1);
             }}
-            className="bb-carousel-arrow"
-            style={arrowStyle('right')}
-          >
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
+          />
         </>
       ) : null}
 
@@ -163,26 +157,4 @@ export default function RowCarousel({
       ) : null}
     </div>
   );
-}
-
-function arrowStyle(side: 'left' | 'right'): React.CSSProperties {
-  return {
-    position: 'absolute',
-    top: '50%',
-    [side]: 12,
-    // Above the builder's module surfaces (z-10) so the arrows stay clickable.
-    zIndex: 20,
-    display: 'flex',
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    border: '1px solid #d4c9a8',
-    borderRadius: '50%',
-    background: '#ffffff',
-    color: '#1a1611',
-    cursor: 'pointer',
-    transform: 'translateY(-50%)',
-  };
 }
