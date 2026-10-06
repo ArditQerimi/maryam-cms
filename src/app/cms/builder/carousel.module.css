@@ -53,17 +53,18 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 50%;
   padding: 0;
-  background: rgba(255, 255, 255, 0.98);
-  color: var(--cms-text, #18181b);
-  box-shadow: 0 6px 20px rgba(26, 22, 17, 0.18);
+  /* Same look as every carousel: beige disc, white chevron, olive on hover. */
+  background: rgba(212, 207, 192, 0.92);
+  color: #ffffff;
+  box-shadow: none;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -80,14 +81,34 @@
 
 /* Reveal on hover AND on keyboard focus, so arrows stay reachable. */
 .container:hover .nav,
-.nav:focus-visible {
+.container:has(.nav:focus-visible) .nav {
   opacity: 1;
   pointer-events: auto;
 }
 
+.nav svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.6;
+}
+
+/* Theme button:focus/active colours must not stick after a click; only hover is olive. */
+.nav:focus,
+.nav:active {
+  background: rgba(212, 207, 192, 0.92) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
 .nav:hover {
-  background: var(--cms-text, #18181b);
-  color: #ffffff;
+  background: #6b5a22 !important;
+  color: #ffffff !important;
+}
+
+.nav:focus-visible {
+  outline: 2px solid #6b5a22;
+  outline-offset: 2px;
 }
 
 /* Touch devices have no hover: keep the arrows visible. */
