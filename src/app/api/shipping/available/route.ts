@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { resolveShippingMethods, type AvailableShippingMethod } from '@/lib/storefront/shipping-quote';
+import { DEFAULT_SHIPPING_COST, DEFAULT_SHIPPING_TITLE } from '@/lib/storefront/shipping-defaults';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,14 +11,14 @@ export type { AvailableShippingMethod };
 
 /**
  * Public fallback so checkout never breaks when no zone matches the address:
- * a single free flat rate named "Standard shipping".
+ * a single flat rate (the default post price).
  */
 const FALLBACK_METHODS: AvailableShippingMethod[] = [
   {
     id: 0,
     type: 'flat_rate',
-    title: 'Standard shipping',
-    cost: '0.00',
+    title: DEFAULT_SHIPPING_TITLE,
+    cost: DEFAULT_SHIPPING_COST.toFixed(2),
     minOrderAmount: '0.00',
     instructions: null,
   },

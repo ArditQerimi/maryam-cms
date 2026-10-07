@@ -25,6 +25,7 @@ import {
   readStoredCoupon,
   writeStoredCoupon,
 } from '@/lib/cart-coupon';
+import { DEFAULT_SHIPPING_COST } from '@/lib/storefront/shipping-defaults';
 import AddressFields, {
   addressInputId,
   type AddressErrors,
@@ -790,7 +791,8 @@ export default function CheckoutClient({
   /* Shipping quote → radio options, totals, and the payload selection. */
   const selectedShippingOption =
     shippingOptions.find((option) => String(option.id) === selectedShippingId) ?? null;
-  const rawShippingCost = selectedShippingOption ? Number(selectedShippingOption.cost) : 0;
+  // Before a country is chosen (or when no zone matches) the default post price applies.
+  const rawShippingCost = selectedShippingOption ? Number(selectedShippingOption.cost) : DEFAULT_SHIPPING_COST;
   const shippingCostValue = Number.isFinite(rawShippingCost) && rawShippingCost > 0
     ? rawShippingCost
     : 0;
@@ -865,7 +867,7 @@ export default function CheckoutClient({
           key: option.id,
           label: t(option.label),
           detail: t(option.detail),
-          price: shippingLoading ? t('checkout.delivery.loading') : t('checkout.delivery.serverQuote'),
+          price: shippingLoading ? t('checkout.delivery.loading') : formatShippingMoney(DEFAULT_SHIPPING_COST),
         }));
   const selectedDeliveryKey = shippingOptions.length > 0 ? selectedShippingId : form.deliveryMethod;
 
