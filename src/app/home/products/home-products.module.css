@@ -2105,3 +2105,28 @@
   font-size: 0.88rem;
   line-height: 1.45;
 }
+
+/* "Pastro filtrat": plain text in the same colour as the other texts. The theme's button
+   hover/focus/disabled colours (orange fill, pale text) must never show on it. */
+.catalogPage.catalogPage .clearButton,
+.catalogPage.catalogPage .clearButton:hover,
+.catalogPage.catalogPage .clearButton:focus,
+.catalogPage.catalogPage .clearButton:focus-visible,
+.catalogPage.catalogPage .clearButton:active,
+.catalogPage.catalogPage .clearButton:disabled,
+.catalogPage.catalogPage .clearAllButton,
+.catalogPage.catalogPage .clearAllButton:hover,
+.catalogPage.catalogPage .clearAllButton:focus,
+.catalogPage.catalogPage .clearAllButton:active {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #1d1d1b;
+  text-decoration-color: rgba(29, 29, 27, 0.4);
+}
+
+.catalogPage.catalogPage .clearButton:disabled {
+  cursor: default;
+  text-decoration: none;
+}
