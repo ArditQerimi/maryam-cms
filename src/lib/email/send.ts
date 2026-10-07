@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
+import { smtpFromEnv } from './smtp-config';
 import type { ReactElement } from 'react';
 
 /**
@@ -78,7 +79,8 @@ export async function sendEmail(input: {
     }
   }
 
-  const smtp = input.smtp;
+  // Saved CMS settings first, then SMTP_* environment variables (e.g. Gmail with an app password).
+  const smtp = input.smtp?.host ? input.smtp : smtpFromEnv();
   if (smtp?.host) {
     try {
       const transport = nodemailer.createTransport({

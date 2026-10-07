@@ -48,3 +48,27 @@ export function buildSmtpConfig(rows: { key: string; value: string }[]): SmtpCon
     fromName: pick('smtp_from_name', 'smtp_sender_name'),
   };
 }
+
+/**
+ * SMTP from environment variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM,
+ * SMTP_FROM_NAME). Used for every store email when no Resend key is set and the CMS has no
+ * saved SMTP settings — the password stays in the environment, never in the database.
+ * Gmail: smtp.gmail.com, 587, your address, and an "App password".
+ */
+export function smtpFromEnv(env: NodeJS.ProcessEnv = process.env): SmtpConfig | null {
+  const host = (env.SMTP_HOST ?? '').trim();
+  const user = (env.SMTP_USER ?? '').trim();
+  const pass = (env.SMTP_PASS ?? '').replace(/\s+/g, '');
+  const from = (env.SMTP_FROM ?? user).trim();
+  if (!host || !user || !pass || !from) return null;
+  const port = Number(env.SMTP_PORT) || 587;
+  return {
+    host,
+    port,
+    secure: String(env.SMTP_SECURE ?? '').toLowerCase() === 'true' || port === 465,
+    user,
+    pass,
+    from,
+    fromName: (env.SMTP_FROM_NAME ?? '').trim(),
+  };
+}
