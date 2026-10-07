@@ -1154,16 +1154,6 @@ export default function CheckoutClient({
 
                       <div className={styles.paymentOptions} role="radiogroup" aria-labelledby="payment-method-label">
                         <span className={styles.visuallyHidden} id="payment-method-label">{t('checkout.payment.choose')}</span>
-                        <label className={styles.paymentOption} aria-disabled="true">
-                          <input
-                            checked={false}
-                            className={styles.radio}
-                            disabled
-                            readOnly
-                            type="radio"
-                          />
-                          <span className={styles.paymentOptionLabel}>{t('checkout.payment.check.label')}</span>
-                        </label>
                         {PAYMENT_OPTIONS.map((option) => (
                           <label className={styles.paymentOption} key={option.id}>
                             <input
@@ -1230,7 +1220,7 @@ export default function CheckoutClient({
 
                       <div className={styles.submitArea}>
                         <button
-                          aria-describedby="checkout-submit-help"
+                          aria-describedby={submitCheckout ? undefined : 'checkout-submit-help'}
                           className={styles.placeOrderButton}
                           disabled={!submitCheckout || isPending}
                           type="submit"
@@ -1250,11 +1240,9 @@ export default function CheckoutClient({
                                 : t('checkout.submit.place')}
                           </span>
                         </button>
-                        <p id="checkout-submit-help">
-                          {submitCheckout
-                            ? t('checkout.submit.help')
-                            : t('checkout.submit.helpDisabled')}
-                        </p>
+                        {submitCheckout ? null : (
+                          <p id="checkout-submit-help">{t('checkout.submit.helpDisabled')}</p>
+                        )}
                       </div>
                     </section>
                   </aside>
