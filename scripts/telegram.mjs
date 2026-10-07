@@ -40,7 +40,15 @@ if (command === 'whoami') {
   console.log(`Polling Telegram, forwarding button presses to ${target}/api/telegram/webhook (Ctrl+C to stop)`);
   let offset = 0;
   for (;;) {
-    const updates = await api('getUpdates', { offset, timeout: 25, allowed_updates: ['callback_query'] });
+    // A dropped connection must never stop the loop: retry after a short pause.
+    const updates = await api('getUpdates', { offset, timeout: 25, allowed_updates: ['callback_query'] }).catch((error) => {
+      console.warn(`getUpdates failed (${error?.cause?.code || error.message}), retrying in 3s`);
+      return null;
+    });
+    if (!updates) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      continue;
+    }
     for (const update of updates.result ?? []) {
       offset = update.update_id + 1;
       const response = await fetch(`${target}/api/telegram/webhook`, {
