@@ -1,0 +1,181 @@
+/*
+ * "My account" for visitors: Login and Register side by side, matched to the reference
+ * (style only). Measured on a 1886px-wide capture (~1.3x), values below are CSS px.
+ * The two forms keep their own components and CSS modules; inside `.panel` they are
+ * restyled through element / [class*=...] selectors, so nothing is added or removed.
+ */
+.page {
+  --ac-ink: #1d1d1b;
+  --ac-olive: #6b5a22;
+  --ac-line: #e8e6e2;
+  --ac-star: #b32d2d;
+
+  min-height: 60vh;
+  background: #ffffff;
+  color: var(--ac-ink);
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.main {
+  padding: 4.4rem 0 5.5rem;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 3.4rem;
+  width: min(1440px, calc(100% - 3rem));
+  margin-inline: auto;
+  align-items: start;
+}
+
+.panelTitle {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+/* the theme paints every h1/h2 in a pale colour — outrank it */
+.page .panelTitle.panelTitle {
+  color: var(--ac-ink);
+}
+
+.panel {
+  padding: 1.8rem 2.1rem 2.1rem;
+  border: 1px solid var(--ac-line);
+  background: #ffffff;
+}
+
+/* ---- inside the two forms ---- */
+.panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 0;
+}
+
+.panel label,
+.panel [class*='label'] {
+  color: var(--ac-ink);
+  font-size: 1.04rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.panel [class*='required'] {
+  color: var(--ac-star);
+}
+
+.panel input:not([type='checkbox']):not([type='radio']) {
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--ac-line);
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+  color: var(--ac-ink);
+  font-size: 1rem;
+}
+
+.panel input:not([type='checkbox']):not([type='radio']):focus {
+  border-color: var(--ac-olive);
+  outline: none;
+  box-shadow: none;
+}
+
+/* password: the eye is an olive block inside the right end of the box */
+.panel [class*='passwordControl'] input {
+  padding-right: 6.4rem;
+}
+
+.panel [class*='passwordToggle'],
+.panel [class*='passwordToggle']:hover,
+.panel [class*='passwordToggle']:focus,
+.panel [class*='passwordToggle']:active {
+  right: 0.3rem;
+  width: 5.2rem;
+  height: 2.7rem;
+  background: var(--ac-olive);
+  color: #ffffff;
+}
+
+/* main buttons: olive, uppercase, square */
+.panel button[type='submit'],
+.panel button[type='submit']:hover,
+.panel button[type='submit']:focus,
+.panel button[type='submit']:active {
+  width: fit-content;
+  min-width: 7.6rem;
+  min-height: 3.2rem;
+  padding: 0.7rem 1.9rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--ac-olive);
+  box-shadow: none;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.panel button[type='submit']:disabled {
+  opacity: 0.65;
+}
+
+.panel a,
+.panel a:hover,
+.panel a:visited {
+  color: var(--ac-olive);
+}
+
+/* "Lost your password?" goes under the button, like the reference */
+.panel [class*='formUtilities'] {
+  order: 10;
+  margin: 0;
+}
+
+.panel [class*='fieldHint'],
+.panel [class*='hint'] {
+  margin: 0;
+  color: #5f5f5b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* the sign-up link / divider are redundant when the register form sits right beside */
+.panel [class*='separator'],
+.panel [class*='accountLink'] {
+  display: none;
+}
+
+.panel [class*='loginLink'] {
+  display: none;
+}
+
+.panel [class*='legalCopy'] {
+  margin: 1.2rem 0 0;
+  color: #5f5f5b;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 2.6rem;
+  }
+
+  .main {
+    padding-top: 2.4rem;
+  }
+
+  .panel {
+    padding: 1.4rem 1.2rem 1.6rem;
+  }
+}

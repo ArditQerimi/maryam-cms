@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import {
-  Check,
-  History,
-  PackageCheck,
-  ShieldCheck,
-  ShoppingBag,
-} from 'lucide-react';
+import { Check } from 'lucide-react';
 import LoginForm, { type LoginFeedback } from './LoginForm';
+import RegisterForm from '../register/RegisterForm';
+import ShopPageHeader from '../components/ShopPageHeader';
 import { getSafeReturnTo, withSafeReturnTo } from './safe-return-to';
 import { getContextCompany } from '@/lib/tenant';
 import { getT, type Dictionary } from '@/lib/i18n/server';
-import styles from './login.module.css';
+import styles from './account-auth.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
   const storeName = (await getContextCompany().catch(() => null))?.name?.trim() || 'the store';
@@ -82,12 +77,7 @@ function firstValue(value: SearchParamValue) {
 }
 
 export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
-  const [params, company, t] = await Promise.all([
-    searchParams,
-    getContextCompany().catch(() => null),
-    getT(),
-  ]);
-  const storeName = company?.name?.trim() || t('auth.store.unnamed');
+  const [params, t] = await Promise.all([searchParams, getT()]);
   const errorCode = firstValue(params?.error);
   const notice = firstValue(params?.notice);
   const requestedReturnTo = getSafeReturnTo(firstValue(params?.returnTo));
@@ -101,80 +91,39 @@ export default async function ShopLoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <div className={styles.page}>
-      <div className={styles.breadcrumbBar}>
-        <nav className={styles.breadcrumbNav} aria-label="Breadcrumb">
-          <ol>
-            <li>
-              <Link href="/home">{t('auth.crumb.home')}</Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page">{t('auth.crumb.myAccount')}</li>
-          </ol>
-        </nav>
-      </div>
+      <ShopPageHeader
+        title={t('auth.crumb.myAccount')}
+        crumbs={[{ label: t('auth.crumb.myAccount') }]}
+      />
 
       <div className={styles.main}>
-        <div className={styles.layout}>
-          <section className={styles.intro} aria-labelledby="login-page-title">
-            <p className={styles.eyebrow}>{t('auth.login.eyebrow', { store: storeName })}</p>
-            <h1 id="login-page-title">{t('auth.login.title')}</h1>
-            <p className={styles.introCopy}>{t('auth.login.intro')}</p>
+        <div className={styles.columns}>
+          <section aria-labelledby="login-card-title">
+            <h2 className={styles.panelTitle} id="login-card-title">{t('auth.login.card.title')}</h2>
+            <div className={styles.panel}>
+              {notice === 'password-reset' ? (
+                <p role="status">
+                  <Check size={17} aria-hidden="true" />
+                  {t('auth.login.notice.passwordReset')}
+                </p>
+              ) : null}
 
-            <ul className={styles.benefitList} aria-label={t('auth.login.benefits.aria')}>
-              <li>
-                <span className={styles.benefitIcon}>
-                  <History size={19} aria-hidden="true" />
-                </span>
-                <span>
-                  <strong>{t('auth.login.benefit.history.title')}</strong>
-                  <small>{t('auth.login.benefit.history.text')}</small>
-                </span>
-              </li>
-              <li>
-                <span className={styles.benefitIcon}>
-                  <ShoppingBag size={19} aria-hidden="true" />
-                </span>
-                <span>
-                  <strong>{t('auth.login.benefit.quick.title')}</strong>
-                  <small>{t('auth.login.benefit.quick.text')}</small>
-                </span>
-              </li>
-              <li>
-                <span className={styles.benefitIcon}>
-                  <PackageCheck size={19} aria-hidden="true" />
-                </span>
-                <span>
-                  <strong>{t('auth.login.benefit.secure.title')}</strong>
-                  <small>{t('auth.login.benefit.secure.text')}</small>
-                </span>
-              </li>
-            </ul>
-
-            <div className={styles.trustNote}>
-              <ShieldCheck size={18} aria-hidden="true" />
-              <span>{t('auth.login.trust')}</span>
+              <LoginForm
+                error={error}
+                registerHref={withSafeReturnTo('/home/register', requestedReturnTo)}
+                forgotPasswordHref="/home/forgot-password"
+              />
             </div>
           </section>
 
-          <section className={styles.card} aria-labelledby="login-card-title">
-            <div className={styles.cardHeader}>
-              <p className={styles.cardKicker}>{t('auth.login.card.kicker')}</p>
-              <h2 id="login-card-title">{t('auth.login.card.title')}</h2>
-              <p>{t('auth.login.card.copy')}</p>
+          <section aria-labelledby="register-card-title">
+            <h2 className={styles.panelTitle} id="register-card-title">{t('auth.register.card.title')}</h2>
+            <div className={styles.panel}>
+              <RegisterForm
+                returnTo={requestedReturnTo}
+                loginHref={withSafeReturnTo('/home/login', requestedReturnTo)}
+              />
             </div>
-
-            {notice === 'password-reset' ? (
-              <p className={styles.successAlert} role="status">
-                <Check size={17} aria-hidden="true" />
-                {t('auth.login.notice.passwordReset')}
-              </p>
-            ) : null}
-
-            <LoginForm
-              error={error}
-              registerHref={withSafeReturnTo('/home/register', requestedReturnTo)}
-              forgotPasswordHref="/home/forgot-password"
-            />
           </section>
         </div>
       </div>
