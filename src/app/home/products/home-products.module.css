@@ -1873,3 +1873,209 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   Shop page — filters, toolbar and grid matched to the reference screenshot.
+   Measured on the 1876px-wide image against its 1752px content width, so every
+   size is a share of the content width or the card (no elements added/removed,
+   no reference content copied — style only). `.catalogPage` raises specificity
+   above the older single-class rules above.
+   ========================================================================== */
+
+/* sidebar ≈ 23.3% of the content, gap ≈ 2.2%, grid takes the rest (the existing
+   single-column / drawer layout below 920px is untouched) */
+@media (min-width: 921px) {
+  .catalogPage .catalogLayout {
+    grid-template-columns: minmax(0, 23.3%) minmax(0, 1fr);
+    column-gap: 2.2%;
+  }
+}
+
+/* ---- filters ---- */
+.catalogPage .filterHeader {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.catalogPage .filterEyebrow {
+  display: none;
+}
+
+.catalogPage .filterTitle,
+.catalogPage .filterLegend {
+  color: #1d1d1b;
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1.22rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+.catalogPage .filterGroup {
+  padding: 1.6rem 0 0.4rem;
+  border-bottom: 0;
+}
+
+/* heading with a thin rule under it, like the reference */
+.catalogPage .filterLegend {
+  float: left;
+  width: 100%;
+  margin: 0 0 1.15rem;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.catalogPage .filterLegend + * {
+  clear: both;
+}
+
+.catalogPage .filterList {
+  gap: 0.78rem;
+}
+
+.catalogPage .filterOption {
+  color: #2b2b29;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.catalogPage .customCheckbox {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #8f8f8f;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.catalogPage .filterCount {
+  color: #9a9a96;
+  font-size: 0.78rem;
+}
+
+/* colour filter: two columns of round swatches with the name beside them */
+.catalogPage .filterGroup:has(.colorDot) .filterList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 0.5rem;
+}
+
+.catalogPage .filterOption:has(.colorDot) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+}
+
+.catalogPage .filterOption:has(.colorDot) .customCheckbox {
+  display: none;
+}
+
+.catalogPage .colorDot {
+  width: 26px;
+  height: 26px;
+  margin-left: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: none;
+}
+
+.catalogPage .filterOption input:checked ~ .colorDot {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--catalog-accent);
+}
+
+/* price: two white boxes (no prefix), olive apply */
+.catalogPage .priceFields {
+  gap: 0.8rem;
+}
+
+.catalogPage .priceField {
+  color: #6b6b67;
+  font-size: 0.68rem;
+}
+
+.catalogPage .priceInputWrap {
+  border: 1px solid #e3e3e0;
+  border-radius: 0;
+  background: #fff;
+}
+
+.catalogPage .priceInputWrap input {
+  padding: 0.85rem 0.8rem;
+  color: #1d1d1b;
+  font-size: 1rem;
+}
+
+.catalogPage .priceApply {
+  border-color: #6b5a22;
+  border-radius: 0;
+  background: #6b5a22;
+}
+
+.catalogPage .priceApply:hover {
+  border-color: #6b5a22;
+  background: #6b5a22;
+}
+
+/* ---- toolbar: count on the left, sort box + two square view buttons on the right ---- */
+.catalogPage .toolbar {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.catalogPage .resultSummary {
+  color: #1d1d1b;
+  font-size: 1rem;
+}
+
+.catalogPage .toolbarControls {
+  gap: 0.55rem;
+}
+
+.catalogPage .sortControl select {
+  min-width: 12.5rem;
+  padding: 0.75rem 2.4rem 0.75rem 1rem;
+  border: 1px solid #e3e3e0;
+  border-radius: 0;
+  background-color: #fff;
+  color: #1d1d1b;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.catalogPage .viewToggle {
+  gap: 0.5rem;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.catalogPage .viewButton {
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 0;
+  border-radius: 0;
+  background: #f0efec;
+  color: #1d1d1b;
+}
+
+.catalogPage .viewButton:last-child {
+  border-right: 0;
+}
+
+.catalogPage .viewButton[data-active='true'] {
+  background: #6b5a22;
+  color: #fff;
+}
+
+/* ---- grid: three across at desktop widths, like the reference (narrower screens keep the
+   existing 2 / 3 / 1 column rules above) ---- */
+.catalogPage .resultsViewport {
+  padding-top: 2.6rem;
+}
+
+@media (min-width: 1241px) {
+  .catalogPage .resultsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 2.9%;
+    row-gap: 4.6rem;
+  }
+}
