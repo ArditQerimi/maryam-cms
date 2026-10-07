@@ -96,14 +96,26 @@ async function sendCallMeBot(text: string) {
   return 'sent';
 }
 
-async function sendTelegram(text: string) {
+async function sendTelegram(text: string, saleId: number) {
   const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
   const chatId = process.env.TELEGRAM_CHAT_ID ?? '';
   if (!token || !chatId) return 'skipped';
   await post(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      // The buttons carry only the action and the order id; the webhook re-checks everything server-side.
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Konfirmo', callback_data: `ok:${saleId}` },
+            { text: '❌ Anulo', callback_data: `no:${saleId}` },
+          ],
+        ],
+      },
+    }),
   });
   return 'sent';
 }
@@ -115,14 +127,14 @@ export async function notifyNewOrder(db: Db, saleId: number) {
     if (!order) return;
     const text = `🛒 Porosi e re\n\n${buildWhatsAppOrderMessage(order)}`;
 
-    const channels: Array<[string, (text: string) => Promise<string>]> = [
+    const channels: Array<[string, (text: string, saleId: number) => Promise<string>]> = [
       ['whatsapp-agent', sendWhatsAppAgent],
       ['whatsapp-callmebot', sendCallMeBot],
       ['telegram', sendTelegram],
     ];
     for (const [name, send] of channels) {
       try {
-        await send(text);
+        await send(text, saleId);
       } catch (error) {
         console.warn(`[order-notify] ${name} failed:`, error instanceof Error ? error.message : 'unknown error');
       }
