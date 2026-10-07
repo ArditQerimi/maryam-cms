@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, ne, sql } from 'drizzle-orm';
 import { TicketPercent } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
-import { coupons } from '@/db/schema-tenant';
+import { coupons, orderNotes, sales } from '@/db/schema-tenant';
+import { couponNoteFor } from '@/lib/storefront/pricing';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatDate, formatMoney } from '@/lib/cms/format';
 import {
@@ -84,6 +85,18 @@ export default async function CouponsPage({
     db.select({ value: sql<number>`count(*)::int` }).from(coupons).where(where),
     editing ? db.select().from(coupons).where(eq(coupons.id, editing)).limit(1) : Promise.resolve([]),
   ]);
+
+  // Orders that used each listed coupon (cancelled orders do not count, they free the use again).
+  const usedByCode = new Map<string, number>();
+  if (rows.length > 0) {
+    const usage = await db
+      .select({ body: orderNotes.body, used: sql<number>`count(*)::int` })
+      .from(orderNotes)
+      .innerJoin(sales, eq(sales.id, orderNotes.orderId))
+      .where(and(inArray(orderNotes.body, rows.map((row) => couponNoteFor(row.code))), ne(sales.status, 'Cancelled')))
+      .groupBy(orderNotes.body);
+    for (const row of usage) usedByCode.set(row.body, Number(row.used));
+  }
 
   const total = countRows[0]?.value ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -187,6 +200,8 @@ export default async function CouponsPage({
                   {coupon.endDate ? formatDate(coupon.endDate) : t('cmspromo.date.no_expiry')}
                 </Td>
                 <Td className="text-right">
+                  {(usedByCode.get(couponNoteFor(coupon.code)) ?? 0)}
+                  {' / '}
                   {coupon.usageLimit && coupon.usageLimit > 0
                     ? coupon.usageLimit
                     : t('cmspromo.date.unlimited')}

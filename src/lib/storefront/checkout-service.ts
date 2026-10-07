@@ -37,7 +37,8 @@ import {
 } from './checkout-money';
 import {
   computeOrderTotals,
-  evaluateCoupon,
+  couponNoteFor,
+  evaluateCouponWithUsage,
   findCouponByCode,
   loadActiveDiscounts,
   priceProduct,
@@ -459,6 +460,8 @@ async function createSaleAndItems(input: {
   lines: LockedCartLine[];
   totals: OrderTotals;
   config: CheckoutRuntimeConfig;
+  /** Canonical code of the coupon this order used (from the database, never from the request). */
+  couponCode?: string | null;
 }) {
   const [sale] = await input.tx
     .insert(schema.sales)
@@ -502,6 +505,15 @@ async function createSaleAndItems(input: {
     paymentMethodId: input.request.payment.methodId,
     termsAcceptedAt: new Date(),
   });
+
+  if (input.couponCode) {
+    // Internal marker used to count redemptions (see countCouponRedemptions).
+    await input.tx.insert(schema.orderNotes).values({
+      orderId: sale.id,
+      body: couponNoteFor(input.couponCode),
+      isCustomerNote: false,
+    });
+  }
 
   if (input.request.orderNotes) {
     await input.tx.insert(schema.orderNotes).values({
@@ -709,9 +721,12 @@ async function checkoutInTransaction(input: {
     // The promotion code is re-read from `coupons` INSIDE this transaction:
     // the browser only ever sends a code, never an amount.
     let couponCents = 0;
+    let usedCouponCode: string | null = null;
     if (input.request.promotionCode !== null) {
       const coupon = await findCouponByCode(tx, input.request.promotionCode);
-      const evaluation = evaluateCoupon(coupon, subtotalCents);
+      // Serialize concurrent orders on the same coupon so its usage limit cannot be overshot.
+      if (coupon) await tx.execute(sql`select id from coupons where id = ${coupon.id} for update`);
+      const evaluation = await evaluateCouponWithUsage(tx, coupon, subtotalCents);
       if (!evaluation.ok) {
         throw serviceError(
           'promotion-code-invalid',
@@ -721,6 +736,7 @@ async function checkoutInTransaction(input: {
         );
       }
       couponCents = evaluation.discountCents;
+      usedCouponCode = evaluation.coupon.code;
     }
 
     // Tax comes from `tax_rates` for the shipped-to address, never from the
@@ -750,6 +766,7 @@ async function checkoutInTransaction(input: {
       lines,
       totals,
       config: input.config,
+      couponCode: usedCouponCode,
     });
 
     // Locking the cart row blocks new FK item inserts; locked item rows block

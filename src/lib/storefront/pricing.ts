@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import * as schema from '@/db/schema-tenant';
 import type { StorefrontContext } from './context';
 import { centsToMoney } from './checkout-money';
@@ -267,6 +267,24 @@ export type CouponRecord = {
   status: string;
 };
 
+/**
+ * Redemptions are counted from the orders themselves: every order that used a
+ * coupon gets an internal note "🏷️ Kuponi: CODE" (written in the order's own
+ * transaction), and a cancelled order frees its use again. No schema change.
+ */
+export const COUPON_NOTE_PREFIX = '🏷️ Kuponi: ';
+export const couponNoteFor = (code: string) => `${COUPON_NOTE_PREFIX}${code.trim().toUpperCase()}`;
+
+/** How many non-cancelled orders used this coupon. */
+export async function countCouponRedemptions(db: PricingDb, code: string): Promise<number> {
+  const [row] = await db
+    .select({ used: sql<number>`count(*)::int` })
+    .from(schema.orderNotes)
+    .innerJoin(schema.sales, eq(schema.sales.id, schema.orderNotes.orderId))
+    .where(and(eq(schema.orderNotes.body, couponNoteFor(code)), ne(schema.sales.status, 'Cancelled')));
+  return Number(row?.used ?? 0);
+}
+
 export type CouponEvaluation =
   | {
       ok: true;
@@ -340,10 +358,7 @@ export function evaluateCoupon(
   if (coupon.endDate && coupon.endDate.getTime() < now.getTime()) {
     return { ok: false, message: 'This coupon expired' };
   }
-  // NOTE: `usageLimit` has no matching usage-counter column anywhere in the
-  // schema (sales/storefront_order_details store no coupon code), so actual
-  // redemptions cannot be counted. The limit is therefore treated as
-  // informational and does not block a valid code.
+  // `usageLimit` is enforced by evaluateCouponWithUsage (it needs the order count from the database).
 
   if (!Number.isSafeInteger(subtotalCents) || subtotalCents < 0) {
     return { ok: false, message: 'Cart subtotal is invalid' };
@@ -581,4 +596,23 @@ export function computeOrderTotals(input: OrderTotalsInput): OrderTotals {
     tax: centsToMoney(taxCents),
     grandTotal: centsToMoney(totalCents),
   };
+}
+
+/**
+ * evaluateCoupon + the usage limit: a coupon with a limit > 0 stops working once
+ * that many (non-cancelled) orders have used it. Used by the cart/checkout
+ * preview and again inside the order transaction.
+ */
+export async function evaluateCouponWithUsage(
+  db: PricingDb,
+  coupon: CouponRecord | null,
+  subtotalCents: number,
+): Promise<CouponEvaluation> {
+  const evaluation = evaluateCoupon(coupon, subtotalCents);
+  if (!evaluation.ok || !coupon) return evaluation;
+  const limit = coupon.usageLimit ?? 0;
+  if (limit > 0 && (await countCouponRedemptions(db, coupon.code)) >= limit) {
+    return { ok: false, message: 'This coupon has reached its usage limit' };
+  }
+  return evaluation;
 }

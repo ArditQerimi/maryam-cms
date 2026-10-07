@@ -5,7 +5,7 @@ import * as schema from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
 import {
   computeOrderTotals,
-  evaluateCoupon,
+  evaluateCouponWithUsage,
   findCouponByCode,
   loadActiveDiscounts,
   priceProduct,
@@ -182,7 +182,7 @@ export async function validateCartCoupon(
   try {
     const db = await getContextDb();
     const coupon = await findCouponByCode(db, normalizedCode);
-    const evaluation = evaluateCoupon(coupon, subtotal);
+    const evaluation = await evaluateCouponWithUsage(db, coupon, subtotal);
     if (!evaluation.ok) return { ok: false, message: evaluation.message };
     return {
       ok: true,
