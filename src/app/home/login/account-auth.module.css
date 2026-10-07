@@ -179,3 +179,24 @@
     padding: 1.4rem 1.2rem 1.6rem;
   }
 }
+
+/*
+ * Browser autofill (saved login) paints the field blue-grey with white text. Keep the
+ * form's own white background and dark text: the autofill colour is covered by an
+ * inset white shadow and the text colour is forced.
+ */
+.panel input:-webkit-autofill,
+.panel input:-webkit-autofill:hover,
+.panel input:-webkit-autofill:focus,
+.panel input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #1d1d1b;
+  caret-color: #1d1d1b;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+
+.panel input:autofill {
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #1d1d1b;
+}
