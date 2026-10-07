@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { orderNotes, sales } from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
+import { after } from 'next/server';
 import { sendOrderEmail } from './order-email';
 
 /**
@@ -47,7 +48,8 @@ export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Pro
     isCustomerNote: false,
   });
   // Tell the customer (best effort — a failed email never undoes the decision).
-  await sendOrderEmail(db, sale.id, action === 'ok' ? 'confirmed' : 'cancelled');
+  // Runs after the response, so a slow mail provider can never hold up the button.
+  after(() => sendOrderEmail(db, sale.id, action === 'ok' ? 'confirmed' : 'cancelled'));
   return action === 'ok'
     ? { toast: `Porosia ${sale.reference} u konfirmua.`, status: 'confirmed' }
     : { toast: `Porosia ${sale.reference} u anulua.`, status: 'cancelled' };

@@ -58,6 +58,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   }
 
   const outcome = await applyOrderAction(match[1] as 'ok' | 'no', Number(match[2]));
+  console.log(`[telegram-webhook] ${match[1]}:${match[2]} -> ${outcome.status}`);
   await telegram('answerCallbackQuery', { callback_query_id: query.id, text: outcome.toast });
 
   // Replace the buttons by the result so the order cannot be pressed twice.
