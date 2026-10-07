@@ -1139,7 +1139,12 @@ export default function CheckoutClient({
                                       type="radio"
                                       value={option.key}
                                     />
-                                    <span>{option.label}{option.price ? `: ${option.price}` : ''}</span>
+                                    {/* One option only: show just the price, no method name. */}
+                                    <span>
+                                      {deliveryChoices.length === 1
+                                        ? option.price
+                                        : `${option.label}${option.price ? `: ${option.price}` : ''}`}
+                                    </span>
                                   </label>
                                 ))}
                               </span>
