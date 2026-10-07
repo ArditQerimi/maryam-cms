@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { and, asc, eq, gt, gte, isNull, sql } from 'drizzle-orm';
+import { resolveShippingMethods } from './shipping-quote';
 import type {
   CheckoutConfirmation,
   CheckoutFieldErrors,
@@ -748,10 +749,23 @@ async function checkoutInTransaction(input: {
       postcode: input.request.shippingAddress.postalCode,
     });
 
+    // Shipping is the shop's own price for this address (CMS → Shipping), resolved HERE from the
+    // database — the same rule the checkout quote uses, never an amount sent by the browser.
+    // No matching zone/method falls back to the configured flat rate.
+    const shippingMethodsForAddress = await resolveShippingMethods(
+      tx,
+      input.context.company.id,
+      { country: input.request.shippingAddress.country, state: input.request.shippingAddress.region },
+      Math.max(0, subtotalCents - couponCents) / 100,
+    );
+    const shippingCents = shippingMethodsForAddress
+      ? Number(toCents(shippingMethodsForAddress[0].cost))
+      : input.config.shippingCents;
+
     const totals = computeOrderTotals({
       subtotalCents,
       couponCents,
-      shippingCents: input.config.shippingCents,
+      shippingCents,
       tax: taxRate,
     });
 
