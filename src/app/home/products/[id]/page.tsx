@@ -19,6 +19,7 @@ import {
 } from '@/lib/storefront/pricing';
 import { loadSectionProductData } from '@/lib/storefront/section-data';
 import { getT } from '@/lib/i18n/server';
+import { getSiteOrigin } from '@/lib/site-origin';
 
 export const dynamic = 'force-dynamic';
 
@@ -204,10 +205,9 @@ function normalizeDescription(raw: string | null | undefined): string {
   return '';
 }
 
-function metadataImageUrl(imageUrl: string): string | undefined {
+async function metadataImageUrl(imageUrl: string): Promise<string | undefined> {
   if (!imageUrl) return undefined;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-    || `http://${process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000'}`;
+  const siteUrl = await getSiteOrigin();
 
   try {
     const parsed = new URL(imageUrl, siteUrl);
@@ -402,7 +402,7 @@ export async function generateMetadata(
   if (!product || !product.name.trim()) return metadataForMissingProduct();
 
   const description = normalizeDescription(product.description) || undefined;
-  const image = metadataImageUrl(parseGallery(product.imageUrl)[0] ?? '');
+  const image = await metadataImageUrl(parseGallery(product.imageUrl)[0] ?? '');
   const canonical = `/home/products/${product.id}`;
 
   return {

@@ -19,15 +19,12 @@ import { EMPTY_ACTIVE_NAV_MENU, getActiveNavMenu } from '@/lib/theme/storefront-
 import { DEFAULT_FOOTER, DEFAULT_HEADER } from '@/lib/theme/types';
 import { getDictionary, getLocale } from '@/lib/i18n/server';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
+import { getSiteOrigin } from '@/lib/site-origin';
 
-function getSiteUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL
-    || `http://${process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000'}`;
-  try {
-    return new URL(configured);
-  } catch {
-    return new URL('http://localhost:3000');
-  }
+async function getSiteUrl() {
+  // Follows the real host of the request (see lib/site-origin): canonical / Open Graph URLs
+  // must never say localhost on the live site.
+  return new URL(await getSiteOrigin());
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
     getPublicEcommerceStorefrontPresentation().catch(() => null),
   ]);
   const storeName = company?.name?.trim() || 'Store';
-  const siteUrl = getSiteUrl();
+  const siteUrl = await getSiteUrl();
   const persistedMetadata = presentation?.status === 'ready' ? presentation.config.metadata : null;
   const title = persistedMetadata?.title || storeName;
   // This fallback is platform-owned identity, not a claimed persisted default.
