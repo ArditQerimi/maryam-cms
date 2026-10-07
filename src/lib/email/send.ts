@@ -80,7 +80,7 @@ export async function sendEmail(input: {
   }
 
   // Saved CMS settings first, then SMTP_* environment variables (e.g. Gmail with an app password).
-  const smtp = input.smtp?.host ? input.smtp : smtpFromEnv();
+  const smtp: SmtpTransportConfig | null = input.smtp?.host ? input.smtp : smtpFromEnv();
   if (smtp?.host) {
     try {
       const transport = nodemailer.createTransport({
