@@ -200,3 +200,20 @@
   box-shadow: 0 0 0 1000px #ffffff inset;
   -webkit-text-fill-color: #1d1d1b;
 }
+
+/* Checkboxes (terms): a normal small box, olive when ticked — never a big dark square. */
+.panel input[type='checkbox'] {
+  -webkit-appearance: checkbox;
+  appearance: auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  min-height: 0;
+  flex: 0 0 1.1rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  border: 1px solid #8f8f8f;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+  accent-color: var(--ac-olive);
+}

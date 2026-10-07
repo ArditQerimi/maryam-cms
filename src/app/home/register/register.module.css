@@ -726,3 +726,14 @@
     animation-duration: 1.6s;
   }
 }
+
+/* The terms checkbox must be a normal small box (olive when ticked), not a large dark square. */
+.checkboxControl input[type='checkbox'] {
+  -webkit-appearance: checkbox;
+  appearance: auto;
+  background: #ffffff;
+  border: 1px solid #8f8f8f;
+  border-radius: 0;
+  box-shadow: none;
+  accent-color: #6b5a22;
+}
