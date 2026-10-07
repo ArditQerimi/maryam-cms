@@ -32,7 +32,7 @@ const REQUIRED: Record<AddressKind, string[]> = {
   shipping: ['firstName', 'lastName', 'country', 'address1', 'city', 'region', 'postalCode'],
 };
 
-const COUNTRY_CODES = new Set(['AL', 'AT', 'BE', 'FR', 'DE', 'IT', 'XK', 'NL', 'ES', 'GB', 'US']);
+const COUNTRY_CODES = new Set(['AL', 'AT', 'BE', 'FR', 'DE', 'IT', 'XK', 'MK', 'NL', 'ES', 'GB', 'US']);
 
 export async function saveAccountAddress(
   kind: AddressKind,

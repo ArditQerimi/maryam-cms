@@ -198,6 +198,7 @@ export const checkout: typeof checkoutEn = {
   'checkout.country.DE': 'Gjermani',
   'checkout.country.IT': 'Itali',
   'checkout.country.XK': 'Kosovë',
+  'checkout.country.MK': 'Maqedonia e Veriut',
   'checkout.country.NL': 'Holandë',
   'checkout.country.ES': 'Spanjë',
   'checkout.country.GB': 'Mbretëria e Bashkuar',

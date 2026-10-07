@@ -212,7 +212,6 @@ function requiredAddressErrors(
     ['address1', 'checkout.validation.address1'],
     ['country', 'checkout.validation.country'],
     ['city', 'checkout.validation.city'],
-    ['region', 'checkout.validation.region'],
     ['postalCode', 'checkout.validation.postalCode'],
   ];
 
@@ -647,24 +646,6 @@ export default function CheckoutClient({
     markFormChanged();
   };
 
-  const setBillingSameAsShipping = (checked: boolean) => {
-    setForm((current) => ({
-      ...current,
-      billingSameAsShipping: checked,
-      billingAddress: checked ? { ...current.shippingAddress } : current.billingAddress,
-    }));
-    if (checked) {
-      setFieldErrors((current) => {
-        const next = { ...current };
-        for (const key of Object.keys(EMPTY_ADDRESS) as Array<keyof CheckoutAddress>) {
-          delete next[`billingAddress.${key}`];
-        }
-        return next;
-      });
-    }
-    markFormChanged();
-  };
-
   const showFailure = (error: CheckoutFailure, errors: CheckoutFieldErrors = {}) => {
     setFieldErrors(errors);
     setSubmission({ status: 'failure', error });
@@ -877,7 +858,6 @@ export default function CheckoutClient({
         }));
   const selectedDeliveryKey = shippingOptions.length > 0 ? selectedShippingId : form.deliveryMethod;
 
-  const billingErrors = addressErrorFields('billingAddress', fieldErrors);
   const shippingErrors = addressErrorFields('shippingAddress', fieldErrors);
   const showLoading = isHydrating || !isHydrated;
 
@@ -1019,36 +999,7 @@ export default function CheckoutClient({
                           />
                         </div>
 
-                        <div>
-                          <label className={`${styles.checkboxRow} ${styles.billingToggle}`}>
-                            <input
-                              checked={!form.billingSameAsShipping}
-                              className={styles.checkbox}
-                              name="billing.sameAsShipping"
-                              onChange={(event) => setBillingSameAsShipping(!event.target.checked)}
-                              type="checkbox"
-                            />
-                            <span>{t('checkout.billing.different')}</span>
-                          </label>
-
-                          {form.billingSameAsShipping ? null : (
-                            <div className={styles.billingSection}>
-                              <div className={styles.subsectionHeadingRow}>
-                                <div>
-                                  <h3 className={styles.subsectionTitle}>{t('checkout.billing.title')}</h3>
-                                  <p>{t('checkout.billing.diffCopy')}</p>
-                                </div>
-                              </div>
-                              <AddressFields
-                                disabled={isPending}
-                                errors={billingErrors}
-                                onFieldChange={(key, value) => updateAddress('billingAddress', key, value)}
-                                prefix="billingAddress"
-                                value={form.billingAddress}
-                              />
-                            </div>
-                          )}
-                        </div>
+                        {/* Billing = delivery address: no separate billing form. */}
 
                         <TextAreaField
                           id="checkout-order-notes"

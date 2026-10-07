@@ -198,6 +198,7 @@ export const checkout = {
   'checkout.country.DE': 'Germany',
   'checkout.country.IT': 'Italy',
   'checkout.country.XK': 'Kosovo',
+  'checkout.country.MK': 'North Macedonia',
   'checkout.country.NL': 'Netherlands',
   'checkout.country.ES': 'Spain',
   'checkout.country.GB': 'United Kingdom',

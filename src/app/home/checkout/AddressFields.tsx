@@ -28,28 +28,31 @@ type AddressFieldsProps = {
   onFieldChange: (key: keyof CheckoutAddress, value: string) => void;
 };
 
-/* WooCommerce billing order: name pair, company, country, street, town, region, ZIP. */
+/*
+ * Fields shown at checkout. The shop sells mainly in Kosovo, Albania and North Macedonia and
+ * ships by paid post, so: name pair, country, street, town, postal code. Company, the second
+ * address line and state/province are not asked (the data contract keeps them as empty strings).
+ */
 const FIELD_CONFIG: readonly AddressFieldConfig[] = [
   { key: 'firstName', label: 'checkout.address.firstName', autoComplete: 'given-name' },
   { key: 'lastName', label: 'checkout.address.lastName', autoComplete: 'family-name' },
-  { key: 'company', label: 'checkout.address.company', autoComplete: 'organization', optional: true, wide: true },
   { key: 'country', label: 'checkout.address.country', autoComplete: 'country-name', wide: true },
   { key: 'address1', label: 'checkout.address.address1', autoComplete: 'address-line1', wide: true, placeholder: 'checkout.address.address1Placeholder' },
-  { key: 'address2', label: 'checkout.address.address2', autoComplete: 'address-line2', optional: true, wide: true, hideLabel: true },
   { key: 'city', label: 'checkout.address.city', autoComplete: 'address-level2', wide: true },
-  { key: 'region', label: 'checkout.address.region', autoComplete: 'address-level1', wide: true },
   { key: 'postalCode', label: 'checkout.address.postalCode', autoComplete: 'postal-code', inputMode: 'text', wide: true },
 ];
 
 /** ISO code → dictionary key; the visible label translates, the value never does. */
 export const COUNTRIES: ReadonlyArray<readonly [string, Parameters<Translator>[0]]> = [
+  // The shop's own markets first.
+  ['XK', 'checkout.country.XK'],
   ['AL', 'checkout.country.AL'],
+  ['MK', 'checkout.country.MK'],
   ['AT', 'checkout.country.AT'],
   ['BE', 'checkout.country.BE'],
   ['FR', 'checkout.country.FR'],
   ['DE', 'checkout.country.DE'],
   ['IT', 'checkout.country.IT'],
-  ['XK', 'checkout.country.XK'],
   ['NL', 'checkout.country.NL'],
   ['ES', 'checkout.country.ES'],
   ['GB', 'checkout.country.GB'],

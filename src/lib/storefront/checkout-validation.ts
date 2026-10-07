@@ -162,8 +162,9 @@ function parseAddress(
     maximum: 100,
     message: 'Enter a valid city.',
   });
+  // State / province is not asked at checkout (Kosovo, Albania and North Macedonia ship by postal code).
   result.region = readText(value, 'region', field('region'), errors, {
-    required: true,
+    required: false,
     maximum: 100,
     message: 'Enter a valid state or province.',
   });
