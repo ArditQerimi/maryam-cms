@@ -138,6 +138,8 @@ export const checkout = {
   'checkout.coupon.codeLabel': 'Coupon code',
   'checkout.coupon.apply': 'Apply coupon',
   'checkout.coupon.remove': 'Remove coupon',
+  'checkout.coupon.empty': 'Enter your coupon code.',
+  'checkout.coupon.unavailable': 'Coupons are temporarily unavailable. Try again.',
 
   // — Payment step —
   'checkout.payment.step': 'Payment',

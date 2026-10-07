@@ -2340,3 +2340,29 @@ select.control {
   background: var(--ck-olive);
   color: #ffffff;
 }
+
+/* ---- coupon: same olive palette as the rest of the order card ---- */
+.page .couponApplied {
+  border: 1px solid var(--ck-line);
+  border-radius: 0;
+  background: rgba(107, 90, 34, 0.08);
+}
+
+.page .couponAppliedCode {
+  color: var(--ck-olive);
+  font-size: 0.9rem;
+}
+
+.page .couponRemove,
+.page .couponRemove:hover,
+.page .couponRemove:focus,
+.page .couponRemove:active {
+  background: none;
+  color: var(--ck-olive);
+  font-size: 0.85rem;
+}
+
+.page .promoButton:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}

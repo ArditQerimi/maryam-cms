@@ -523,9 +523,16 @@ export default function CheckoutClient({
   const [couponOpen, setCouponOpen] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
 
   const applyCoupon = async () => {
     const code = couponInput.trim();
+    if (couponBusy) return;
+    if (!code) {
+      setCouponError(t('checkout.coupon.empty'));
+      return;
+    }
+    setCouponBusy(true);
     try {
       const result = await validateCartCoupon(code, subtotalCents);
       if (!result.ok) {
@@ -540,7 +547,9 @@ export default function CheckoutClient({
       setCouponInput('');
       setCouponError(null);
     } catch {
-      setCouponError('Coupons are temporarily unavailable. Try again.');
+      setCouponError(t('checkout.coupon.unavailable'));
+    } finally {
+      setCouponBusy(false);
     }
   };
 
@@ -745,6 +754,8 @@ export default function CheckoutClient({
             shippingSelection.cost,
           ).catch(() => undefined);
         }
+        // The coupon belongs to this order: it must not silently apply to the next one.
+        clearStoredCoupon();
         setSubmission({ status: 'success', confirmation: result.confirmation });
         onCheckoutSuccess?.(result.confirmation);
         return;
@@ -1032,7 +1043,10 @@ export default function CheckoutClient({
                       <div className={styles.couponRow}>
                         {appliedCode ? (
                           <div className={styles.couponApplied}>
-                            <span className={styles.couponAppliedCode}>{appliedLabel ?? appliedCode}</span>
+                            <span className={styles.couponAppliedCode}>
+                              {appliedLabel ?? appliedCode}
+                              {discountCents > 0 ? ` (−${formatShippingMoney(discountCents / 100)})` : ''}
+                            </span>
                             <button type="button" className={styles.couponRemove} onClick={removeCoupon}>
                               {t('checkout.coupon.remove')}
                             </button>
@@ -1071,6 +1085,7 @@ export default function CheckoutClient({
                                 <button
                                   type="button"
                                   className={styles.promoButton}
+                                  disabled={couponBusy}
                                   onClick={() => void applyCoupon()}
                                 >
                                   {t('checkout.coupon.apply')}

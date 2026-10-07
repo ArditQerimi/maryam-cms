@@ -139,6 +139,8 @@ export const checkout: typeof checkoutEn = {
   'checkout.coupon.codeLabel': 'Kodi i kuponit',
   'checkout.coupon.apply': 'Apliko kuponin',
   'checkout.coupon.remove': 'Hiq kuponin',
+  'checkout.coupon.empty': 'Shkruaj kodin e kuponit.',
+  'checkout.coupon.unavailable': 'Kuponët nuk janë të disponueshëm përkohësisht. Provo përsëri.',
 
   // — Hapi i pagesës —
   'checkout.payment.step': 'Pagesa',
