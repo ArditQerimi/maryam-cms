@@ -814,3 +814,32 @@
     margin-top: 2rem;
   }
 }
+
+/*
+ * Same look as the other storefront pages: flat cream background, olive accent,
+ * thin warm borders. The theme paints h1/h2/h3 in a pale colour, which made the
+ * page title and every section heading unreadable, so headings are pinned to the
+ * ink colour with a more specific selector (.page .x).
+ */
+.page {
+  --legal-cream: #f4f2ef;
+  --legal-paper: rgba(255, 255, 255, 0.6);
+  --legal-accent: #6b5a22;
+  --legal-accent-dark: #6b5a22;
+  --legal-line: rgba(26, 26, 26, 0.14);
+  --legal-soft: rgba(107, 90, 34, 0.08);
+  --legal-notice: #faf8f3;
+  --legal-notice-line: #6b5a22;
+  background: #f4f2ef;
+}
+
+.page::before {
+  display: none;
+}
+
+.page .heroTitle,
+.page .section h2,
+.page .section h3,
+.page .merchantCard h2 {
+  color: var(--legal-ink);
+}
