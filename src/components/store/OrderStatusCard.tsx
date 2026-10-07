@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Select } from '@/components/admin/ui';
-import { updateOrderStatus } from '@/app/cms/actions/orders';
+import { decideOrder, updateOrderStatus } from '@/app/cms/actions/orders';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 const STATUSES = ['Pending', 'Completed', 'Cancelled', 'Returned'] as const;
@@ -39,8 +39,36 @@ export default function OrderStatusCard({
     }
   }
 
+  async function decide(decision: 'confirm' | 'cancel') {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await decideOrder(orderId, decision);
+      if (result.ok) {
+        toast.success(result.message || t('cmsshared.order_status.error'));
+        if (decision === 'cancel') setValue('Cancelled');
+      } else {
+        toast.error(result.error || t('cmsshared.order_status.error'));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('cmsshared.order_status.error'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
+      {status === 'Pending' ? (
+        <div className="flex gap-2">
+          <Button variant="primary" size="md" className="flex-1" disabled={busy} onClick={() => decide('confirm')}>
+            ✅ {t('cmsshared.order_status.confirm')}
+          </Button>
+          <Button variant="secondary" size="md" className="flex-1" disabled={busy} onClick={() => decide('cancel')}>
+            ❌ {t('cmsshared.order_status.cancel')}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           {t('cmsshared.order_status.current')}

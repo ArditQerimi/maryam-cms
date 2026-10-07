@@ -14,8 +14,6 @@ import { buildWhatsAppOrderMessage } from './whatsapp-order';
  *  - WhatsApp via CallMeBot (free, unofficial; notifies YOUR number):
  *      CALLMEBOT_PHONE   your number with country code, e.g. 38344123456
  *      CALLMEBOT_APIKEY  the key the bot sends you after you activate it
- *  - Telegram bot (free, official):
- *      TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
  *
  * A failing channel is logged (without secrets) and never fails the order.
  */
@@ -74,7 +72,7 @@ async function post(url: string, init?: RequestInit) {
 }
 
 /** Our own whatsapp-agent service (linked WhatsApp account, see the whatsapp-agent project). */
-async function sendWhatsAppAgent(text: string) {
+async function sendWhatsAppAgent(text: string, saleId: number) {
   const url = (process.env.WHATSAPP_AGENT_URL ?? '').replace(/\/+$/, '');
   const token = process.env.WHATSAPP_AGENT_TOKEN ?? '';
   const to = (process.env.WHATSAPP_AGENT_TO ?? '').replace(/\D/g, '');
@@ -82,7 +80,13 @@ async function sendWhatsAppAgent(text: string) {
   await post(`${url}/send`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify({ to, text }),
+    body: JSON.stringify({
+      to,
+      text: `${text}
+
+Për ta konfirmuar përgjigju: KONFIRMO ${saleId}
+Për ta anuluar: ANULO ${saleId}`,
+    }),
   });
   return 'sent';
 }
@@ -96,30 +100,6 @@ async function sendCallMeBot(text: string) {
   return 'sent';
 }
 
-async function sendTelegram(text: string, saleId: number) {
-  const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
-  const chatId = process.env.TELEGRAM_CHAT_ID ?? '';
-  if (!token || !chatId) return 'skipped';
-  await post(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      // The buttons carry only the action and the order id; the webhook re-checks everything server-side.
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '✅ Konfirmo', callback_data: `ok:${saleId}` },
-            { text: '❌ Anulo', callback_data: `no:${saleId}` },
-          ],
-        ],
-      },
-    }),
-  });
-  return 'sent';
-}
-
 /** Tell the shop about a freshly stored order. Never throws. */
 export async function notifyNewOrder(db: Db, saleId: number) {
   try {
@@ -130,7 +110,6 @@ export async function notifyNewOrder(db: Db, saleId: number) {
     const channels: Array<[string, (text: string, saleId: number) => Promise<string>]> = [
       ['whatsapp-agent', sendWhatsAppAgent],
       ['whatsapp-callmebot', sendCallMeBot],
-      ['telegram', sendTelegram],
     ];
     for (const [name, send] of channels) {
       try {

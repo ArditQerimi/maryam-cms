@@ -213,7 +213,7 @@ export async function handleStorefrontCheckout(request: NextRequest) {
       config,
     });
 
-    // Tell the shop (WhatsApp/Telegram, server to server) about a NEW order only —
+    // Tell the shop (WhatsApp, server to server) about a NEW order only —
     // an idempotent replay of the same request must not notify twice.
     if (!result.replayed) {
       const saleId = Number(result.confirmation.orderId);

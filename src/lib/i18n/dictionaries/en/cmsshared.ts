@@ -81,6 +81,8 @@ export const cmsshared = {
   'cmsshared.order_status.error': 'Could not update the order status.',
   'cmsshared.order_status.marked': 'Order marked as {value}.',
   'cmsshared.order_status.mark': 'Mark {status}',
+  'cmsshared.order_status.confirm': 'Confirm order',
+  'cmsshared.order_status.cancel': 'Cancel order',
   'cmsshared.order_status.help':
     'Cancelling or refunding an order keeps its items and totals for reporting; refunded orders move to',
 

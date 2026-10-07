@@ -17,6 +17,7 @@ import {
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatMoney } from '@/lib/cms/format';
+import { applyOrderAction } from '@/lib/storefront/order-decision';
 import { isResendConfigured, sendEmail } from '@/lib/email/send';
 import { trackingEmailMessage } from '@/lib/email/templates';
 
@@ -507,4 +508,21 @@ export async function refundOrder(
   revalidatePath('/cms/orders');
   revalidatePath(`/cms/orders/${orderId}`);
   return { ok: true, refunded: formatMoney(refunded) };
+}
+
+/**
+ * Confirm or cancel a still-Pending online order from the order page — the same
+ * action (and the same internal note) as replying KONFIRMO / ANULO on WhatsApp.
+ */
+export async function decideOrder(orderId: number, decision: 'confirm' | 'cancel'): Promise<OrderActionResult & { message?: string }> {
+  await requireCmsSession();
+  const id = parsePositiveId(orderId);
+  if (!id) return { ok: false, error: 'Unknown order.' };
+  const outcome = await applyOrderAction(decision === 'confirm' ? 'ok' : 'no', id);
+  revalidatePath('/cms/orders');
+  revalidatePath(`/cms/orders/${id}`);
+  revalidatePath('/cms/dashboard');
+  return outcome.status === 'rejected'
+    ? { ok: false, error: outcome.toast }
+    : { ok: true, message: outcome.toast };
 }
