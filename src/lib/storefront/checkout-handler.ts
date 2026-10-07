@@ -220,7 +220,8 @@ export async function handleStorefrontCheckout(request: NextRequest) {
       const saleId = Number(result.confirmation.orderId);
       after(() => notifyNewOrder(context.db, saleId));
       // The customer's own email: "order placed, waiting for confirmation".
-      after(() => sendOrderEmail(context.db, saleId, 'received'));
+      const origin = request.nextUrl.origin;
+      after(() => sendOrderEmail(context.db, saleId, 'received', origin));
     }
 
     const response = noStoreJson(
