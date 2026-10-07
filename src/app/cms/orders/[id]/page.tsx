@@ -30,6 +30,7 @@ import {
   Th,
 } from '@/components/admin/ui';
 import OrderStatusCard, { StatusPill } from '@/components/store/OrderStatusCard';
+import { phaseOf } from '@/lib/storefront/order-status';
 import TrackingCard, { type TrackingValues } from '@/components/store/TrackingCard';
 import NoteComposer from '@/components/store/NoteComposer';
 import AddressCard from '@/components/store/AddressCard';
@@ -133,6 +134,7 @@ export default async function OrderDetailPage({
   const customer = customerRows[0] ?? null;
   const linkedUser = userRows[0] ?? null;
   const currency = details?.currency ?? 'EUR';
+  const orderPhase = sale.isOnline ? phaseOf(sale.status, new Set(noteRows.map((note) => note.body))) : 'other';
 
   const trackingValues: TrackingValues | null = tracking
     ? {
@@ -321,7 +323,7 @@ export default async function OrderDetailPage({
                 <span className="text-sm text-zinc-500">{t('cmsorders.detail.order_state')}</span>
                 <StatusBadge status={sale.status} />
               </div>
-              <OrderStatusCard orderId={sale.id} status={sale.status} />
+              <OrderStatusCard orderId={sale.id} status={sale.status} phase={orderPhase} />
             </CardContent>
           </Card>
 

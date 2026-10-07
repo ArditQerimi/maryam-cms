@@ -5,8 +5,10 @@ import { sendEmail } from '@/lib/email/send';
 import { buildSmtpConfig } from '@/lib/email/smtp-config';
 import {
   orderCancelledEmailMessage,
+  orderCompletedEmailMessage,
   orderConfirmedEmailMessage,
   orderReceivedEmailMessage,
+  orderShippedEmailMessage,
   type OrderEmailData,
 } from '@/lib/email/order-templates';
 import type { getContextDb } from '@/lib/tenant';
@@ -14,17 +16,21 @@ import { formatPersistedCheckoutMoney } from './checkout-money';
 
 type Db = Awaited<ReturnType<typeof getContextDb>>;
 
-export type OrderEmailKind = 'received' | 'confirmed' | 'cancelled';
+export type OrderEmailKind = 'received' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
 
 const SUBJECTS: Record<OrderEmailKind, (reference: string) => string> = {
   received: (reference) => `Porosia ${reference} u bë — po pritet konfirmimi`,
   confirmed: (reference) => `Porosia ${reference} u konfirmua`,
+  shipped: (reference) => `Porosia ${reference} u dërgua`,
+  completed: (reference) => `Porosia ${reference} u përfundua`,
   cancelled: (reference) => `Porosia ${reference} u anulua`,
 };
 
 const TEMPLATES = {
   received: orderReceivedEmailMessage,
   confirmed: orderConfirmedEmailMessage,
+  shipped: orderShippedEmailMessage,
+  completed: orderCompletedEmailMessage,
   cancelled: orderCancelledEmailMessage,
 } as const;
 

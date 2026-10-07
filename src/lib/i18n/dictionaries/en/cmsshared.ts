@@ -81,6 +81,9 @@ export const cmsshared = {
   'cmsshared.order_status.error': 'Could not update the order status.',
   'cmsshared.order_status.marked': 'Order marked as {value}.',
   'cmsshared.order_status.mark': 'Mark {status}',
+  'cmsshared.order_stage.preparing': "Start preparing",
+  'cmsshared.order_stage.shipped': "Mark as shipped",
+  'cmsshared.order_stage.completed': "Complete order",
   'cmsshared.order_status.confirm': 'Confirm order',
   'cmsshared.order_status.cancel': 'Cancel order',
   'cmsshared.order_status.help':

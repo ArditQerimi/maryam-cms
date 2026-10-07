@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Select } from '@/components/admin/ui';
-import { decideOrder, updateOrderStatus } from '@/app/cms/actions/orders';
+import { advanceOrderStage, decideOrder, updateOrderStatus } from '@/app/cms/actions/orders';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 const STATUSES = ['Pending', 'Completed', 'Cancelled', 'Returned'] as const;
@@ -13,12 +13,22 @@ const STATUSES = ['Pending', 'Completed', 'Cancelled', 'Returned'] as const;
  * Status editor for an order. `sales.status` is the single source of truth for
  * order state (`storefront_order_details` has no status column).
  */
+/** The next step for a confirmed online order, by its current phase. */
+const NEXT_STAGE = {
+  confirmed: 'preparing',
+  preparing: 'shipped',
+  shipped: 'completed',
+} as const;
+
 export default function OrderStatusCard({
   orderId,
   status,
+  phase = 'other',
 }: {
   orderId: number;
   status: string;
+  /** awaiting | confirmed | preparing | shipped | completed | cancelled | other (see lib/storefront/order-status). */
+  phase?: string;
 }) {
   const [value, setValue] = useState(status);
   const [busy, setBusy] = useState(false);
@@ -57,9 +67,35 @@ export default function OrderStatusCard({
     }
   }
 
+  async function advance(stage: 'preparing' | 'shipped' | 'completed') {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await advanceOrderStage(orderId, stage);
+      if (result.ok) toast.success(result.message || t('cmsshared.order_status.error'));
+      else toast.error(result.error || t('cmsshared.order_status.error'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('cmsshared.order_status.error'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const nextStage = phase in NEXT_STAGE ? NEXT_STAGE[phase as keyof typeof NEXT_STAGE] : null;
+
   return (
     <div className="space-y-3">
-      {status === 'Pending' ? (
+      {nextStage ? (
+        <div className="flex gap-2">
+          <Button variant="primary" size="md" className="flex-1" disabled={busy} onClick={() => advance(nextStage)}>
+            {t(`cmsshared.order_stage.${nextStage}`)}
+          </Button>
+          <Button variant="secondary" size="md" disabled={busy} onClick={() => decide('cancel')}>
+            ❌ {t('cmsshared.order_status.cancel')}
+          </Button>
+        </div>
+      ) : null}
+      {phase === 'awaiting' ? (
         <div className="flex gap-2">
           <Button variant="primary" size="md" className="flex-1" disabled={busy} onClick={() => decide('confirm')}>
             ✅ {t('cmsshared.order_status.confirm')}

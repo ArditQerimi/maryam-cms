@@ -80,6 +80,9 @@ export const cmsshared: typeof cmssharedEn = {
   'cmsshared.order_status.error': 'Statusi i porosisë nuk u përditësua dot.',
   'cmsshared.order_status.marked': 'Porosia u shënua si {value}.',
   'cmsshared.order_status.mark': 'Shëno {status}',
+  'cmsshared.order_stage.preparing': "Fillo përgatitjen",
+  'cmsshared.order_stage.shipped': "Shëno si dërguar",
+  'cmsshared.order_stage.completed': "Përfundo porosinë",
   'cmsshared.order_status.confirm': 'Konfirmo porosinë',
   'cmsshared.order_status.cancel': 'Anulo porosinë',
   'cmsshared.order_status.help':

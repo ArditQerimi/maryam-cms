@@ -13,10 +13,9 @@ import {
 } from '@react-email/components';
 
 /*
- * Order emails: "order placed — waiting for confirmation", "order confirmed",
- * "order cancelled". Same palette as the rest of the store's emails (gold on
- * cream); layout = brand header, hero card with a progress stepper, order
- * details box (items, shipping address, totals) and a footer.
+ * Order emails — one layout for every stage of an order: brand header, hero card
+ * with a progress stepper, order details box (items, shipping address, totals)
+ * and a footer. Same palette as the store's other emails (gold on cream).
  */
 
 const ACCENT = '#69521e';
@@ -26,6 +25,7 @@ const LINE = '#e6e2da';
 const SURFACE = '#f4f2ee';
 const CARD = '#faf8f3';
 const FONT = 'Arial, Helvetica, sans-serif';
+const SERIF = 'Georgia, "Times New Roman", serif';
 
 export type OrderEmailData = {
   storeName: string;
@@ -43,68 +43,92 @@ export type OrderEmailData = {
   paymentLabel: string;
 };
 
-type Step = 'placed' | 'confirmed' | 'cancelled';
+/** How far along the order is: the first `done` steps are complete, the next one is in progress. */
+const STEP_LABELS = ['Porosia u bë', 'Konfirmuar', 'Përgatitja', 'Dërguar', 'Përfunduar'];
+type Progress = { done: number; cancelled?: boolean };
 
-const STEPS: Record<Step, Array<{ label: string; state: 'done' | 'current' | 'todo' }>> = {
-  placed: [
-    { label: 'Porosia u bë', state: 'done' },
-    { label: 'Konfirmimi', state: 'current' },
-    { label: 'Përgatitja', state: 'todo' },
-  ],
-  confirmed: [
-    { label: 'Porosia u bë', state: 'done' },
-    { label: 'Konfirmuar', state: 'done' },
-    { label: 'Përgatitja', state: 'current' },
-  ],
-  cancelled: [
-    { label: 'Porosia u bë', state: 'done' },
-    { label: 'Anuluar', state: 'current' },
-  ],
-};
+const CIRCLE = 30;
+const SLOT = 78; // width of the column that holds a circle and its label
 
-function Stepper({ step }: { step: Step }) {
-  const items = STEPS[step];
+/**
+ * Circles joined by lines, labels underneath. Built as one table with a row of
+ * circles/lines and a row of labels that share the same fixed-width columns, so
+ * every circle sits exactly above its label and the lines run through the
+ * middle of the circles in all email clients.
+ */
+function Stepper({ progress }: { progress: Progress }) {
+  const labels = progress.cancelled ? [STEP_LABELS[0], 'Anuluar'] : STEP_LABELS;
+  const state = (index: number): 'done' | 'current' | 'todo' =>
+    progress.cancelled
+      ? index === 0
+        ? 'done'
+        : 'current'
+      : index < progress.done
+        ? 'done'
+        : index === progress.done
+          ? 'current'
+          : 'todo';
+
   return (
-    <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={{ margin: '22px 0 24px' }}>
+    <table role="presentation" align="center" cellPadding={0} cellSpacing={0} style={{ margin: '22px auto 24px', width: '100%' }}>
       <tbody>
         <tr>
-          {items.map((item, index) => (
-            <td key={item.label} align="center" valign="top" style={{ width: `${100 / items.length}%`, position: 'relative' }}>
-              <table role="presentation" cellPadding={0} cellSpacing={0} width="100%">
-                <tbody>
-                  <tr>
-                    <td style={{ width: '50%', borderTop: index === 0 ? 'none' : `2px solid ${items[index - 1].state === 'done' ? ACCENT : LINE}`, fontSize: 0, lineHeight: 0, height: 15 }}>
-                      &nbsp;
-                    </td>
-                    <td align="center" style={{ width: 30 }}>
-                      <div
-                        style={{
-                          width: 30,
-                          height: 30,
-                          lineHeight: '26px',
-                          borderRadius: '50%',
-                          border: `2px solid ${item.state === 'todo' ? LINE : ACCENT}`,
-                          backgroundColor: item.state === 'done' ? ACCENT : '#ffffff',
-                          color: item.state === 'done' ? '#ffffff' : ACCENT,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          textAlign: 'center',
-                        }}
-                      >
-                        {item.state === 'done' ? '✓' : item.state === 'current' ? '•' : ''}
-                      </div>
-                    </td>
-                    <td style={{ width: '50%', borderTop: index === items.length - 1 ? 'none' : `2px solid ${item.state === 'done' ? ACCENT : LINE}`, fontSize: 0, lineHeight: 0, height: 15 }}>
-                      &nbsp;
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <Text style={{ margin: '8px 0 0', fontSize: 13, lineHeight: '18px', color: item.state === 'todo' ? MUTED : INK, fontFamily: FONT }}>
-                {item.label}
-              </Text>
-            </td>
-          ))}
+          {labels.map((label, index) => {
+            const s = state(index);
+            return [
+              index > 0 ? (
+                <td key={`line-${label}`} valign="middle" style={{ height: CIRCLE }}>
+                  <div
+                    style={{
+                      borderTop: `2px solid ${state(index - 1) === 'done' && s !== 'todo' ? ACCENT : LINE}`,
+                      height: 0,
+                      fontSize: 0,
+                      lineHeight: 0,
+                    }}
+                  >
+                    &nbsp;
+                  </div>
+                </td>
+              ) : null,
+              <td key={`dot-${label}`} width={SLOT} align="center" valign="middle" style={{ width: SLOT, height: CIRCLE }}>
+                <div
+                  style={{
+                    width: CIRCLE - 4,
+                    height: CIRCLE - 4,
+                    lineHeight: `${CIRCLE - 4}px`,
+                    borderRadius: '50%',
+                    border: `2px solid ${s === 'todo' ? LINE : ACCENT}`,
+                    backgroundColor: s === 'done' ? ACCENT : '#ffffff',
+                    color: s === 'done' ? '#ffffff' : ACCENT,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    margin: '0 auto',
+                  }}
+                >
+                  {s === 'done' ? '✓' : s === 'current' ? '•' : ' '}
+                </div>
+              </td>,
+            ];
+          })}
+        </tr>
+        <tr>
+          {labels.map((label, index) => [
+            index > 0 ? <td key={`gap-${label}`} /> : null,
+            <td key={`label-${label}`} width={SLOT} align="center" valign="top" style={{ width: SLOT, paddingTop: 8 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  lineHeight: '16px',
+                  fontFamily: FONT,
+                  color: state(index) === 'todo' ? MUTED : INK,
+                  fontWeight: state(index) === 'current' ? 700 : 400,
+                }}
+              >
+                {label}
+              </span>
+            </td>,
+          ])}
         </tr>
       </tbody>
     </table>
@@ -116,18 +140,20 @@ const smallLabel = { margin: '0 0 6px', fontSize: 13, fontWeight: 700, color: IN
 
 function OrderEmail({
   data,
-  step,
+  progress,
   heading,
   lead,
   leadEn,
   preview,
+  extra,
 }: {
   data: OrderEmailData;
-  step: Step;
+  progress: Progress;
   heading: string;
   lead: string;
   leadEn: string;
   preview: string;
+  extra?: { title: string; text: string };
 }) {
   return (
     <Html lang="sq">
@@ -135,14 +161,14 @@ function OrderEmail({
       <Body style={{ backgroundColor: SURFACE, fontFamily: FONT, margin: 0, padding: '24px 0' }}>
         <Container style={{ maxWidth: 600, backgroundColor: '#ffffff', border: `1px solid ${LINE}`, borderRadius: 10, overflow: 'hidden' }}>
           <Section style={{ padding: '22px 32px 6px' }}>
-            <Text style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '0.02em', color: ACCENT, fontFamily: 'Georgia, "Times New Roman", serif' }}>
+            <Text style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '0.02em', color: ACCENT, fontFamily: SERIF }}>
               {data.storeName}
             </Text>
           </Section>
 
           <Section style={{ padding: '10px 24px 0' }}>
-            <Section style={{ backgroundColor: CARD, borderRadius: 12, padding: '30px 24px 26px', textAlign: 'center' }}>
-              <Heading style={{ margin: '0 0 12px', fontSize: 28, lineHeight: '34px', color: INK, fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}>
+            <Section style={{ backgroundColor: CARD, borderRadius: 12, padding: '30px 16px 26px', textAlign: 'center' }}>
+              <Heading style={{ margin: '0 0 12px', fontSize: 28, lineHeight: '34px', color: INK, fontFamily: SERIF, fontWeight: 700 }}>
                 {heading}
               </Heading>
               <Text style={{ margin: '0 auto', maxWidth: 420, fontSize: 14, lineHeight: '21px', color: MUTED, fontFamily: FONT }}>
@@ -151,7 +177,7 @@ function OrderEmail({
               <Text style={{ margin: '6px auto 0', maxWidth: 420, fontSize: 12, lineHeight: '18px', color: MUTED, fontFamily: FONT }}>
                 {leadEn}
               </Text>
-              <Stepper step={step} />
+              <Stepper progress={progress} />
               {data.orderUrl ? (
                 <Link
                   href={data.orderUrl}
@@ -164,7 +190,7 @@ function OrderEmail({
           </Section>
 
           <Section style={{ padding: '28px 24px 8px' }}>
-            <Heading as="h2" style={{ margin: '0 0 6px', textAlign: 'center', fontSize: 22, color: INK, fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}>
+            <Heading as="h2" style={{ margin: '0 0 6px', textAlign: 'center', fontSize: 22, color: INK, fontFamily: SERIF, fontWeight: 700 }}>
               Detajet e porosisë
             </Heading>
             <Text style={{ margin: '0 0 16px', textAlign: 'center', fontSize: 13, color: INK, fontFamily: FONT }}>
@@ -230,14 +256,11 @@ function OrderEmail({
             </Section>
           </Section>
 
-          {step === 'placed' ? (
+          {extra ? (
             <Section style={{ padding: '14px 24px 4px' }}>
               <Section style={{ backgroundColor: CARD, borderRadius: 10, padding: '16px 20px' }}>
-                <Text style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: INK, fontFamily: FONT }}>Çfarë ndodh tani?</Text>
-                <Text style={{ margin: 0, fontSize: 13, lineHeight: '20px', color: MUTED, fontFamily: FONT }}>
-                  Dyqani po e shqyrton porosinë. Sapo ta konfirmojë, do të merrni një email tjetër dhe statusi te llogaria juaj
-                  do të ndryshojë nga &quot;Në pritje të konfirmimit&quot; në &quot;Konfirmuar&quot;.
-                </Text>
+                <Text style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: INK, fontFamily: FONT }}>{extra.title}</Text>
+                <Text style={{ margin: 0, fontSize: 13, lineHeight: '20px', color: MUTED, fontFamily: FONT }}>{extra.text}</Text>
               </Section>
             </Section>
           ) : null}
@@ -263,11 +286,15 @@ export function orderReceivedEmailMessage(data: OrderEmailData): ReactElement {
   return (
     <OrderEmail
       data={data}
-      step="placed"
+      progress={{ done: 1 }}
       preview={`Porosia ${data.orderReference} u pranua — pret konfirmimin`}
       heading="Porosia u bë. Po pritet konfirmimi."
       lead="Porosia juaj u pranua dhe tani pret konfirmimin nga dyqani. Do t'ju dërgojmë një email sapo të konfirmohet."
       leadEn="Your order has been placed and is waiting for the shop's confirmation. We will email you as soon as it is confirmed."
+      extra={{
+        title: 'Çfarë ndodh tani?',
+        text: 'Dyqani po e shqyrton porosinë. Sapo ta konfirmojë, do të merrni një email tjetër dhe statusi te llogaria juaj do të ndryshojë nga "Në pritje të konfirmimit" në "Konfirmuar".',
+      }}
     />
   );
 }
@@ -276,7 +303,7 @@ export function orderConfirmedEmailMessage(data: OrderEmailData): ReactElement {
   return (
     <OrderEmail
       data={data}
-      step="confirmed"
+      progress={{ done: 2 }}
       preview={`Porosia ${data.orderReference} u konfirmua`}
       heading="Porosia juaj u konfirmua!"
       lead="Dyqani e konfirmoi porosinë tuaj dhe po e përgatit menjëherë."
@@ -285,11 +312,37 @@ export function orderConfirmedEmailMessage(data: OrderEmailData): ReactElement {
   );
 }
 
+export function orderShippedEmailMessage(data: OrderEmailData): ReactElement {
+  return (
+    <OrderEmail
+      data={data}
+      progress={{ done: 3 }}
+      preview={`Porosia ${data.orderReference} u dërgua`}
+      heading="Porosia juaj është nisur!"
+      lead="Porosia u përgatit dhe u dorëzua për dërgesë."
+      leadEn="Your order has been prepared and handed over for delivery."
+    />
+  );
+}
+
+export function orderCompletedEmailMessage(data: OrderEmailData): ReactElement {
+  return (
+    <OrderEmail
+      data={data}
+      progress={{ done: 5 }}
+      preview={`Porosia ${data.orderReference} u përfundua`}
+      heading="Porosia u përfundua"
+      lead="Porosia juaj u përfundua. Faleminderit që zgjodhët ne!"
+      leadEn="Your order is complete. Thank you for choosing us!"
+    />
+  );
+}
+
 export function orderCancelledEmailMessage(data: OrderEmailData): ReactElement {
   return (
     <OrderEmail
       data={data}
-      step="cancelled"
+      progress={{ done: 1, cancelled: true }}
       preview={`Porosia ${data.orderReference} u anulua`}
       heading="Porosia u anulua"
       lead="Fatkeqësisht dyqani nuk mundi ta përmbushë porosinë tuaj dhe ajo u anulua. Na shkruani nëse keni pyetje."

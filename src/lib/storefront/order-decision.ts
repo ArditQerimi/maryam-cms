@@ -14,11 +14,71 @@ import { sendOrderEmail } from './order-email';
 
 export type ActionOutcome = {
   toast: string;
-  status: 'confirmed' | 'cancelled' | 'ignored' | 'rejected';
+  status: 'confirmed' | 'cancelled' | 'advanced' | 'ignored' | 'rejected';
 };
 
+/*
+ * Order life cycle (sales.status has no values between Pending and Completed,
+ * so the stages in between are internal order notes — no database migration):
+ *   placed (Pending) → confirmed → preparing → shipped → completed (status Completed)
+ *   cancelled (status Cancelled) is possible until the order is completed.
+ */
 export const CONFIRMED_NOTE = '✅ Porosia u konfirmua nga dyqani.';
+export const PREPARING_NOTE = '📦 Porosia po përgatitet.';
+export const SHIPPED_NOTE = '🚚 Porosia u dërgua.';
+export const COMPLETED_NOTE = '🏁 Porosia u përfundua.';
 const CANCELLED_NOTE = '❌ Porosia u anulua nga dyqani.';
+
+export type OrderStage = 'preparing' | 'shipped' | 'completed';
+
+const STAGE_NOTE: Record<OrderStage, string> = {
+  preparing: PREPARING_NOTE,
+  shipped: SHIPPED_NOTE,
+  completed: COMPLETED_NOTE,
+};
+
+/**
+ * Move a confirmed order along: start preparing, mark shipped, finish (close) it.
+ * Only a confirmed online order can advance; each stage is written once.
+ * Shipping and completing email the customer, preparing does not (no spam).
+ */
+export async function advanceOrder(stage: OrderStage, saleId: number): Promise<ActionOutcome> {
+  const db = await getContextDb();
+  const [sale] = await db
+    .select({ id: sales.id, status: sales.status, reference: sales.reference })
+    .from(sales)
+    .where(and(eq(sales.id, saleId), eq(sales.isOnline, true)))
+    .limit(1);
+  if (!sale) return { toast: 'Porosia nuk u gjet.', status: 'rejected' };
+  if (sale.status !== 'Pending') {
+    return { toast: `Porosia është tashmë: ${sale.status}.`, status: 'ignored' };
+  }
+  const notes = (
+    await db.select({ body: orderNotes.body }).from(orderNotes).where(eq(orderNotes.orderId, sale.id))
+  ).map((note) => note.body);
+  if (!notes.includes(CONFIRMED_NOTE)) {
+    return { toast: 'Së pari konfirmo porosinë.', status: 'rejected' };
+  }
+  if (notes.includes(STAGE_NOTE[stage])) {
+    return { toast: 'Ky hap është kryer tashmë.', status: 'ignored' };
+  }
+
+  if (stage === 'completed') {
+    await db.update(sales).set({ status: 'Completed' }).where(eq(sales.id, sale.id));
+  }
+  await db.insert(orderNotes).values({ orderId: sale.id, body: STAGE_NOTE[stage], isCustomerNote: false });
+
+  if (stage !== 'preparing') {
+    const origin = await getRequestOrigin().catch(() => '');
+    after(() => sendOrderEmail(db, sale.id, stage, origin));
+  }
+  const toast: Record<OrderStage, string> = {
+    preparing: `Porosia ${sale.reference} po përgatitet.`,
+    shipped: `Porosia ${sale.reference} u shënua si e dërguar.`,
+    completed: `Porosia ${sale.reference} u përfundua.`,
+  };
+  return { toast: toast[stage], status: 'advanced' };
+}
 
 export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Promise<ActionOutcome> {
   const db = await getContextDb();

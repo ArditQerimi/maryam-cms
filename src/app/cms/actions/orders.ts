@@ -18,7 +18,7 @@ import {
 import { requireCmsSession } from '@/lib/cms/session';
 import { formatMoney } from '@/lib/cms/format';
 import { buildSmtpConfig } from '@/lib/email/smtp-config';
-import { applyOrderAction } from '@/lib/storefront/order-decision';
+import { advanceOrder, applyOrderAction, type OrderStage } from '@/lib/storefront/order-decision';
 import { isResendConfigured, sendEmail } from '@/lib/email/send';
 import { trackingEmailMessage } from '@/lib/email/templates';
 
@@ -475,4 +475,18 @@ export async function decideOrder(orderId: number, decision: 'confirm' | 'cancel
   return outcome.status === 'rejected'
     ? { ok: false, error: outcome.toast }
     : { ok: true, message: outcome.toast };
+}
+
+/** Move a confirmed order along: start preparing, mark shipped, complete (close) it. */
+export async function advanceOrderStage(orderId: number, stage: OrderStage): Promise<OrderActionResult & { message?: string }> {
+  await requireCmsSession();
+  const id = parsePositiveId(orderId);
+  if (!id || !['preparing', 'shipped', 'completed'].includes(stage)) return { ok: false, error: 'Unknown order.' };
+  const outcome = await advanceOrder(stage, id);
+  revalidatePath('/cms/orders');
+  revalidatePath(`/cms/orders/${id}`);
+  revalidatePath('/cms/dashboard');
+  return outcome.status === 'advanced'
+    ? { ok: true, message: outcome.toast }
+    : { ok: false, error: outcome.toast };
 }

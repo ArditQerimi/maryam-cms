@@ -7,7 +7,7 @@ import { getTenantDb } from '@/db/index';
 import * as tenantSchema from '@/db/schema-tenant';
 import { requireAccountPrincipal } from '@/lib/account/data';
 import { getT } from '@/lib/i18n/server';
-import { confirmedOrderIds, phaseOf } from '@/lib/storefront/order-status';
+import { orderPhases } from '@/lib/storefront/order-status';
 import styles from '../../account.module.css';
 
 export const metadata: Metadata = {
@@ -112,7 +112,7 @@ export default async function AccountOrderPage({
     .where(eq(tenantSchema.saleItems.saleId, order.id))
     .orderBy(asc(tenantSchema.saleItems.id));
 
-  const orderPhase = phaseOf(order.status, (await confirmedOrderIds(db, [order.id])).has(order.id));
+  const orderPhase = (await orderPhases(db, [order])).get(order.id) ?? 'other';
   const billing = addressLines(order.billingAddress);
   const shipping = addressLines(order.shippingAddress);
   const payment = capabilityLabel(order.paymentMethodId);

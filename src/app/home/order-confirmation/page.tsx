@@ -14,7 +14,7 @@ import OpenWhatsApp from './OpenWhatsApp';
 import AutoRefresh from './AutoRefresh';
 import { getT } from '@/lib/i18n/server';
 import { getContextDb } from '@/lib/tenant';
-import { confirmedOrderIds, phaseOf, type OrderPhase } from '@/lib/storefront/order-status';
+import { orderPhases, type OrderPhase } from '@/lib/storefront/order-status';
 import styles from './order-confirmation.module.css';
 
 export const metadata: Metadata = {
@@ -96,7 +96,7 @@ async function ConfirmationDetails({
               <p className={styles.payInfo}>{t(`account.orderConfirm.${phase}Lead`)}</p>
             </>
           )}
-          {phase === 'awaiting' ? <AutoRefresh /> : null}
+          {phase !== 'other' && phase !== 'completed' && phase !== 'cancelled' ? <AutoRefresh /> : null}
 
           {whatsappUrl ? (
             <OpenWhatsApp
@@ -237,6 +237,6 @@ export default async function StorefrontOrderConfirmationPage() {
   const whatsappNumber = await getWhatsAppOrderNumber();
   const whatsappUrl = whatsappNumber ? buildWhatsAppOrderUrl(order, whatsappNumber) : null;
   const db = await getContextDb();
-  const phase = phaseOf(order.status, (await confirmedOrderIds(db, [Number(order.orderId)])).has(Number(order.orderId)));
+  const phase = (await orderPhases(db, [{ id: Number(order.orderId), status: order.status }])).get(Number(order.orderId)) ?? 'other';
   return <ConfirmationDetails order={order} whatsappUrl={whatsappUrl} phase={phase} />;
 }
