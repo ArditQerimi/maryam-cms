@@ -4,6 +4,7 @@ import { getContextCompany } from '@/lib/tenant';
 import { getT } from '@/lib/i18n/server';
 import styles from '../legal/legal.module.css';
 import PrintButton from './PrintButton';
+import ShopPageHeader from '../components/ShopPageHeader';
 
 const LAST_UPDATED = 'September 23, 2026';
 const LAST_UPDATED_ISO = '2026-09-23';
@@ -74,35 +75,21 @@ export default async function RefundPolicyPage() {
 
   return (
     <div className={styles.page}>
+      <ShopPageHeader
+        title={t('pages.policy.linkRefund')}
+        titleId="refund-title"
+        crumbs={[{ label: t('pages.policy.linkRefund') }]}
+        eyebrow={t('pages.refund.eyebrow')}
+        lead={t('pages.refund.lede', { merchantName })}
+      >
+        <div className={styles.heroMeta}>
+          <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
+          <PrintButton />
+        </div>
+      </ShopPageHeader>
       <div className={styles.container}>
         <a className={styles.skipLink} href="#policy-content">{t('pages.policy.skip')}</a>
 
-        <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-          <ol className={styles.breadcrumbList}>
-            <li><Link className={styles.breadcrumbLink} href="/home">{t('pages.common.home')}</Link></li>
-            <li aria-current="page">{t('pages.policy.linkRefund')}</li>
-          </ol>
-        </nav>
-
-        <header className={styles.hero}>
-          <div className={styles.heroMark} aria-hidden="true">
-            <svg className={styles.heroIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 7h13a3 3 0 0 1 3 3v1" />
-              <path d="m14 4 3 3-3 3" />
-              <path d="M20 17H7a3 3 0 0 1-3-3v-1" />
-              <path d="m10 14-3 3 3 3" />
-            </svg>
-          </div>
-          <p className={styles.eyebrow}>{t('pages.refund.eyebrow')}</p>
-          <h1 className={styles.heroTitle} id="refund-title">{t('pages.policy.linkRefund')}</h1>
-          <p className={styles.lede}>
-            {t('pages.refund.lede', { merchantName })}
-          </p>
-          <div className={styles.heroMeta}>
-            <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
-            <PrintButton />
-          </div>
-        </header>
 
         <nav className={styles.policyNav} aria-label={t('pages.policy.navAria')}>
           <p className={styles.policyNavLabel} id="policy-navigation-label">{t('pages.policy.navLabel')}</p>

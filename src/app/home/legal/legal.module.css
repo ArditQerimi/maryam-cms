@@ -843,3 +843,17 @@
 .page .merchantCard h2 {
   color: var(--legal-ink);
 }
+
+/* The page opens with the shared ShopPageHeader now: give the content below it some air. */
+.page .container {
+  padding-top: 2.2rem;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem 1.2rem;
+  margin-top: 1rem;
+}

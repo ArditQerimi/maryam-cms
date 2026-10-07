@@ -4,6 +4,7 @@ import { getContextCompany } from '@/lib/tenant';
 import { getT } from '@/lib/i18n/server';
 import styles from '../legal/legal.module.css';
 import PrintButton from './PrintButton';
+import ShopPageHeader from '../components/ShopPageHeader';
 
 const LAST_UPDATED = 'September 23, 2026';
 const LAST_UPDATED_ISO = '2026-09-23';
@@ -77,34 +78,21 @@ export default async function PrivacyPolicyPage() {
 
   return (
     <div className={styles.page}>
+      <ShopPageHeader
+        title={t('pages.policy.linkPrivacy')}
+        titleId="privacy-title"
+        crumbs={[{ label: t('pages.policy.linkPrivacy') }]}
+        eyebrow={t('pages.policy.customerInfo')}
+        lead={t('pages.privacy.lede', { merchantName })}
+      >
+        <div className={styles.heroMeta}>
+          <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
+          <PrintButton />
+        </div>
+      </ShopPageHeader>
       <div className={styles.container}>
         <a className={styles.skipLink} href="#policy-content">{t('pages.policy.skip')}</a>
 
-        <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-          <ol className={styles.breadcrumbList}>
-            <li><Link className={styles.breadcrumbLink} href="/home">{t('pages.common.home')}</Link></li>
-            <li aria-current="page">{t('pages.policy.linkPrivacy')}</li>
-          </ol>
-        </nav>
-
-        <header className={styles.hero}>
-          <div className={styles.heroMark} aria-hidden="true">
-            <svg className={styles.heroIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="4" y="10" width="16" height="11" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-              <path d="M12 14.5v2" />
-            </svg>
-          </div>
-          <p className={styles.eyebrow}>{t('pages.policy.customerInfo')}</p>
-          <h1 className={styles.heroTitle} id="privacy-title">{t('pages.policy.linkPrivacy')}</h1>
-          <p className={styles.lede}>
-            {t('pages.privacy.lede', { merchantName })}
-          </p>
-          <div className={styles.heroMeta}>
-            <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
-            <PrintButton />
-          </div>
-        </header>
 
         <nav className={styles.policyNav} aria-label={t('pages.policy.navAria')}>
           <p className={styles.policyNavLabel} id="policy-navigation-label">{t('pages.policy.navLabel')}</p>

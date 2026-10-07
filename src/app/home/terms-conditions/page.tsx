@@ -4,6 +4,7 @@ import { getContextCompany } from '@/lib/tenant';
 import { getT } from '@/lib/i18n/server';
 import styles from '../legal/legal.module.css';
 import PrintButton from './PrintButton';
+import ShopPageHeader from '../components/ShopPageHeader';
 
 const LAST_UPDATED = 'September 23, 2026';
 const LAST_UPDATED_ISO = '2026-09-23';
@@ -73,36 +74,21 @@ export default async function TermsConditionsPage() {
 
   return (
     <div className={styles.page}>
+      <ShopPageHeader
+        title={t('pages.policy.linkTerms')}
+        titleId="terms-title"
+        crumbs={[{ label: t('pages.policy.linkTerms') }]}
+        eyebrow={t('pages.terms.eyebrow')}
+        lead={t('pages.terms.lede', { merchantName })}
+      >
+        <div className={styles.heroMeta}>
+          <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
+          <PrintButton />
+        </div>
+      </ShopPageHeader>
       <div className={styles.container}>
         <a className={styles.skipLink} href="#policy-content">{t('pages.policy.skip')}</a>
 
-        <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-          <ol className={styles.breadcrumbList}>
-            <li><Link className={styles.breadcrumbLink} href="/home">{t('pages.common.home')}</Link></li>
-            <li aria-current="page">{t('pages.policy.linkTerms')}</li>
-          </ol>
-        </nav>
-
-        <header className={styles.hero}>
-          <div className={styles.heroMark} aria-hidden="true">
-            <svg className={styles.heroIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v18" />
-              <path d="M5 6h14" />
-              <path d="m5 6-3 6a4.2 4.2 0 0 0 6 0L5 6Z" />
-              <path d="m19 6-3 6a4.2 4.2 0 0 0 6 0l-3-6Z" />
-              <path d="M8 21h8" />
-            </svg>
-          </div>
-          <p className={styles.eyebrow}>{t('pages.terms.eyebrow')}</p>
-          <h1 className={styles.heroTitle} id="terms-title">{t('pages.policy.linkTerms')}</h1>
-          <p className={styles.lede}>
-            {t('pages.terms.lede', { merchantName })}
-          </p>
-          <div className={styles.heroMeta}>
-            <span className={styles.lastUpdated}>{t('pages.policy.lastUpdated')} <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time></span>
-            <PrintButton />
-          </div>
-        </header>
 
         <nav className={styles.policyNav} aria-label={t('pages.policy.navAria')}>
           <p className={styles.policyNavLabel} id="policy-navigation-label">{t('pages.policy.navLabel')}</p>
