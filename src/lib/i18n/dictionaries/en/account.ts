@@ -210,6 +210,17 @@ export const account = {
   'account.dashboard.link3': 'edit your password and account details',
 
   // Orders table
+  'account.orderPhase.awaiting': "Awaiting confirmation",
+  'account.orderPhase.confirmed': "Confirmed",
+  'account.orderPhase.cancelled': "Cancelled",
+  'account.orderConfirm.awaitingTitle': "Order placed — awaiting confirmation",
+  'account.orderConfirm.awaitingLead': "Your order has been received and is now waiting for the shop to confirm it. We have emailed you and will email you again as soon as it is confirmed.",
+  'account.orderConfirm.confirmedTitle': "Order confirmed",
+  'account.orderConfirm.confirmedLead': "The shop has confirmed your order and is preparing it.",
+  'account.orderConfirm.cancelledTitle': "Order cancelled",
+  'account.orderConfirm.cancelledLead': "The shop could not fulfil your order and it was cancelled.",
+  'account.orderConfirm.status': "Status:",
+  'account.orderConfirm.refreshNote': "This page updates by itself when the shop confirms.",
   'account.orders.colOrder': 'Order',
   'account.orders.colDate': 'Date',
   'account.orders.colStatus': 'Status',

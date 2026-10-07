@@ -18,6 +18,7 @@ import {
 } from './checkout-idempotency';
 import { CheckoutServiceError, placeStorefrontCheckout } from './checkout-service';
 import { notifyNewOrder } from './order-notify';
+import { sendOrderEmail } from './order-email';
 import {
   CheckoutValidationError,
   parseCheckoutRequest,
@@ -218,6 +219,8 @@ export async function handleStorefrontCheckout(request: NextRequest) {
     if (!result.replayed) {
       const saleId = Number(result.confirmation.orderId);
       after(() => notifyNewOrder(context.db, saleId));
+      // The customer's own email: "order placed, waiting for confirmation".
+      after(() => sendOrderEmail(context.db, saleId, 'received'));
     }
 
     const response = noStoreJson(

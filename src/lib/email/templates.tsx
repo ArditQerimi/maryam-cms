@@ -184,3 +184,91 @@ export function trackingEmailMessage(input: {
     </EmailShell>
   );
 }
+
+type OrderEmailInput = {
+  recipientName?: string;
+  orderReference: string;
+  amountText: string;
+  lines: Array<{ name: string; quantity: number }>;
+};
+
+function OrderEmailBody({
+  input,
+  heading,
+  intro,
+  introEn,
+}: {
+  input: OrderEmailInput;
+  heading: string;
+  intro: string;
+  introEn: string;
+}) {
+  return (
+    <>
+      <Heading style={headingStyle}>{heading}</Heading>
+      <Text style={paraStyle}>{input.recipientName ? `Përshëndetje ${input.recipientName},` : 'Përshëndetje,'}</Text>
+      <Text style={paraStyle}>{intro}</Text>
+      <Text style={smallStyle}>{introEn}</Text>
+
+      <Section style={detailBoxStyle}>
+        <Text style={detailRowStyle}>
+          <span style={detailLabelStyle}>Porosia / Order: </span>
+          {input.orderReference}
+        </Text>
+        {input.lines.map((line, index) => (
+          <Text key={`${line.name}-${index}`} style={detailRowStyle}>
+            {line.name} × {line.quantity}
+          </Text>
+        ))}
+        <Text style={{ ...detailRowStyle, marginBottom: 0 }}>
+          <span style={detailLabelStyle}>Totali / Total: </span>
+          {input.amountText}
+        </Text>
+      </Section>
+
+      <Text style={paraStyle}>Faleminderit që bleni tek ne! / Thank you for shopping with us!</Text>
+    </>
+  );
+}
+
+/** Sent right after checkout: the order is placed and waits for the shop's confirmation. */
+export function orderReceivedEmailMessage(input: OrderEmailInput): ReactElement {
+  return (
+    <EmailShell preview={`Porosia ${input.orderReference} u pranua`}>
+      <OrderEmailBody
+        input={input}
+        heading="Porosia u pranua — pret konfirmimin"
+        intro="Porosia juaj u bë dhe tani pret konfirmimin nga dyqani. Do t'ju dërgojmë një email sapo të konfirmohet."
+        introEn="Your order has been placed and is waiting for the shop's confirmation. We will email you as soon as it is confirmed."
+      />
+    </EmailShell>
+  );
+}
+
+/** Sent when the shop confirms the order. */
+export function orderConfirmedEmailMessage(input: OrderEmailInput): ReactElement {
+  return (
+    <EmailShell preview={`Porosia ${input.orderReference} u konfirmua`}>
+      <OrderEmailBody
+        input={input}
+        heading="Porosia juaj u konfirmua"
+        intro="Dyqani e konfirmoi porosinë tuaj dhe po e përgatit."
+        introEn="The shop has confirmed your order and is preparing it."
+      />
+    </EmailShell>
+  );
+}
+
+/** Sent when the shop cancels the order. */
+export function orderCancelledEmailMessage(input: OrderEmailInput): ReactElement {
+  return (
+    <EmailShell preview={`Porosia ${input.orderReference} u anulua`}>
+      <OrderEmailBody
+        input={input}
+        heading="Porosia u anulua"
+        intro="Fatkeqësisht dyqani nuk mundi ta përmbushë porosinë tuaj dhe ajo u anulua. Na shkruani nëse keni pyetje."
+        introEn="Unfortunately the shop could not fulfil your order and it was cancelled. Contact us if you have any questions."
+      />
+    </EmailShell>
+  );
+}

@@ -6,6 +6,7 @@ import { getTenantDb } from '@/db/index';
 import * as tenantSchema from '@/db/schema-tenant';
 import { requireAccountPrincipal } from '@/lib/account/data';
 import { getT } from '@/lib/i18n/server';
+import { confirmedOrderIds, phaseOf } from '@/lib/storefront/order-status';
 import styles from '../account.module.css';
 
 export const metadata: Metadata = {
@@ -62,6 +63,7 @@ export default async function AccountOrdersPage() {
     .limit(MAX_ORDERS);
 
   const orderIds = orders.map((order) => order.id);
+  const confirmed = await confirmedOrderIds(db, orderIds);
   const itemRows = orderIds.length > 0
     ? await db
         .select({
@@ -113,7 +115,10 @@ export default async function AccountOrdersPage() {
                     <Link href={`/home/account/orders/${order.id}`}>#{order.reference}</Link>
                   </td>
                   <td data-label={t('account.orders.colDate')}>{formatDate(order.createdAt)}</td>
-                  <td data-label={t('account.orders.colStatus')}>{order.status}</td>
+                  <td data-label={t('account.orders.colStatus')}>{(() => {
+                      const phase = phaseOf(order.status, confirmed.has(order.id));
+                      return phase === 'other' ? order.status : t(`account.orderPhase.${phase}`);
+                    })()}</td>
                   <td data-label={t('account.orders.colTotal')}>
                     {t(
                       count === 1 ? 'account.orders.totalForItem' : 'account.orders.totalForItems',

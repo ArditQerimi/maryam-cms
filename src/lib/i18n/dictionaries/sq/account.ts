@@ -217,6 +217,17 @@ export const account: typeof accountEn = {
   'account.dashboard.link3': 'të ndryshoni fjalëkalimin dhe detajet e llogarisë',
 
   // Tabela e porosive
+  'account.orderPhase.awaiting': "Në pritje të konfirmimit",
+  'account.orderPhase.confirmed': "Konfirmuar",
+  'account.orderPhase.cancelled': "Anuluar",
+  'account.orderConfirm.awaitingTitle': "Porosia u bë — pret konfirmimin",
+  'account.orderConfirm.awaitingLead': "Porosia juaj u pranua dhe tani pret konfirmimin nga dyqani. Ju dërguam një email dhe do t'ju njoftojmë me email sapo të konfirmohet.",
+  'account.orderConfirm.confirmedTitle': "Porosia u konfirmua",
+  'account.orderConfirm.confirmedLead': "Dyqani e konfirmoi porosinë tuaj dhe po e përgatit.",
+  'account.orderConfirm.cancelledTitle': "Porosia u anulua",
+  'account.orderConfirm.cancelledLead': "Dyqani nuk mundi ta përmbushë porosinë tuaj dhe ajo u anulua.",
+  'account.orderConfirm.status': "Statusi:",
+  'account.orderConfirm.refreshNote': "Kjo faqe përditësohet vetë kur dyqani konfirmon.",
   'account.orders.colOrder': 'Porosia',
   'account.orders.colDate': 'Data',
   'account.orders.colStatus': 'Statusi',

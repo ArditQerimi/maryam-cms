@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { orderNotes, sales } from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
+import { sendOrderEmail } from './order-email';
 
 /**
  * Confirm / cancel an online order. Used by the WhatsApp reply webhook
@@ -14,7 +15,7 @@ export type ActionOutcome = {
   status: 'confirmed' | 'cancelled' | 'ignored' | 'rejected';
 };
 
-const CONFIRMED_NOTE = '✅ Porosia u konfirmua nga dyqani.';
+export const CONFIRMED_NOTE = '✅ Porosia u konfirmua nga dyqani.';
 const CANCELLED_NOTE = '❌ Porosia u anulua nga dyqani.';
 
 export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Promise<ActionOutcome> {
@@ -45,6 +46,8 @@ export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Pro
     body: action === 'ok' ? CONFIRMED_NOTE : CANCELLED_NOTE,
     isCustomerNote: false,
   });
+  // Tell the customer (best effort — a failed email never undoes the decision).
+  await sendOrderEmail(db, sale.id, action === 'ok' ? 'confirmed' : 'cancelled');
   return action === 'ok'
     ? { toast: `Porosia ${sale.reference} u konfirmua.`, status: 'confirmed' }
     : { toast: `Porosia ${sale.reference} u anulua.`, status: 'cancelled' };

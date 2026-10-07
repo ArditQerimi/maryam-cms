@@ -7,6 +7,7 @@ import { getTenantDb } from '@/db/index';
 import * as tenantSchema from '@/db/schema-tenant';
 import { requireAccountPrincipal } from '@/lib/account/data';
 import { getT } from '@/lib/i18n/server';
+import { confirmedOrderIds, phaseOf } from '@/lib/storefront/order-status';
 import styles from '../../account.module.css';
 
 export const metadata: Metadata = {
@@ -111,6 +112,7 @@ export default async function AccountOrderPage({
     .where(eq(tenantSchema.saleItems.saleId, order.id))
     .orderBy(asc(tenantSchema.saleItems.id));
 
+  const orderPhase = phaseOf(order.status, (await confirmedOrderIds(db, [order.id])).has(order.id));
   const billing = addressLines(order.billingAddress);
   const shipping = addressLines(order.shippingAddress);
   const payment = capabilityLabel(order.paymentMethodId);
@@ -120,7 +122,7 @@ export default async function AccountOrderPage({
       <p className={styles.orderLead}>
         {t('account.order.prefix')} <strong>#{order.reference}</strong>{' '}
         {t('account.order.placedOn')} <strong>{formatDate(order.createdAt)}</strong>{' '}
-        {t('account.order.andIs')} <strong>{order.status}</strong>.
+        {t('account.order.andIs')} <strong>{orderPhase === 'other' ? order.status : t(`account.orderPhase.${orderPhase}`)}</strong>.
       </p>
 
       <section aria-labelledby="order-details-title">

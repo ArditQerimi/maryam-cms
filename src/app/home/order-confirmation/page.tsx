@@ -11,6 +11,10 @@ import { formatPersistedCheckoutMoney } from '@/lib/storefront/checkout-money';
 import { addressLines } from '@/lib/account/addresses';
 import { buildWhatsAppOrderUrl, getWhatsAppOrderNumber } from '@/lib/storefront/whatsapp-order';
 import OpenWhatsApp from './OpenWhatsApp';
+import AutoRefresh from './AutoRefresh';
+import { getT } from '@/lib/i18n/server';
+import { getContextDb } from '@/lib/tenant';
+import { confirmedOrderIds, phaseOf, type OrderPhase } from '@/lib/storefront/order-status';
 import styles from './order-confirmation.module.css';
 
 export const metadata: Metadata = {
@@ -56,10 +60,13 @@ async function ConfirmationUnavailable() {
 async function ConfirmationDetails({
   order,
   whatsappUrl,
+  phase,
 }: {
   order: StorefrontOrderConfirmation;
   whatsappUrl: string | null;
+  phase: OrderPhase;
 }) {
+  const t = await getT();
   const paymentMethod = formatCapability(order.paymentMethodId);
   const money = (value: string | number) => formatPersistedCheckoutMoney(String(value), order.currency);
   // Shipping is what remains of the grand total after merchandise, coupon and tax.
@@ -81,7 +88,15 @@ async function ConfirmationDetails({
         </header>
 
         <div className={styles.confirmationWrap}>
-          <p className={styles.successText}>Thank you. Your order has been received.</p>
+          {phase === 'other' ? (
+            <p className={styles.successText}>Thank you. Your order has been received.</p>
+          ) : (
+            <>
+              <p className={styles.successText}>{t(`account.orderConfirm.${phase}Title`)}</p>
+              <p className={styles.payInfo}>{t(`account.orderConfirm.${phase}Lead`)}</p>
+            </>
+          )}
+          {phase === 'awaiting' ? <AutoRefresh /> : null}
 
           {whatsappUrl ? (
             <OpenWhatsApp
@@ -108,6 +123,12 @@ async function ConfirmationDetails({
               <dt>Total:</dt>
               <dd>{money(order.total)}</dd>
             </div>
+            {phase !== 'other' ? (
+              <div>
+                <dt>{t('account.orderConfirm.status')}</dt>
+                <dd>{t(`account.orderPhase.${phase}`)}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Payment method:</dt>
               <dd>{paymentMethod}</dd>
@@ -215,5 +236,7 @@ export default async function StorefrontOrderConfirmationPage() {
 
   const whatsappNumber = await getWhatsAppOrderNumber();
   const whatsappUrl = whatsappNumber ? buildWhatsAppOrderUrl(order, whatsappNumber) : null;
-  return <ConfirmationDetails order={order} whatsappUrl={whatsappUrl} />;
+  const db = await getContextDb();
+  const phase = phaseOf(order.status, (await confirmedOrderIds(db, [Number(order.orderId)])).has(Number(order.orderId)));
+  return <ConfirmationDetails order={order} whatsappUrl={whatsappUrl} phase={phase} />;
 }
