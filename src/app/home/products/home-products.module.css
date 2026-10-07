@@ -2140,3 +2140,35 @@
 .catalogPage.catalogPage .clearButton:disabled {
   cursor: default;
 }
+
+/* ---- active filter chips: the page's flat look (square, thin border, Inter) instead of beige serif pills ---- */
+.catalogPage.catalogPage .filterChips {
+  gap: 0.6rem;
+}
+
+.catalogPage.catalogPage .filterChip,
+.catalogPage.catalogPage .filterChip:focus,
+.catalogPage.catalogPage .filterChip:active {
+  min-height: 2.4rem;
+  gap: 0.55rem;
+  padding: 0.45rem 0.8rem 0.45rem 1rem;
+  border: 1px solid #e3e3e0;
+  border-radius: 0;
+  background: #f0efec;
+  box-shadow: none;
+  color: #1d1d1b;
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.catalogPage.catalogPage .filterChip:hover {
+  border-color: #6b5a22;
+  background: #f0efec;
+  color: #1d1d1b;
+}
+
+.catalogPage.catalogPage .filterChip svg {
+  color: #1d1d1b;
+}
