@@ -1,46 +1,5 @@
-import { eq } from 'drizzle-orm';
-import { settingsStore } from '@/db/schema-tenant';
-import { getContextDb } from '@/lib/tenant';
 import { formatPersistedCheckoutMoney } from './checkout-money';
 import type { StorefrontOrderConfirmation } from './checkout-order-confirmation';
-
-/** `settings_store` key edited in CMS → Settings → General. */
-export const WHATSAPP_NUMBER_SETTING = 'general_whatsapp_number';
-
-/** wa.me wants digits only, country code included (no +, spaces or leading zeros). */
-export function normalizeWhatsAppNumber(raw: string | null | undefined) {
-  const digits = String(raw ?? '').replace(/\D/g, '').replace(/^00/, '');
-  return digits.length >= 8 && digits.length <= 15 ? digits : null;
-}
-
-function parseStoredValue(raw: string) {
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return typeof parsed === 'string' || typeof parsed === 'number' ? String(parsed) : '';
-  } catch {
-    return raw;
-  }
-}
-
-/**
- * The shop's WhatsApp number: the CMS setting first, `WHATSAPP_ORDER_NUMBER`
- * (environment) as a fallback. `null` means WhatsApp ordering is not set up.
- */
-export async function getWhatsAppOrderNumber() {
-  try {
-    const db = await getContextDb();
-    const [row] = await db
-      .select({ value: settingsStore.value })
-      .from(settingsStore)
-      .where(eq(settingsStore.key, WHATSAPP_NUMBER_SETTING))
-      .limit(1);
-    const fromSettings = row ? normalizeWhatsAppNumber(parseStoredValue(row.value)) : null;
-    if (fromSettings) return fromSettings;
-  } catch {
-    // Fall through to the environment value.
-  }
-  return normalizeWhatsAppNumber(process.env.WHATSAPP_ORDER_NUMBER);
-}
 
 /**
  * The order message, built ONLY from the order as stored by the server —
@@ -77,8 +36,4 @@ export function buildWhatsAppOrderMessage(order: WhatsAppOrderSource) {
   ]
     .filter((line, index, all) => line !== '' || (index > 0 && all[index - 1] !== ''))
     .join('\n');
-}
-
-export function buildWhatsAppOrderUrl(order: StorefrontOrderConfirmation, number: string) {
-  return `https://wa.me/${number}?text=${encodeURIComponent(buildWhatsAppOrderMessage(order))}`;
 }

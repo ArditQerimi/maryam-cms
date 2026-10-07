@@ -1,12 +1,24 @@
+/*
+ * Order confirmation — same palette as the rest of the storefront: cream
+ * page, olive (#6b5a22) accent, thin warm borders. The theme paints every
+ * h1/h2/h3 in a pale colour on this page, so headings are pinned to the ink
+ * colour with a more specific selector (.page .x).
+ */
 .page {
+  --oc-ink: #1f1f1f;
+  --oc-muted: #5f635d;
+  --oc-accent: #6b5a22;
+  --oc-line: rgba(26, 26, 26, 0.14);
+  --oc-card: rgba(255, 255, 255, 0.55);
+
   min-height: 100vh;
   background: #f4f2ef;
-  color: #1f1f1f;
+  color: var(--oc-ink);
   font-family: var(--font-spectral), 'Spectral', Georgia, serif;
 }
 
 .container {
-  width: min(1240px, calc(100% - 3rem));
+  width: min(1100px, calc(100% - 3rem));
   margin: 0 auto;
 }
 
@@ -22,7 +34,7 @@
   justify-content: center;
   gap: 0.6rem;
   margin-bottom: 0.7rem;
-  color: #5f635d;
+  color: var(--oc-muted);
   font-size: 0.8rem;
 }
 
@@ -32,9 +44,10 @@
   text-decoration: none;
 }
 
-.title {
+.page .pageHeader .title {
   margin: 0;
   padding-bottom: 2.2rem;
+  color: var(--oc-ink);
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 400;
   letter-spacing: -0.04em;
@@ -42,20 +55,138 @@
 }
 
 .confirmationWrap {
+  display: grid;
+  gap: 2rem;
   padding: 2.2rem 0 5rem;
 }
 
-.successText {
-  margin: 0 0 1.5rem;
-  font-size: 1.1rem;
+/* ---- status card with progress steps ---- */
+.statusCard {
+  padding: 2.2rem 1.5rem 1.8rem;
+  border: 1px solid var(--oc-line);
+  background: var(--oc-card);
+  text-align: center;
+}
+
+.statusEyebrow {
+  margin: 0 0 0.6rem;
+  color: var(--oc-accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.page .statusCard .statusTitle {
+  margin: 0 0 0.7rem;
+  color: var(--oc-ink);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.statusLead {
+  max-width: 38rem;
+  margin: 0 auto;
+  color: var(--oc-muted);
+  font-size: 1.05rem;
   line-height: 1.6;
 }
 
+.steps {
+  display: flex;
+  justify-content: center;
+  margin: 2rem auto 0.4rem;
+  padding: 0;
+  max-width: 44rem;
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+/* the line from the previous step to this one, through the middle of the dots */
+.step + .step::before {
+  content: '';
+  position: absolute;
+  top: 0.95rem;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--oc-line);
+  z-index: 0;
+}
+
+.step_done + .step::before,
+.step_done + .step_current::before {
+  background: var(--oc-accent);
+}
+
+.stepDot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 2px solid var(--oc-line);
+  border-radius: 50%;
+  background: #f4f2ef;
+  color: var(--oc-accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.step_done .stepDot {
+  border-color: var(--oc-accent);
+  background: var(--oc-accent);
+  color: #ffffff;
+}
+
+.step_current .stepDot {
+  border-color: var(--oc-accent);
+}
+
+.stepLabel {
+  padding: 0 0.2rem;
+  color: var(--oc-muted);
+  font-size: 0.82rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.step_done .stepLabel,
+.step_current .stepLabel {
+  color: var(--oc-ink);
+}
+
+.step_current .stepLabel {
+  font-weight: 700;
+}
+
+.statusNote {
+  margin: 1.4rem 0 0;
+  color: var(--oc-muted);
+  font-size: 0.85rem;
+}
+
+/* ---- order facts ---- */
 .metaGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem 1.75rem;
-  margin: 0 0 1rem;
+  margin: 0;
+  padding: 1.3rem 1.5rem;
+  border: 1px solid var(--oc-line);
+  background: var(--oc-card);
 }
 
 .metaGrid div {
@@ -63,8 +194,8 @@
 }
 
 .metaGrid dt {
-  margin-bottom: 0.2rem;
-  color: #4b4d49;
+  margin-bottom: 0.25rem;
+  color: var(--oc-muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -73,31 +204,26 @@
 
 .metaGrid dd {
   margin: 0;
-  color: #1f1f1f;
-  font-size: 0.92rem;
-  font-weight: 400;
+  color: var(--oc-ink);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
-.payInfo {
-  margin: 0 0 2rem;
-  color: #2d2d2d;
-  font-size: 1.07rem;
-}
-
-.orderSummary {
-  margin-bottom: 3rem;
-}
-
+/* ---- items and totals ---- */
 .orderSummary h2 {
   margin: 0 0 0.8rem;
-  font-size: 1.1rem;
+  color: var(--oc-ink);
+  font-size: 1.2rem;
   font-weight: 500;
 }
 
+.page .orderSummary h2 {
+  color: var(--oc-ink);
+}
+
 .summaryTable {
-  border-top: 1px solid rgba(26, 26, 26, 0.18);
-  border-bottom: 1px solid rgba(26, 26, 26, 0.18);
-  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--oc-line);
+  background: var(--oc-card);
 }
 
 .summaryHead,
@@ -106,13 +232,18 @@
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
+  gap: 1rem;
   min-height: 3.2rem;
-  padding: 0 0.2rem;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.12);
+  padding: 0 1.2rem;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.1);
 }
 
 .summaryHead {
+  color: var(--oc-muted);
+  font-size: 0.78rem;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .summaryRow,
@@ -122,36 +253,49 @@
 
 .summaryRowTotal {
   border-bottom: none;
+  background: rgba(107, 90, 34, 0.08);
+  font-size: 1.15rem;
   font-weight: 700;
 }
 
+/* ---- addresses ---- */
 .addressGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
 }
 
-.addressCard {
-  padding: 1rem 0.5rem 0;
-}
-
 .addressCard h3 {
-  margin: 0 0 1rem;
-  font-size: 1.08rem;
+  margin: 0 0 0.7rem;
+  color: var(--oc-ink);
+  font-size: 1.1rem;
   font-weight: 500;
 }
 
+.page .addressCard h3 {
+  color: var(--oc-ink);
+}
+
 .addressBody {
-  min-height: 10rem;
-  padding: 1rem;
-  border: 1px solid rgba(26, 26, 26, 0.14);
-  background: rgba(255, 255, 255, 0.2);
+  min-height: 9rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--oc-line);
+  background: var(--oc-card);
 }
 
 .addressBody p {
   margin: 0;
   font-size: 1rem;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+/* ---- actions ---- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.9rem;
 }
 
 .noticeCard {
@@ -167,15 +311,37 @@
   font-size: 1.1rem;
 }
 
-.primaryLink {
+.primaryLink,
+.primaryLink:hover,
+.primaryLink:focus,
+.primaryLink:active,
+.primaryLink:visited {
   display: inline-flex;
   width: fit-content;
   align-items: center;
   justify-content: center;
   min-height: 2.8rem;
-  padding: 0.8rem 1rem;
-  background: #7a5e3d;
+  padding: 0.8rem 1.4rem;
+  background: var(--oc-accent);
   color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.secondaryLink,
+.secondaryLink:hover,
+.secondaryLink:focus,
+.secondaryLink:active,
+.secondaryLink:visited {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.8rem;
+  padding: 0.8rem 1.4rem;
+  border: 1px solid var(--oc-accent);
+  background: transparent;
+  color: var(--oc-accent);
   font-weight: 700;
   text-decoration: none;
 }
@@ -191,8 +357,16 @@
 }
 
 @media (max-width: 640px) {
+  .container {
+    width: calc(100% - 2rem);
+  }
+
   .metaGrid {
     grid-template-columns: 1fr;
+  }
+
+  .stepLabel {
+    font-size: 0.7rem;
   }
 
   .summaryHead,
@@ -200,44 +374,6 @@
   .summaryRowTotal {
     grid-template-columns: 1fr;
     gap: 0.25rem;
-    padding: 0.9rem 0.2rem;
+    padding: 0.9rem 1rem;
   }
-}
-
-/* "Send the order on WhatsApp" — shown once the order is stored. */
-.whatsappOrder {
-  display: grid;
-  gap: 0.6rem;
-  margin: 1.5rem 0;
-  padding: 1.25rem;
-  border: 1px solid #d9d4c3;
-  background: #faf8f1;
-  text-align: center;
-}
-
-.whatsappBtn,
-.whatsappBtn:hover,
-.whatsappBtn:focus,
-.whatsappBtn:active,
-.whatsappBtn:visited {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: center;
-  min-height: 3rem;
-  padding: 0 1.75rem;
-  border-radius: 2px;
-  background: #25d366;
-  color: #ffffff;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
-.whatsappNote {
-  margin: 0;
-  color: #5d5a4e;
-  font-size: 0.88rem;
 }
