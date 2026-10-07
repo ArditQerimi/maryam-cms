@@ -2130,3 +2130,13 @@
   cursor: default;
   text-decoration: none;
 }
+
+/* cursor: a hand when "Pastro filtrat" can be clicked, "not allowed" when there is nothing to clear */
+.catalogPage.catalogPage .clearButton:not(:disabled),
+.catalogPage.catalogPage .clearAllButton:not(:disabled) {
+  cursor: pointer;
+}
+
+.catalogPage.catalogPage .clearButton:disabled {
+  cursor: not-allowed;
+}
