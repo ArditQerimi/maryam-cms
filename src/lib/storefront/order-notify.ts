@@ -6,6 +6,7 @@ import {
   cloudSendOrderTemplate,
   whatsAppCloudConfig,
 } from '@/lib/whatsapp-cloud';
+import { twilioConfig, twilioSendWhatsApp } from '@/lib/whatsapp-twilio';
 import { buildWhatsAppOrderMessage } from './whatsapp-order';
 
 /**
@@ -130,8 +131,20 @@ export async function notifyNewOrder(db: Db, saleId: number) {
       return 'sent';
     };
 
+    /** WhatsApp through Twilio (sandbox or verified sender): plain text, reply KONFIRMO / ANULO. */
+    const sendTwilio = async (message: string, id: number) => {
+      const twilio = twilioConfig();
+      if (!twilio.configured) return 'skipped';
+      await twilioSendWhatsApp(
+        twilio.owner,
+        `${message}\n\nPër ta konfirmuar përgjigju: KONFIRMO ${id}\nPër ta anuluar: ANULO ${id}`,
+      );
+      return 'sent';
+    };
+
     const channels: Array<[string, (text: string, saleId: number) => Promise<string>]> = [
       ['whatsapp-cloud', sendCloud],
+      ['whatsapp-twilio', sendTwilio],
       ['whatsapp-agent', sendWhatsAppAgent],
       ['whatsapp-callmebot', sendCallMeBot],
     ];
