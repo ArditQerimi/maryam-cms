@@ -737,3 +737,32 @@
   box-shadow: none;
   accent-color: #6b5a22;
 }
+
+/* Custom box (the native one rendered as a dark square): white, thin border, olive + tick when ticked. */
+.checkboxControl input[type='checkbox'],
+.checkboxControl input[type='checkbox']:hover,
+.checkboxControl input[type='checkbox']:focus,
+.checkboxControl input[type='checkbox']:active {
+  -webkit-appearance: none;
+  appearance: none;
+  color-scheme: light;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 1.15rem;
+  padding: 0;
+  border: 1px solid #8f8f8f;
+  border-radius: 0;
+  background-color: #ffffff;
+  background-image: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.checkboxControl input[type='checkbox']:checked {
+  border-color: #6b5a22;
+  background-color: #6b5a22;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 80%;
+}

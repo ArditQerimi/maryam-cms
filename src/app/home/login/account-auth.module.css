@@ -217,3 +217,42 @@
   box-shadow: none;
   accent-color: var(--ac-olive);
 }
+
+/*
+ * Terms checkbox, fully custom (no native rendering, which showed as a dark square):
+ * white box with a thin grey border; olive with a white tick when ticked.
+ */
+.panel input[type='checkbox'],
+.panel input[type='checkbox']:hover,
+.panel input[type='checkbox']:focus,
+.panel input[type='checkbox']:active {
+  -webkit-appearance: none;
+  appearance: none;
+  color-scheme: light;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  flex: 0 0 1.15rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  border: 1px solid #8f8f8f;
+  border-radius: 0;
+  background-color: #ffffff;
+  background-image: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.panel input[type='checkbox']:checked {
+  border-color: var(--ac-olive);
+  background-color: var(--ac-olive);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 80%;
+}
+
+.panel input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--ac-olive);
+  outline-offset: 2px;
+}
