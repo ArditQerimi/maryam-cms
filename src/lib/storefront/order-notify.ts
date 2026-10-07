@@ -106,6 +106,30 @@ async function sendCallMeBot(text: string) {
   return 'sent';
 }
 
+async function sendTelegram(text: string, saleId: number) {
+  const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
+  const chatId = process.env.TELEGRAM_CHAT_ID ?? '';
+  if (!token || !chatId) return 'skipped';
+  await post(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      // The buttons carry only the action and the order id; the webhook re-checks everything server-side.
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Konfirmo', callback_data: `ok:${saleId}` },
+            { text: '❌ Anulo', callback_data: `no:${saleId}` },
+          ],
+        ],
+      },
+    }),
+  });
+  return 'sent';
+}
+
 /** Tell the shop about a freshly stored order. Never throws. */
 export async function notifyNewOrder(db: Db, saleId: number) {
   try {
@@ -143,6 +167,7 @@ export async function notifyNewOrder(db: Db, saleId: number) {
     };
 
     const channels: Array<[string, (text: string, saleId: number) => Promise<string>]> = [
+      ['telegram', sendTelegram],
       ['whatsapp-cloud', sendCloud],
       ['whatsapp-twilio', sendTwilio],
       ['whatsapp-agent', sendWhatsAppAgent],
