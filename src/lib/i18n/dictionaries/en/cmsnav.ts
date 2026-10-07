@@ -28,6 +28,7 @@ export const cmsnav = {
   'cmsnav.item.discussion': 'Discussion',
   'cmsnav.item.permalinks': 'Permalinks',
   'cmsnav.item.email': 'Email',
+  'cmsnav.item.whatsapp': 'WhatsApp',
   'cmsnav.item.payments': 'Payments',
   'cmsnav.item.tax': 'Tax',
   'cmsnav.item.builder': 'Page builder',

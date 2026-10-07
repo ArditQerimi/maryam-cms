@@ -29,6 +29,7 @@ export const cmsnav: typeof cmsnavEn = {
   'cmsnav.item.discussion': 'Diskutimi',
   'cmsnav.item.permalinks': 'Lidhjet e qëndrueshme',
   'cmsnav.item.email': 'Email-i',
+  'cmsnav.item.whatsapp': 'WhatsApp',
   'cmsnav.item.payments': 'Pagesat',
   'cmsnav.item.tax': 'Tatimi',
   'cmsnav.item.builder': 'Ndërtuesi i faqes',
