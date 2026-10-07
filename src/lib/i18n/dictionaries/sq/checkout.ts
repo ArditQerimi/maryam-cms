@@ -4,6 +4,10 @@ export const checkout: typeof checkoutEn = {
   // — Ballina / ballina e porosisë —
   'checkout.crumb.home': 'Ballina',
   'checkout.crumb.cart': 'Shporta',
+  'checkout.verify.eyebrow': "Edhe një hap",
+  'checkout.verify.title': "Konfirmo email-in për të bërë porosinë",
+  'checkout.verify.copy': "Të dërguam një lidhje konfirmimi te {email}. Hape, pastaj kthehu këtu për ta përfunduar porosinë. Njoftimet e porosisë dërgohen në këtë adresë.",
+  'checkout.verify.resend': "Dërgo lidhjen sërish",
   'checkout.crumb.checkout': 'Përfundo porosinë',
   'checkout.header.eyebrow': 'Porosia në dyqan',
   'checkout.header.title': 'Përfundo porosinë',

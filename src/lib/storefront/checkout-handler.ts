@@ -19,6 +19,7 @@ import {
 import { CheckoutServiceError, placeStorefrontCheckout } from './checkout-service';
 import { notifyNewOrder } from './order-notify';
 import { sendOrderEmail } from './order-email';
+import { isEmailVerified, requiresVerifiedEmail } from './email-verification';
 import {
   CheckoutValidationError,
   parseCheckoutRequest,
@@ -202,6 +203,21 @@ export async function handleStorefrontCheckout(request: NextRequest) {
     // cart mutation or order row exists (visitors can browse, not order).
     const context = await getStorefrontContext(request, { allowGuest: false });
     assertMutationOrigin(request, context);
+    // No order without a confirmed email address: every order email must reach the customer.
+    if (
+      context.customer
+      && requiresVerifiedEmail(context.session)
+      && !(await isEmailVerified(context.db, context.customer.id))
+    ) {
+      return noStoreJson(
+        failure(
+          'email-not-verified',
+          'Confirm your email address before placing an order. Open the link we emailed you, or request a new one.',
+          false,
+        ),
+        403,
+      );
+    }
     const config = loadCheckoutRuntimeConfig(process.env, context.company.subdomain);
     const idempotencyKey = parseIdempotencyKey(request.headers.get('idempotency-key'));
     const body = await readBoundedCheckoutJson(request);

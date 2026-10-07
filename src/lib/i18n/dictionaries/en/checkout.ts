@@ -3,6 +3,10 @@ export const checkout = {
   // — Breadcrumb / page header —
   'checkout.crumb.home': 'Home',
   'checkout.crumb.cart': 'Cart',
+  'checkout.verify.eyebrow': "One more step",
+  'checkout.verify.title': "Confirm your email to place an order",
+  'checkout.verify.copy': "We sent a confirmation link to {email}. Open it, then come back here to finish your order. Order updates are sent to this address.",
+  'checkout.verify.resend': "Send the link again",
   'checkout.crumb.checkout': 'Checkout',
   'checkout.header.eyebrow': 'Storefront checkout',
   'checkout.header.title': 'Checkout',
