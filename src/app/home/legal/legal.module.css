@@ -857,3 +857,59 @@
   gap: 0.9rem 1.2rem;
   margin-top: 1rem;
 }
+
+/*
+ * The theme injects `.shopWrapper.shopWrapper h1..h6 { color: var(--cms-text) }` (specificity
+ * 0,2,1) AFTER this stylesheet, so a single `.page` was not enough: the title of the
+ * "seller details" card stayed pale. `.page.page` outranks it.
+ */
+.page.page .heroTitle,
+.page.page .section h2,
+.page.page .section h3,
+.page.page .merchantCard h2 {
+  color: var(--legal-ink);
+}
+
+/* ---- policy tabs: the storefront's flat cards and olive accent (no heavy shadow, no black) ---- */
+.page .policyNav {
+  border: 1px solid var(--legal-line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+}
+
+.page .policyNavLabel {
+  color: var(--legal-muted);
+}
+
+.page .policyNavLink,
+.page .policyNavLink:visited {
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--legal-ink);
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600;
+}
+
+.page .policyNavLink:hover,
+.page .policyNavLink:focus-visible {
+  border-color: var(--legal-line);
+  background: rgba(107, 90, 34, 0.08);
+  color: var(--legal-accent);
+}
+
+.page .currentPolicy,
+.page .currentPolicy:visited,
+.page .currentPolicy:hover,
+.page .currentPolicy:focus,
+.page .currentPolicy:active {
+  border-color: var(--legal-accent);
+  background: var(--legal-accent);
+  color: #ffffff;
+}
+
+.page .merchantCard {
+  border-radius: 0;
+  box-shadow: none;
+}
