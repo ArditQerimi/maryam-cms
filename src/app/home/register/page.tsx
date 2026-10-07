@@ -13,6 +13,7 @@ import { getContextCompany } from '@/lib/tenant';
 import { getT } from '@/lib/i18n/server';
 import { getSafeReturnTo, withSafeReturnTo } from '../login/safe-return-to';
 import RegisterForm from './RegisterForm';
+import ShopPageHeader from '../components/ShopPageHeader';
 import styles from './register.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -70,17 +71,10 @@ export default async function ShopRegisterPage({ searchParams }: RegisterPagePro
 
   return (
     <div className={styles.page}>
-      <div className={styles.breadcrumbBar}>
-        <nav className={styles.breadcrumbNav} aria-label="Breadcrumb">
-          <ol>
-            <li>
-              <Link href="/home">{t('auth.crumb.home')}</Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page">{t('auth.crumb.createAccount')}</li>
-          </ol>
-        </nav>
-      </div>
+      <ShopPageHeader
+        title={t('auth.crumb.createAccount')}
+        crumbs={[{ label: t('auth.crumb.createAccount') }]}
+      />
 
       <div className={styles.main}>
         <div className={styles.layout}>

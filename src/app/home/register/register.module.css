@@ -766,3 +766,66 @@
   background-repeat: no-repeat;
   background-size: 80%;
 }
+
+/* ---- same look as the other storefront pages: shared header, flat background, olive buttons ---- */
+.page {
+  background: #ffffff;
+}
+
+.main::before,
+.main::after {
+  display: none;
+}
+
+.page.page .intro h1,
+.page.page .successCard h1,
+.page.page .successCard h2 {
+  color: var(--auth-ink);
+}
+
+.successCard {
+  border: 1px solid #e8e6e2;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.successCard h1 {
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.successIcon {
+  border: 1px solid rgba(107, 90, 34, 0.35);
+  background: rgba(107, 90, 34, 0.08);
+  color: #6b5a22;
+}
+
+.page .successPrimary,
+.page .successPrimary:hover,
+.page .successPrimary:focus,
+.page .successPrimary:active,
+.page .successPrimary:visited {
+  border-color: #6b5a22;
+  border-radius: 0;
+  background: #6b5a22;
+  color: #ffffff;
+}
+
+.page .successSecondary,
+.page .successSecondary:hover,
+.page .successSecondary:focus,
+.page .successSecondary:active,
+.page .successSecondary:visited {
+  border-color: #6b5a22;
+  border-radius: 0;
+  background: transparent;
+  color: #6b5a22;
+}
+
+.page .eyebrow,
+.page .cardKicker {
+  color: #6b5a22;
+}
