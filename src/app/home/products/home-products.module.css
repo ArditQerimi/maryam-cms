@@ -2079,3 +2079,29 @@
     row-gap: 4.6rem;
   }
 }
+
+/* ---- "Pastro filtrat" and the price range line: readable, not tiny underlined fine print ---- */
+.catalogPage .clearButton,
+.catalogPage .clearAllButton {
+  color: #6b5a22;
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration-color: rgba(107, 90, 34, 0.45);
+}
+
+.catalogPage .clearButton:hover:not(:disabled),
+.catalogPage .clearAllButton:hover:not(:disabled) {
+  color: #6b5a22;
+  text-decoration-color: currentColor;
+}
+
+.catalogPage .clearButton:disabled {
+  color: #a8a8a3;
+}
+
+.catalogPage .priceHint {
+  color: #5f5f5b;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
