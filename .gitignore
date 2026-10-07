@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local backups made by scripts/migrate-blocks-to-layout.mjs
 /.backups/
+
+# keep the documented template
+!.env.example
