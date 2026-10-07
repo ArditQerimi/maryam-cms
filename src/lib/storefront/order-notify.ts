@@ -1,6 +1,11 @@
 import { asc, eq } from 'drizzle-orm';
 import * as schema from '@/db/schema-tenant';
 import type { StorefrontContext } from './context';
+import {
+  cloudSendOrderButtons,
+  cloudSendOrderTemplate,
+  whatsAppCloudConfig,
+} from '@/lib/whatsapp-cloud';
 import { buildWhatsAppOrderMessage } from './whatsapp-order';
 
 /**
@@ -107,7 +112,26 @@ export async function notifyNewOrder(db: Db, saleId: number) {
     if (!order) return;
     const text = `🛒 Porosi e re\n\n${buildWhatsAppOrderMessage(order)}`;
 
+    /** Official WhatsApp Cloud API: reply buttons first; the approved template when the 24h window is closed. */
+    const sendCloud = async (message: string, id: number) => {
+      const cloud = whatsAppCloudConfig();
+      if (!cloud.configured) return 'skipped';
+      try {
+        await cloudSendOrderButtons(cloud.owner, message, id);
+      } catch (error) {
+        if (!cloud.template) throw error;
+        const summary = order.lines.map((line) => `${line.name} x${line.quantity}`).join(', ');
+        await cloudSendOrderTemplate(cloud.owner, cloud.template, [
+          order.orderNumber,
+          summary,
+          `${order.total} ${order.currency}`,
+        ]);
+      }
+      return 'sent';
+    };
+
     const channels: Array<[string, (text: string, saleId: number) => Promise<string>]> = [
+      ['whatsapp-cloud', sendCloud],
       ['whatsapp-agent', sendWhatsAppAgent],
       ['whatsapp-callmebot', sendCallMeBot],
     ];
