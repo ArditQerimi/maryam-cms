@@ -1544,3 +1544,12 @@
   box-shadow: none;
   outline: none;
 }
+
+/*
+ * Cart drawer title: the theme injects `.shopWrapper.shopWrapper h2 { color: var(--cms-text) }`
+ * (specificity 0,2,1) after this stylesheet, which turned "Shporta e blerjeve" dark on the
+ * olive bar in the live build. Doubling the panel class outranks it.
+ */
+.site-cart-panel.site-cart-panel h2.site-cart-title {
+  color: #ffffff;
+}
