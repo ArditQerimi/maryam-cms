@@ -35,6 +35,7 @@ export type SmtpTransportConfig = {
 export type SendEmailOutcome =
   | { ok: true; provider: 'resend'; detail: string }
   | { ok: true; provider: 'smtp'; detail: string }
+  | { ok: true; provider: 'brevo'; detail: string }
   | { ok: false; notConfigured: true }
   | { ok: false; error: string };
 
@@ -75,6 +76,34 @@ async function deliverEmail(input: {
       });
       if (error) return { ok: false, error: error.message };
       return { ok: true, provider: 'resend', detail: data?.id || 'accepted' };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  // Brevo over HTTPS: for hosts that block outbound SMTP ports (Render).
+  const brevoKey = process.env.BREVO_API_KEY?.trim();
+  if (brevoKey) {
+    try {
+      const fallback = smtpFromEnv();
+      const senderEmail = (process.env.BREVO_FROM ?? fallback?.from ?? '').trim();
+      if (!senderEmail) return { ok: false, error: 'BREVO_FROM (verified sender address) is not set' };
+      const senderName = (process.env.BREVO_FROM_NAME ?? fallback?.fromName ?? '').trim();
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': brevoKey, 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
+          sender: { email: senderEmail, ...(senderName ? { name: senderName } : {}) },
+          to: [{ email: input.to }],
+          subject: input.subject,
+          htmlContent: html,
+          ...(input.text ? { textContent: input.text } : {}),
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { messageId?: string; message?: string };
+      if (!response.ok) return { ok: false, error: `Brevo ${response.status}: ${payload.message ?? 'request failed'}` };
+      return { ok: true, provider: 'brevo', detail: payload.messageId || 'accepted' };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
