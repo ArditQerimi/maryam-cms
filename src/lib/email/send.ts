@@ -88,6 +88,8 @@ async function deliverEmail(input: {
         port: smtp.port,
         secure: smtp.secure,
         requireTLS: smtp.requireTLS,
+        // Hosts such as Render have no outbound IPv6: Gmail's AAAA record would fail with ENETUNREACH.
+        family: 4,
         ...(smtp.user ? { auth: { user: smtp.user, pass: smtp.pass } } : {}),
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
