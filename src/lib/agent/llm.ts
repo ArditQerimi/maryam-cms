@@ -13,7 +13,7 @@
 type Provider = { baseUrl: string; model: string };
 
 const PROVIDERS: Record<string, Provider> = {
-  groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+  groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' },
   openrouter: { baseUrl: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free' },
   mistral: { baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-small-latest' },
   gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-flash-latest' },
@@ -63,19 +63,31 @@ export async function chat(input: {
   const { key, baseUrl, model } = settings();
   if (!key) throw new LlmError('AGENT_API_KEY is not set', 503);
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'system', content: input.system }, ...input.messages],
-      tools: input.tools.map((tool) => ({ type: 'function', function: tool })),
-      tool_choice: 'auto',
-      temperature: 0.4,
-      max_tokens: 900,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const request = () =>
+    fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'system', content: input.system }, ...input.messages],
+        tools: input.tools.map((tool) => ({ type: 'function', function: tool })),
+        tool_choice: 'auto',
+        temperature: 0.4,
+        max_tokens: 900,
+        // gpt-oss reasons before answering; a little is enough here and saves the free token quota.
+        ...(model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+  let response = await request();
+  if (response.status === 429) {
+    // Free tiers cap tokens per minute: wait the few seconds the provider asks for, once.
+    const asked = Number(response.headers.get('retry-after'));
+    const waitMs = Math.min(Number.isFinite(asked) && asked > 0 ? asked * 1000 : 4000, 8000);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    response = await request();
+  }
 
   const payload = (await response.json().catch(() => ({}))) as {
     choices?: Array<{ message?: { content?: string | null; tool_calls?: LlmToolCall[] } }>;

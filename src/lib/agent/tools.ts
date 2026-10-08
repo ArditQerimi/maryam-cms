@@ -129,6 +129,11 @@ function text(value: unknown, max: number) {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 }
 
+const STOP_WORDS = new Set([
+  'per', 'për', 'keni', 'ka', 'kam', 'dua', 'deshiron', 'desha', 'nje', 'një', 'the', 'and', 'for',
+  'çfarë', 'cfare', 'sa', 'si', 'ne', 'në', 'me', 'te', 'të', 'dhe', 'ose', 'jam', 'jeni', 'mund',
+]);
+
 function money(value: string | number) {
   return Number(value).toFixed(2);
 }
@@ -152,18 +157,27 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     .where(eq(products.status, 'Active'))
     .limit(2000);
 
-  const words = query.split(' ').filter(Boolean);
+  // Albanian words change their ending (teuhid / teuhidin / teuhidit): match on the stem, and rank
+  // by how many words match (name counts double, description once).
+  const words = query
+    .split(' ')
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
+    .map((word) => (word.length > 5 ? word.slice(0, word.length - 2) : word));
+  if (words.length === 0) return { products: [], note: 'Shkruaj emrin e produktit ose një fjalë kyçe.' };
   const matches = rows
     .map((row) => {
       const name = foldSearchText(row.name);
-      const haystack = `${name} ${foldSearchText(row.sku ?? '')}`;
-      if (!words.every((word) => haystack.includes(word))) return null;
-      const rank = name.startsWith(query) ? 0 : name.includes(query) ? 1 : 2;
-      return { row, rank };
+      const rest = `${foldSearchText(row.sku ?? '')} ${foldSearchText(row.description ?? '')}`;
+      let score = 0;
+      for (const word of words) {
+        if (name.includes(word)) score += 2;
+        else if (rest.includes(word)) score += 1;
+      }
+      return score > 0 ? { row, score } : null;
     })
-    .filter((entry): entry is { row: (typeof rows)[number]; rank: number } => entry !== null)
-    .sort((a, b) => a.rank - b.rank || a.row.name.length - b.row.name.length)
-    .slice(0, 6)
+    .filter((entry): entry is { row: (typeof rows)[number]; score: number } => entry !== null)
+    .sort((a, b) => b.score - a.score || a.row.name.length - b.row.name.length)
+    .slice(0, 5)
     .map(({ row }) => row);
   if (matches.length === 0) return { products: [], note: 'Nuk u gjet asnjë produkt me këtë kërkim.' };
 
@@ -197,7 +211,7 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
       return {
         productId: row.id,
         name: row.name,
-        description: text(row.description, 160) || undefined,
+        description: text(row.description, 110) || undefined,
         inStock,
         stockLeft: inStock ? Math.min(row.stock ?? 0, 20) : 0,
         variants: priced,
