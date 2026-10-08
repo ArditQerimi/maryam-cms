@@ -1,3 +1,4 @@
+import { lookup } from 'node:dns/promises';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
@@ -83,13 +84,20 @@ async function deliverEmail(input: {
   const smtp: SmtpTransportConfig | null = input.smtp?.host ? input.smtp : smtpFromEnv();
   if (smtp?.host) {
     try {
+      // Hosts such as Render have no outbound IPv6, yet Gmail's AAAA record is tried first
+      // (ENETUNREACH): connect to the IPv4 address and keep the real name for TLS.
+      let connectHost = smtp.host;
+      try {
+        connectHost = (await lookup(smtp.host, { family: 4 })).address;
+      } catch {
+        // No A record / lookup failed: let nodemailer resolve it.
+      }
       const transport = nodemailer.createTransport({
-        host: smtp.host,
+        host: connectHost,
         port: smtp.port,
         secure: smtp.secure,
         requireTLS: smtp.requireTLS,
-        // Hosts such as Render have no outbound IPv6: Gmail's AAAA record would fail with ENETUNREACH.
-        family: 4,
+        tls: { servername: smtp.host },
         ...(smtp.user ? { auth: { user: smtp.user, pass: smtp.pass } } : {}),
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
