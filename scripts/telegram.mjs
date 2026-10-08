@@ -59,6 +59,49 @@ if (command === 'whoami') {
       console.log(`update ${update.update_id} -> ${response ? response.status : 'shop unreachable'}`);
     }
   }
+} else if (command === 'agent-webhook' || command === 'agent-poll') {
+  // The customer-facing assistant bot (a separate bot from the order bot above).
+  const agentToken = process.env.TELEGRAM_AGENT_BOT_TOKEN;
+  const agentSecret = process.env.TELEGRAM_AGENT_WEBHOOK_SECRET;
+  if (!agentToken || !agentSecret) throw new Error('TELEGRAM_AGENT_BOT_TOKEN and TELEGRAM_AGENT_WEBHOOK_SECRET must be set');
+  const agentApi = (method, body) =>
+    fetch(`https://api.telegram.org/bot${agentToken}/${method}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    }).then((r) => r.json());
+
+  if (command === 'agent-webhook') {
+    if (!arg) throw new Error('usage: agent-webhook <https://shop-domain>');
+    console.log(
+      await agentApi('setWebhook', {
+        url: `${arg.replace(/\/+$/, '')}/api/agent/telegram`,
+        secret_token: agentSecret,
+        allowed_updates: ['message'],
+      }),
+    );
+  } else {
+    const target = process.env.SHOP_LOCAL_URL || 'http://localhost:3003';
+    await agentApi('deleteWebhook', {});
+    console.log(`Polling the assistant bot, forwarding messages to ${target}/api/agent/telegram (Ctrl+C to stop)`);
+    let offset = 0;
+    for (;;) {
+      const updates = await agentApi('getUpdates', { offset, timeout: 25, allowed_updates: ['message'] }).catch(() => null);
+      if (!updates) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        continue;
+      }
+      for (const update of updates.result ?? []) {
+        offset = update.update_id + 1;
+        const response = await fetch(`${target}/api/agent/telegram`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': agentSecret },
+          body: JSON.stringify(update),
+        }).catch(() => null);
+        console.log(`update ${update.update_id} -> ${response ? response.status : 'shop unreachable'}`);
+      }
+    }
+  }
 } else {
-  console.log('usage: whoami | poll | webhook <url>');
+  console.log('usage: whoami | poll | webhook <url> | agent-poll | agent-webhook <url>');
 }

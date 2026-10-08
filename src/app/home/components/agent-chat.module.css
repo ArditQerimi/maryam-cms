@@ -1,0 +1,223 @@
+/*
+ * Shop assistant chat. Flat, square and olive like the rest of the shop (cart drawer, buttons);
+ * no colour changes on hover/focus. Sits below the cart / menu overlays (z-index 90+).
+ */
+.root {
+  --chat-olive: #6b5a22;
+  --chat-cream: #f4f2ef;
+  --chat-ink: #1d1d1b;
+  --chat-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 80;
+  font-family: var(--chat-sans);
+}
+
+.launcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--chat-olive);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.launcher:hover,
+.launcher:focus,
+.launcher:active {
+  background: var(--chat-olive);
+  color: #ffffff;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(23.5rem, calc(100vw - 2.5rem));
+  height: min(34rem, calc(100vh - 6rem));
+  background: #ffffff;
+  border: 1px solid #dcd8d0;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--chat-olive);
+  color: #ffffff;
+}
+
+.head div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.head strong {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.head span {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.close {
+  display: flex;
+  padding: 0.2rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.close:hover,
+.close:focus,
+.close:active {
+  background: transparent;
+  color: #ffffff;
+}
+
+.list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--chat-cream);
+}
+
+.bubble {
+  max-width: 86%;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubble a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.assistant {
+  align-self: flex-start;
+  background: #ffffff;
+  color: var(--chat-ink);
+  border: 1px solid #e3dfd6;
+}
+
+.user {
+  align-self: flex-end;
+  background: var(--chat-olive);
+  color: #ffffff;
+}
+
+.typing {
+  display: flex;
+  gap: 0.28rem;
+  padding: 0.75rem 0.85rem;
+}
+
+.typing i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #9b9684;
+  animation: chat-dot 1.1s infinite ease-in-out;
+}
+
+.typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.form {
+  display: flex;
+  border-top: 1px solid #dcd8d0;
+  background: #ffffff;
+}
+
+.form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: #ffffff;
+  color: var(--chat-ink);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.form input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: var(--chat-ink);
+}
+
+.form button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--chat-olive);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.form button:hover,
+.form button:focus,
+.form button:active {
+  background: var(--chat-olive);
+  color: #ffffff;
+}
+
+.form button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .root {
+    right: 0.75rem;
+    bottom: 0.75rem;
+  }
+
+  .panel {
+    width: calc(100vw - 1.5rem);
+    height: min(34rem, calc(100vh - 5rem));
+  }
+}
