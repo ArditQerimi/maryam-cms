@@ -50,7 +50,7 @@ export function resendFromAddress(): string {
   return process.env.RESEND_FROM?.trim() || RESEND_DEFAULT_FROM;
 }
 
-export async function sendEmail(input: {
+async function deliverEmail(input: {
   to: string;
   subject: string;
   react: ReactElement;
@@ -106,4 +106,22 @@ export async function sendEmail(input: {
   }
 
   return { ok: false, notConfigured: true };
+}
+
+/**
+ * Sends one email and always leaves a trace in the server log (never the password or the
+ * message body): callers mostly ignore the outcome, so without this a failed delivery
+ * (blocked SMTP port, wrong app password, missing variables) is invisible.
+ */
+export async function sendEmail(input: Parameters<typeof deliverEmail>[0]): Promise<SendEmailOutcome> {
+  const outcome = await deliverEmail(input);
+  const domain = input.to.split('@')[1] ?? '?';
+  if (outcome.ok) {
+    console.info(`[email] sent via ${outcome.provider} to *@${domain}: ${input.subject}`);
+  } else if ('notConfigured' in outcome) {
+    console.error('[email] NOT SENT: no email provider configured (set SMTP_HOST/SMTP_USER/SMTP_PASS or RESEND_API_KEY)');
+  } else {
+    console.error(`[email] FAILED to *@${domain}: ${outcome.error}`);
+  }
+  return outcome;
 }
