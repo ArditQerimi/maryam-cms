@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAgentContext } from '@/lib/agent/context';
-import { isGeminiConfigured } from '@/lib/agent/gemini';
+import { isAgentConfigured } from '@/lib/agent/llm';
 import { runAgent, type ChatTurn } from '@/lib/agent/run';
 import { assertMutationOrigin } from '@/lib/storefront/context';
+import { isStorefrontError } from '@/lib/storefront/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ function clientKey(request: NextRequest) {
 
 /** Website chat: POST { message, history: [{ role, text }] } → { reply }. */
 export async function POST(request: NextRequest) {
-  if (!isGeminiConfigured()) {
+  if (!isAgentConfigured()) {
     return NextResponse.json({ error: 'agent-unavailable' }, { status: 503 });
   }
   const length = Number(request.headers.get('content-length') ?? 0);
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ reply }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
+    if (isStorefrontError(error) && error.status < 500) {
+      return NextResponse.json({ error: error.code }, { status: error.status });
+    }
     console.error('[agent] chat route failed', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'agent-unavailable' }, { status: 503 });
   }

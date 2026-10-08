@@ -21,7 +21,7 @@ import { notifyNewOrder } from '@/lib/storefront/order-notify';
 import { sendOrderEmail } from '@/lib/storefront/order-email';
 import { orderPhases, type OrderPhase } from '@/lib/storefront/order-status';
 import { allowRequest } from '@/lib/in-memory-rate-limit';
-import type { GeminiFunctionDeclaration } from './gemini';
+import type { LlmTool } from './llm';
 
 export type AgentChannel = 'web' | 'telegram';
 
@@ -39,7 +39,7 @@ type ToolResult = Record<string, unknown>;
 const MAX_ORDER_LINES = 10;
 const MAX_LINE_QUANTITY = 10;
 
-export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
+export const TOOL_DECLARATIONS: LlmTool[] = [
   {
     name: 'search_products',
     description:
@@ -186,11 +186,13 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
   return {
     products: matches.map((row) => {
       const own = variants.filter((variant) => variant.productId === row.id);
-      const priced = own.map((variant) => ({
-        variantId: variant.id,
-        name: variant.name,
-        price: money(priceProduct(variant.price, row.id, row.categoryId, discounts).salePrice),
-      }));
+      const priced = own.map((variant) => {
+        const sale = priceProduct(variant.price, row.id, row.categoryId, discounts).salePrice;
+        // A zero list price means "no price set" in the catalog: never sell it through chat.
+        return sale > 0
+          ? { variantId: variant.id, name: variant.name, price: money(sale) }
+          : { variantId: variant.id, name: variant.name, price: null, orderable: false };
+      });
       const inStock = (row.stock ?? 0) > 0;
       return {
         productId: row.id,
@@ -262,6 +264,15 @@ async function placeOrder(env: ToolEnv, args: Record<string, unknown>): Promise<
     lines.push({ productId, variantId, quantity });
   }
   if (lines.length === 0) return { ok: false, error: 'Porosia nuk ka asnjë produkt.' };
+
+  // Variants without a price are not sold through chat (the model never decides prices).
+  const unpriced = await env.context.db
+    .select({ id: productVariants.id, price: productVariants.price })
+    .from(productVariants)
+    .where(inArray(productVariants.id, lines.map((line) => line.variantId)));
+  if (unpriced.length !== new Set(lines.map((line) => line.variantId)).size || unpriced.some((row) => Number(row.price) <= 0)) {
+    return { ok: false, error: 'Një nga produktet nuk ka çmim të caktuar ose nuk ekziston; kërkoji klientit të kontaktojë dyqanin për të.' };
+  }
 
   const country = (text(args.country, 2) || 'XK').toUpperCase();
   const address = {

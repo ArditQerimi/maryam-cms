@@ -1,5 +1,5 @@
 import { allowRequest } from '@/lib/in-memory-rate-limit';
-import { generate, type GeminiContent, GeminiError } from './gemini';
+import { chat, LlmError, type LlmMessage } from './llm';
 import { TOOL_DECLARATIONS, runTool, type ToolEnv } from './tools';
 
 export type ChatTurn = { role: 'user' | 'assistant'; text: string };
@@ -20,6 +20,7 @@ function systemPrompt(shopName: string) {
 
 Rregulla të patëkundshme:
 - Çmimin, stokun, përshkrimin e produktit dhe dërgesën i merr GJITHMONË nga veglat (search_products, get_shop_info). Mos shpik asgjë. Nëse vegla nuk gjen, thuaj që nuk e gjen.
+- Nëse një produkt/variant ka price null ose orderable false, nuk ka çmim të caktuar: mos e shit, thuaj që për të duhet të kontaktojë dyqanin (notify_shop nëse e kërkon).
 - Nuk ndryshon çmime, nuk jep zbritje dhe nuk premton gjë që s'është në sistem. Kupon pranon vetëm nëse klienti jep kodin; sistemi e kontrollon vetë.
 - Ti nuk merr pagesa. Pagesa është me para në dorë (cash) kur dorëzohet porosia.
 - Për të marrë porosi të duhen: produktet (me sasi), emri dhe mbiemri, telefoni, emaili, adresa, qyteti dhe shteti (default Kosovë, XK). Kodin postar e kërkon vetëm nëse e di klienti. Kërko vetëm çka mungon, pak nga pak.
@@ -62,41 +63,42 @@ export async function runAgent(input: {
     return 'Po shkruani shumë shpejt. Prisni pak minuta dhe provoni sërish.';
   }
 
-  const contents: GeminiContent[] = [
-    ...normalizeHistory(input.history).map((turn) => ({
-      role: turn.role === 'user' ? ('user' as const) : ('model' as const),
-      parts: [{ text: turn.text }],
-    })),
-    { role: 'user', parts: [{ text: input.message.slice(0, MAX_TURN_CHARS) }] },
+  const messages: LlmMessage[] = [
+    ...normalizeHistory(input.history).map((turn): LlmMessage =>
+      turn.role === 'user'
+        ? { role: 'user', content: turn.text }
+        : { role: 'assistant', content: turn.text },
+    ),
+    { role: 'user', content: input.message.slice(0, MAX_TURN_CHARS) },
   ];
-  // The model needs to start with a user turn.
-  while (contents.length > 1 && contents[0].role !== 'user') contents.shift();
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
       if (!withinDailyLimit()) return FALLBACK_REPLY;
-      const reply = await generate({
+      const reply = await chat({
         system: systemPrompt(input.shopName),
-        contents,
+        messages,
         tools: TOOL_DECLARATIONS,
       });
-      const calls = reply.parts.filter((part) => part.functionCall);
-      if (calls.length === 0) {
-        const answer = reply.parts.map((part) => part.text ?? '').join('').trim();
-        return answer || FALLBACK_REPLY;
+      const calls = reply.tool_calls ?? [];
+      if (calls.length === 0) return reply.content?.trim() || FALLBACK_REPLY;
+
+      messages.push(reply);
+      for (const call of calls) {
+        let args: Record<string, unknown> = {};
+        try {
+          const parsed: unknown = JSON.parse(call.function.arguments || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
+        } catch {
+          // Malformed arguments: the tool validates and answers with an error the model can fix.
+        }
+        const result = await runTool(env, call.function.name, args);
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
       }
-      contents.push(reply);
-      const responses = [];
-      for (const part of calls) {
-        const call = part.functionCall!;
-        const result = await runTool(env, call.name, call.args ?? {});
-        responses.push({ functionResponse: { name: call.name, response: { result } } });
-      }
-      contents.push({ role: 'user', parts: responses });
     }
     return FALLBACK_REPLY;
   } catch (error) {
-    console.error('[agent] failed', error instanceof GeminiError ? `${error.status} ${error.message}` : error);
+    console.error('[agent] failed', error instanceof LlmError ? `${error.status} ${error.message}` : error);
     return FALLBACK_REPLY;
   }
 }

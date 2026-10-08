@@ -14,7 +14,7 @@ import ShopHeader from './components/ShopHeader';
 import ShopFooter from './components/ShopFooter';
 import ShopProviders from './components/ShopProviders';
 import AgentChat from './components/AgentChat';
-import { isGeminiConfigured } from '@/lib/agent/gemini';
+import { isAgentConfigured } from '@/lib/agent/llm';
 import PreviewBridge from '@/components/appearance/PreviewBridge';
 import { buildThemeCss, getStorefrontTheme } from '@/lib/theme/apply-theme';
 import { EMPTY_ACTIVE_NAV_MENU, getActiveNavMenu } from '@/lib/theme/storefront-nav';
@@ -139,8 +139,8 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
             presentation={presentation || undefined}
             customizations={footerCustomizations}
           />
-          {/* Shop assistant: only when a Gemini key is configured (see lib/agent). */}
-          {isGeminiConfigured() ? <AgentChat /> : null}
+          {/* Shop assistant: only when a model key is configured (see lib/agent). */}
+          {isAgentConfigured() ? <AgentChat /> : null}
         </div>
       </ShopProviders>
     </LocaleProvider>
