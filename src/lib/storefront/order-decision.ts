@@ -1,5 +1,5 @@
-import { and, eq } from 'drizzle-orm';
-import { orderNotes, sales } from '@/db/schema-tenant';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { orderNotes, productStocks, productVariants, products, saleItems, sales } from '@/db/schema-tenant';
 import { getContextDb } from '@/lib/tenant';
 import { after } from 'next/server';
 import { getRequestOrigin } from '@/lib/email/origin';
@@ -101,7 +101,18 @@ export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Pro
   }
 
   if (action === 'no') {
-    await db.update(sales).set({ status: 'Cancelled' }).where(eq(sales.id, sale.id));
+    // The order took its items out of stock when it was placed: a cancel gives them back.
+    const cancelled = await db.transaction(async (tx) => {
+      const updated = await tx
+        .update(sales)
+        .set({ status: 'Cancelled' })
+        .where(and(eq(sales.id, sale.id), eq(sales.status, 'Pending')))
+        .returning({ id: sales.id, warehouseId: sales.warehouseId });
+      if (updated.length !== 1) return false;
+      await restockSale(tx, sale.id, updated[0].warehouseId ?? null);
+      return true;
+    });
+    if (!cancelled) return { toast: 'Porosia nuk është më në pritje.', status: 'ignored' };
   }
   await db.insert(orderNotes).values({
     orderId: sale.id,
@@ -115,4 +126,39 @@ export async function applyOrderAction(action: 'ok' | 'no', saleId: number): Pro
   return action === 'ok'
     ? { toast: `Porosia ${sale.reference} u konfirmua.`, status: 'confirmed' }
     : { toast: `Porosia ${sale.reference} u anulua.`, status: 'cancelled' };
+}
+
+type Db = Awaited<ReturnType<typeof getContextDb>>;
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/**
+ * Puts a cancelled order's items back into stock, the same way the desktop app's stock ledger
+ * does: the product total always, and the per-warehouse row only for variants that keep rows
+ * (the order's warehouse first, otherwise the first row).
+ */
+async function restockSale(tx: Tx, saleId: number, warehouseId: number | null) {
+  const lines = await tx
+    .select({ variantId: saleItems.variantId, quantity: saleItems.quantity, productId: productVariants.productId })
+    .from(saleItems)
+    .innerJoin(productVariants, eq(productVariants.id, saleItems.variantId))
+    .where(eq(saleItems.saleId, saleId));
+  for (const line of lines) {
+    const quantity = Number(line.quantity) || 0;
+    if (quantity <= 0 || !line.productId || !line.variantId) continue;
+    await tx
+      .update(products)
+      .set({ stockQuantity: sql`coalesce(${products.stockQuantity}, 0) + ${quantity}::integer` })
+      .where(eq(products.id, line.productId));
+    const rows = await tx
+      .select({ id: productStocks.id, warehouseId: productStocks.warehouseId })
+      .from(productStocks)
+      .where(eq(productStocks.variantId, line.variantId))
+      .orderBy(asc(productStocks.warehouseId), asc(productStocks.id));
+    if (rows.length === 0) continue;
+    const target = rows.find((row) => row.warehouseId === warehouseId) ?? rows[0];
+    await tx
+      .update(productStocks)
+      .set({ quantity: sql`${productStocks.quantity} + ${quantity}::integer` })
+      .where(eq(productStocks.id, target.id));
+  }
 }

@@ -442,6 +442,11 @@ async function decrementLockedStock(
         .returning({ id: schema.productStocks.id });
       if (updated.length !== 1) throw new CheckoutStockError('insufficient-stock');
     }
+    // The product total is the stock everyone reads (POS, ERP, product pages): it moves too.
+    await tx
+      .update(schema.products)
+      .set({ stockQuantity: sql`greatest(coalesce(${schema.products.stockQuantity}, 0) - ${allocation.line.quantity}::integer, 0)` })
+      .where(eq(schema.products.id, allocation.catalog.productId));
   }
 }
 
