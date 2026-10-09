@@ -23,15 +23,22 @@ import { orderPhases, type OrderPhase } from '@/lib/storefront/order-status';
 import { allowRequest } from '@/lib/in-memory-rate-limit';
 import type { LlmTool } from './llm';
 
-export type AgentChannel = 'web' | 'telegram';
+export type AgentChannel = 'web' | 'telegram' | 'whatsapp';
+
+/** How a channel is named in order notes and shop notifications. */
+export function channelLabel(channel: AgentChannel) {
+  return channel === 'telegram' ? 'Telegram' : channel === 'whatsapp' ? 'WhatsApp' : 'chat në faqe';
+}
 
 export type ToolEnv = {
   context: StorefrontContext;
   channel: AgentChannel;
   /** Stable id of the conversation (IP / Telegram chat) used for rate limits. */
   sessionKey: string;
-  /** Telegram user's name, when known. */
+  /** Telegram user's name / WhatsApp number, when known. */
   contactHint?: string;
+  /** The customer's own phone number (WhatsApp), offered to the model as the order phone. */
+  phone?: string;
 };
 
 type ToolResult = Record<string, unknown>;
@@ -345,7 +352,7 @@ async function placeOrder(env: ToolEnv, args: Record<string, unknown>): Promise<
       .limit(1);
     await context.db.insert(orderNotes).values({
       orderId: saleId,
-      body: `🤖 Porosi e marrë nga agjenti AI (${env.channel === 'telegram' ? 'Telegram' : 'chat në faqe'}).${
+      body: `🤖 Porosi e marrë nga agjenti AI (${channelLabel(env.channel)}).${
         address.postalCode === '00000' ? ' Kodi postar nuk u dha.' : ''
       }`,
       isCustomerNote: false,
@@ -423,7 +430,7 @@ async function notifyShop(env: ToolEnv, args: Record<string, unknown>): Promise<
   if (!token || !chatId || !summary) {
     return { ok: false, error: 'Dyqani nuk mund të njoftohet tani. Kërkoni që klienti të na shkruajë në faqe.' };
   }
-  const via = env.channel === 'telegram' ? 'Telegram' : 'chat në faqe';
+  const via = channelLabel(env.channel);
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
