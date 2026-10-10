@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { NextResponse, type NextRequest } from 'next/server';
+import { after, NextResponse, type NextRequest } from 'next/server';
+import { answerWhatsAppMessage } from '@/lib/agent/whatsapp';
 import { applyOrderAction } from '@/lib/storefront/order-decision';
-import { cloudSendText, whatsAppCloudConfig } from '@/lib/whatsapp-cloud';
+import { cloudMarkReadTyping, cloudSendText, whatsAppCloudConfig } from '@/lib/whatsapp-cloud';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,10 +26,18 @@ function signatureOk(rawBody: string, header: string | null) {
 }
 
 type IncomingMessage = {
+  id?: string;
   from?: string;
+  timestamp?: string;
   type?: string;
   text?: { body?: string };
-  interactive?: { button_reply?: { id?: string } };
+  button?: { text?: string };
+  interactive?: { button_reply?: { id?: string; title?: string }; list_reply?: { title?: string } };
+};
+
+type WebhookValue = {
+  contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
+  messages?: IncomingMessage[];
 };
 
 /** The owner pressed Konfirmo / Anulo, or typed "KONFIRMO 123" / "ANULO 123". */
@@ -40,10 +49,49 @@ function parseDecision(message: IncomingMessage): { action: 'ok' | 'no'; saleId:
   return null;
 }
 
+/** What the customer wrote (text, or the title of a button / list option they tapped). */
+function textOf(message: IncomingMessage) {
+  return (
+    message.text?.body ??
+    message.button?.text ??
+    message.interactive?.button_reply?.title ??
+    message.interactive?.list_reply?.title ??
+    ''
+  ).trim();
+}
+
+// Meta re-delivers a webhook it thinks failed: answer each message once.
+const seen = new Set<string>();
+function firstTime(id: string | undefined) {
+  if (!id) return true;
+  if (seen.has(id)) return false;
+  seen.add(id);
+  if (seen.size > 5000) seen.delete(seen.values().next().value as string);
+  return true;
+}
+
+const MEDIA_ONLY_REPLY = 'Për momentin kuptoj vetëm mesazhe me shkrim. Ju lutem shkruani pyetjen tuaj 🙏';
+
+/** A customer wrote to the shop: the shop assistant answers (and can take the order). */
+async function answerCustomer(message: IncomingMessage, name: string | null) {
+  const from = String(message.from ?? '').replace(/\D/g, '');
+  if (!from) return;
+  if (message.id) await cloudMarkReadTyping(message.id).catch(() => undefined);
+
+  const text = textOf(message);
+  const reply = text
+    ? await answerWhatsAppMessage({ chat: `cloud:${from}`, phone: from, name, text })
+    : ['image', 'audio', 'video', 'document', 'sticker', 'location'].includes(message.type ?? '')
+      ? MEDIA_ONLY_REPLY
+      : null; // reactions, system messages…
+  if (reply) await cloudSendText(from, reply);
+}
+
 /**
- * WhatsApp Cloud API → shop. The signature (HMAC with the app secret) proves the
- * request is from Meta; only the shop owner's own number can decide, and only a
- * Pending online order can change.
+ * WhatsApp Cloud API → shop. The signature (HMAC with the app secret) proves the request is
+ * from Meta. The shop owner's own number can confirm / cancel Pending online orders; every
+ * other number is a customer and gets the shop assistant (same one as the website chat and
+ * Telegram). Customers always write first, so replies stay inside WhatsApp's free 24h window.
  */
 export async function POST(request: NextRequest) {
   const raw = await request.text();
@@ -51,20 +99,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const owner = whatsAppCloudConfig().owner;
+  const config = whatsAppCloudConfig();
   try {
-    const payload = JSON.parse(raw) as {
-      entry?: Array<{ changes?: Array<{ value?: { messages?: IncomingMessage[] } }> }>;
-    };
-    const messages = (payload.entry ?? []).flatMap((entry) =>
-      (entry.changes ?? []).flatMap((change) => change.value?.messages ?? []),
-    );
-    for (const message of messages) {
-      if (!owner || String(message.from ?? '').replace(/\D/g, '') !== owner) continue;
-      const decision = parseDecision(message);
-      if (!decision) continue;
-      const outcome = await applyOrderAction(decision.action, decision.saleId);
-      await cloudSendText(owner, outcome.toast).catch(() => undefined);
+    const payload = JSON.parse(raw) as { entry?: Array<{ changes?: Array<{ value?: WebhookValue }> }> };
+    const values = (payload.entry ?? []).flatMap((entry) => (entry.changes ?? []).map((change) => change.value ?? {}));
+    for (const value of values) {
+      for (const message of value.messages ?? []) {
+        if (!firstTime(message.id)) continue;
+        const sentAt = Number(message.timestamp ?? 0) * 1000;
+        if (sentAt && Date.now() - sentAt > 10 * 60_000) continue; // a stale re-delivery
+
+        const from = String(message.from ?? '').replace(/\D/g, '');
+        const decision = config.owner && from === config.owner ? parseDecision(message) : null;
+        if (decision) {
+          const outcome = await applyOrderAction(decision.action, decision.saleId);
+          await cloudSendText(config.owner, outcome.toast).catch(() => undefined);
+          continue;
+        }
+        if (from === config.owner || !config.agentEnabled) continue; // the owner only sends decisions
+
+        const name = value.contacts?.find((contact) => contact.wa_id === message.from)?.profile?.name ?? null;
+        // Answer after the 200: Meta expects a quick response, the assistant can take seconds.
+        after(() =>
+          answerCustomer(message, name).catch((error) =>
+            console.warn('[whatsapp-cloud] customer reply failed:', error instanceof Error ? error.message : 'unknown error'),
+          ),
+        );
+      }
     }
   } catch (error) {
     console.warn('[whatsapp-cloud] webhook failed:', error instanceof Error ? error.message : 'unknown error');

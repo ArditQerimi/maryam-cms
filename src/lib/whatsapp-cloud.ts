@@ -11,6 +11,8 @@
  *   WHATSAPP_VERIFY_TOKEN       any random string you also paste into the webhook setup
  *   WHATSAPP_ORDER_TEMPLATE     optional: approved template name (utility, 3 body variables:
  *                               order number, summary, total) used when the 24h window is closed
+ *   WHATSAPP_CLOUD_AGENT        optional: "off" stops the shop assistant answering customers
+ *   WHATSAPP_GRAPH_URL          optional: Graph API base (only for the local webhook simulator)
  */
 export function whatsAppCloudConfig() {
   const token = process.env.WHATSAPP_CLOUD_TOKEN ?? '';
@@ -22,14 +24,18 @@ export function whatsAppCloudConfig() {
     owner,
     template: process.env.WHATSAPP_ORDER_TEMPLATE ?? '',
     configured: Boolean(token && phoneNumberId && owner),
+    /** Customers get answers by the shop assistant (needs only the token and the number id). */
+    agentEnabled: Boolean(token && phoneNumberId) && process.env.WHATSAPP_CLOUD_AGENT !== 'off',
   };
 }
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+function graphBase() {
+  return (process.env.WHATSAPP_GRAPH_URL || 'https://graph.facebook.com/v21.0').replace(/\/+$/, '');
+}
 
 export async function cloudSend(payload: Record<string, unknown>) {
   const { token, phoneNumberId } = whatsAppCloudConfig();
-  const response = await fetch(`${GRAPH}/${phoneNumberId}/messages`, {
+  const response = await fetch(`${graphBase()}/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     body: JSON.stringify({ messaging_product: 'whatsapp', ...payload }),
@@ -44,6 +50,11 @@ export async function cloudSend(payload: Record<string, unknown>) {
 
 export function cloudSendText(to: string, text: string) {
   return cloudSend({ to, type: 'text', text: { body: text.slice(0, 4000) } });
+}
+
+/** Blue ticks on the customer's message plus "typing…" while the assistant writes (best effort). */
+export function cloudMarkReadTyping(messageId: string) {
+  return cloudSend({ status: 'read', message_id: messageId, typing_indicator: { type: 'text' } });
 }
 
 /** Order message with two reply buttons (works while the owner's 24h window is open). */
