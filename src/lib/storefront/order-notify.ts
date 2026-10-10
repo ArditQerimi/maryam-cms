@@ -4,7 +4,7 @@ import type { StorefrontContext } from './context';
 import {
   cloudSendOrderButtons,
   cloudSendOrderTemplate,
-  whatsAppCloudConfig,
+  loadWhatsAppCloudConfig,
 } from '@/lib/whatsapp-cloud';
 import { twilioConfig, twilioSendWhatsApp } from '@/lib/whatsapp-twilio';
 import { buildWhatsAppOrderMessage } from './whatsapp-order';
@@ -139,14 +139,14 @@ export async function notifyNewOrder(db: Db, saleId: number) {
 
     /** Official WhatsApp Cloud API: reply buttons first; the approved template when the 24h window is closed. */
     const sendCloud = async (message: string, id: number) => {
-      const cloud = whatsAppCloudConfig();
+      const cloud = await loadWhatsAppCloudConfig(db);
       if (!cloud.configured) return 'skipped';
       try {
-        await cloudSendOrderButtons(cloud.owner, message, id);
+        await cloudSendOrderButtons(cloud, cloud.owner, message, id);
       } catch (error) {
         if (!cloud.template) throw error;
         const summary = order.lines.map((line) => `${line.name} x${line.quantity}`).join(', ');
-        await cloudSendOrderTemplate(cloud.owner, cloud.template, [
+        await cloudSendOrderTemplate(cloud, cloud.owner, cloud.template, [
           order.orderNumber,
           summary,
           `${order.total} ${order.currency}`,

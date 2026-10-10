@@ -2,23 +2,37 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { answerWhatsAppMessage } from '@/lib/agent/whatsapp';
 import { applyOrderAction } from '@/lib/storefront/order-decision';
-import { cloudMarkReadTyping, cloudSendText, whatsAppCloudConfig } from '@/lib/whatsapp-cloud';
+import { getContextDb } from '@/lib/tenant';
+import {
+  cloudMarkReadTyping,
+  cloudSendText,
+  loadWhatsAppCloudConfig,
+  stampWhatsAppCloud,
+  type CloudConfig,
+} from '@/lib/whatsapp-cloud';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/*
+ * One webhook per business: Meta calls https://<business domain>/api/whatsapp/cloud, the domain
+ * selects the business (getContextDb) and with it the WhatsApp settings saved in its CMS.
+ */
+
 /** Meta's one-time webhook verification (GET with hub.* query parameters). */
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const wanted = process.env.WHATSAPP_VERIFY_TOKEN ?? '';
+  const db = await getContextDb();
+  const config = await loadWhatsAppCloudConfig(db);
+  const wanted = config.verifyToken;
   if (wanted.length >= 12 && params.get('hub.mode') === 'subscribe' && params.get('hub.verify_token') === wanted) {
+    await stampWhatsAppCloud(db, 'verifiedAt');
     return new NextResponse(params.get('hub.challenge') ?? '', { status: 200 });
   }
   return new NextResponse('forbidden', { status: 403 });
 }
 
-function signatureOk(rawBody: string, header: string | null) {
-  const secret = process.env.WHATSAPP_APP_SECRET ?? '';
+function signatureOk(secret: string, rawBody: string, header: string | null) {
   if (secret.length < 16 || !header?.startsWith('sha256=')) return false;
   const expected = Buffer.from(createHmac('sha256', secret).update(rawBody).digest('hex'));
   const given = Buffer.from(header.slice('sha256='.length));
@@ -73,10 +87,10 @@ function firstTime(id: string | undefined) {
 const MEDIA_ONLY_REPLY = 'Për momentin kuptoj vetëm mesazhe me shkrim. Ju lutem shkruani pyetjen tuaj 🙏';
 
 /** A customer wrote to the shop: the shop assistant answers (and can take the order). */
-async function answerCustomer(message: IncomingMessage, name: string | null) {
+async function answerCustomer(config: CloudConfig, message: IncomingMessage, name: string | null) {
   const from = String(message.from ?? '').replace(/\D/g, '');
   if (!from) return;
-  if (message.id) await cloudMarkReadTyping(message.id).catch(() => undefined);
+  if (message.id) await cloudMarkReadTyping(config, message.id).catch(() => undefined);
 
   const text = textOf(message);
   const reply = text
@@ -84,7 +98,7 @@ async function answerCustomer(message: IncomingMessage, name: string | null) {
     : ['image', 'audio', 'video', 'document', 'sticker', 'location'].includes(message.type ?? '')
       ? MEDIA_ONLY_REPLY
       : null; // reactions, system messages…
-  if (reply) await cloudSendText(from, reply);
+  if (reply) await cloudSendText(config, from, reply);
 }
 
 /**
@@ -95,14 +109,16 @@ async function answerCustomer(message: IncomingMessage, name: string | null) {
  */
 export async function POST(request: NextRequest) {
   const raw = await request.text();
-  if (!signatureOk(raw, request.headers.get('x-hub-signature-256'))) {
+  const db = await getContextDb();
+  const config = await loadWhatsAppCloudConfig(db);
+  if (!signatureOk(config.appSecret, raw, request.headers.get('x-hub-signature-256'))) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const config = whatsAppCloudConfig();
   try {
     const payload = JSON.parse(raw) as { entry?: Array<{ changes?: Array<{ value?: WebhookValue }> }> };
     const values = (payload.entry ?? []).flatMap((entry) => (entry.changes ?? []).map((change) => change.value ?? {}));
+    if (values.some((value) => (value.messages ?? []).length > 0)) await stampWhatsAppCloud(db, 'lastInboundAt');
     for (const value of values) {
       for (const message of value.messages ?? []) {
         if (!firstTime(message.id)) continue;
@@ -113,7 +129,7 @@ export async function POST(request: NextRequest) {
         const decision = config.owner && from === config.owner ? parseDecision(message) : null;
         if (decision) {
           const outcome = await applyOrderAction(decision.action, decision.saleId);
-          await cloudSendText(config.owner, outcome.toast).catch(() => undefined);
+          await cloudSendText(config, config.owner, outcome.toast).catch(() => undefined);
           continue;
         }
         if (from === config.owner || !config.agentEnabled) continue; // the owner only sends decisions
@@ -121,7 +137,7 @@ export async function POST(request: NextRequest) {
         const name = value.contacts?.find((contact) => contact.wa_id === message.from)?.profile?.name ?? null;
         // Answer after the 200: Meta expects a quick response, the assistant can take seconds.
         after(() =>
-          answerCustomer(message, name).catch((error) =>
+          answerCustomer(config, message, name).catch((error) =>
             console.warn('[whatsapp-cloud] customer reply failed:', error instanceof Error ? error.message : 'unknown error'),
           ),
         );
