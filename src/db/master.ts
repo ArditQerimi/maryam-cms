@@ -15,7 +15,9 @@ function deriveDatabaseUrl(baseUrl: string, databaseName: string) {
 const globalForDb = globalThis as unknown as { cachedMasterDb: NodePgDatabase<typeof schema> | null };
 
 function createMasterDb(): NodePgDatabase<typeof schema> {
+  // Standalone mode: the platform tables live in the business's own database (see db/index.ts).
   const masterConnectionString =
+    process.env.STANDALONE_DATABASE_URL?.trim() ||
     process.env.MASTER_DATABASE_URL ||
     (process.env.DATABASE_URL ? deriveDatabaseUrl(process.env.DATABASE_URL, 'pos_master') : undefined);
 
@@ -23,7 +25,7 @@ function createMasterDb(): NodePgDatabase<typeof schema> {
     throw new Error('Missing MASTER_DATABASE_URL (or DATABASE_URL) for master database connection.');
   }
 
-  if (process.env.NODE_ENV === 'production' && !process.env.MASTER_DATABASE_URL) {
+  if (process.env.NODE_ENV === 'production' && !process.env.MASTER_DATABASE_URL && !process.env.STANDALONE_DATABASE_URL) {
     console.warn('MASTER_DATABASE_URL is not set in production; falling back to DATABASE_URL.');
   }
 
