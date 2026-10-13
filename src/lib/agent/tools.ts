@@ -324,6 +324,19 @@ async function shapeProducts(env: ToolEnv, matches: CatalogRow[], options: { des
       )),
     loadActiveDiscounts(db),
   ]);
+  const details = new Map<number, string>();
+  if (matches.length > 0) {
+    try {
+      const rows = ((await db.execute(sql`
+        SELECT v.product_id AS "productId", string_agg(a.name || ': ' || v.value, '; ' ORDER BY a.name) AS text
+        FROM product_attribute_values v JOIN category_attributes a ON a.id = v.attribute_id
+        WHERE coalesce(v.value, '') <> '' AND v.product_id IN (${sql.join(matches.map((row) => sql`${row.id}`), sql`, `)})
+        GROUP BY v.product_id`)) as unknown as { rows: Array<{ productId: number; text: string }> }).rows;
+      for (const row of rows) details.set(row.productId, text(row.text, 200));
+    } catch {
+      // Shops without category attributes.
+    }
+  }
 
   return matches.map((row) => {
       const own = variants.filter((variant) => variant.productId === row.id);
@@ -340,6 +353,8 @@ async function shapeProducts(env: ToolEnv, matches: CatalogRow[], options: { des
         name: row.name,
         // Lists skip the description: fewer tokens for the free per-minute quota.
         description: options.description === false ? undefined : text(row.description, 90) || undefined,
+        // Category attributes (Autori, Përkthyesi, Faqe…): lets the model check an author / translator.
+        details: details.get(row.id),
         inStock,
         stockLeft: inStock ? Math.min(row.stock ?? 0, 20) : 0,
         variants: priced,
