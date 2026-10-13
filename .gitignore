@@ -45,3 +45,6 @@ next-env.d.ts
 
 # keep the documented template
 !.env.example
+
+# local embedding model files (downloaded on first use)
+.cache/

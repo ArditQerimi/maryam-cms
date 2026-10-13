@@ -41,6 +41,31 @@ API zyrtare). Një kod i vetëm për të tre kanalet; çdo dyqan (tenant) përdo
 
 Modeli **nuk** shkruan SQL, nuk vendos çmime dhe nuk sheh ID e brendshme te klienti.
 
+## Kërkimi semantik (vektorët / RAG)
+Modeli **nuk trajnohet**; produktet, faqet e CMS-së dhe artikujt e blogut kthehen në vektorë (kuptimi i tekstit) dhe
+kërkimi bëhet **hibrid**: fjalët + sinonimet (për titujt e saktë) dhe kuptimi (për pyetjet me fjalë të tjera).
+
+| | |
+|---|---|
+| Modeli | `Xenova/multilingual-e5-small` (lokal, ONNX, e kupton shqipen), pa çelës API dhe pa kosto |
+| Ndezja | `AGENT_EMBEDDINGS=local` (fikur si parazgjedhje) |
+| Memoria | **~500–800 MB** më shumë → jo në Render falas / Starter (512 MB); po në Hetzner ose Render Standard (2 GB) |
+| Indeksi | `agent_knowledge` (vektori si `real[]`), rifreskim çdo 15 min, vetëm tekstet e ndryshuara; 182 dokumente në 3.7 s |
+| Pragu | `AGENT_SEMANTIC_FLOOR` (0.82): pyetjet pa lidhje (laptop, telefon, picë…) kanë maks. 0.819 |
+| Vegla e re | `search_knowledge` (faqet dhe blogu), vetëm kur vektorët janë ndezur |
+
+Matja me `scripts/agent-semantic-check.ts` (13 pyetje reale, produkti i pritur në top 3):
+
+| | Saktësia | Pyetje pa lidhje → produkte |
+|---|---|---|
+| Vetëm fjalë + sinonime | 10/13 | 0 |
+| **Hibrid (fjalë + vektorë)** | **11/13** | **0** |
+
+Fiton te parafrazat ("libër për gratë muslimane" → "Nën hixhabin tim", "Aishja, nëna e besimtarëve"; "çfarë ndodh pas
+vdekjes" → "Gjendja e të vdekurve…"). Mbeten pa u gjetur: "libër për parajsën" (modeli nuk e lidh parajsë ↔ xhenet) dhe
+"si ta edukoj fëmijën tim". Një model më i madh (`multilingual-e5-base`) ose embeddings me API mund t'i përmirësojnë,
+me më shumë memorie / kosto.
+
 ## Mbrojtjet (guardrails)
 - Trupi i kërkesës maks. 24 KB (413), mesazhi 1 500 karaktere, historia 16 mesazhe.
 - Maks. 5 raunde model/vegla për mesazh; timeout 30 s për thirrje; 25 mesazhe / 10 min për bisedë; 400 thirrje / ditë.
@@ -83,5 +108,5 @@ porosinë testuese në fund. Gjendja e fundit: **15/15 kalojnë**.
    listat; disa produkte kanë çmim 0 dhe nuk mund të porositen.
 7. **Telegram në Render falas:** mesazhi i parë pas "gjumit" merr ~30–60 s.
 8. **Tabelat e agjentit krijohen në përdorimin e parë** (jo nga migrimet).
-9. **Ende pa evals me AI** (golden dataset, saktësia e zgjedhjes së veglës) → Java 3.
+9. **Ende pa evals me AI për përgjigjet e plota** (golden dataset, saktësia e zgjedhjes së veglës) → Java 3.
 10. Mesazhet e klientëve ruhen 90 ditë te audit trail — duhet përmendur te politika e privatësisë.

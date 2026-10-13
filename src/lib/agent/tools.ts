@@ -24,6 +24,7 @@ import { sendOrderEmail } from '@/lib/storefront/order-email';
 import { orderPhases, type OrderPhase } from '@/lib/storefront/order-status';
 import { allowRequest } from '@/lib/in-memory-rate-limit';
 import type { LlmTool } from './llm';
+import { semanticSearch, semanticSearchEnabled } from './knowledge';
 
 export type AgentChannel = 'web' | 'telegram' | 'whatsapp';
 
@@ -72,6 +73,18 @@ export const TOOL_DECLARATIONS: LlmTool[] = [
         category: { type: 'string', description: 'Emri i kategorisë (ose pjesë e tij), p.sh. "Libra". Bosh = të gjitha.' },
         limit: { type: 'integer', description: 'Sa produkte, 1-15; parazgjedhur 10.' },
       },
+    },
+  },
+  {
+    name: 'search_knowledge',
+    description:
+      'Kërko në faqet dhe artikujt e dyqanit (rreth nesh, kthimet, dërgesat, kushtet, blogu) sipas kuptimit të pyetjes. Përdore për pyetje që nuk janë për një produkt; përgjigju vetëm nga teksti që kthen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        question: { type: 'string', description: 'Pyetja e klientit me fjalët e veta.' },
+      },
+      required: ['question'],
     },
   },
   {
@@ -171,6 +184,14 @@ const SYNONYMS: string[][] = [
   ['vaj', 'vajr'],
 ];
 
+/**
+ * Vector similarities of multilingual-e5-small differ from question to question, so a match is
+ * judged against the best one for that question: only hits within SEMANTIC_BAND of the best count,
+ * and nothing under SEMANTIC_FLOOR (nonsense questions stay empty).
+ */
+const SEMANTIC_FLOOR = Number(process.env.AGENT_SEMANTIC_FLOOR) || 0.82; // measured: unrelated questions top out at 0.819
+const SEMANTIC_BAND = 0.035;
+
 function expandWord(word: string): string[] {
   const group = SYNONYMS.find((words) => words.some((synonym) => word.startsWith(synonym) || synonym.startsWith(word)));
   return group ? [...new Set([word, ...group])] : [word];
@@ -206,7 +227,14 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     .split(' ')
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
     .map((word) => (word.length > 5 ? word.slice(0, word.length - 2) : word));
-  if (words.length === 0) {
+
+  // Meaning (vectors) when semantic search is on — finds products that share no word with the
+  // question. Null when it is off (AGENT_EMBEDDINGS) or the model is not available.
+  const semantic = await semanticSearch(db, text(args.query, 200), { kinds: ['product'], limit: 30 });
+  const meaning = new Map((semantic ?? []).map((hit) => [hit.refId, hit.score]));
+  const bestSimilarity = semantic?.[0]?.score ?? 1;
+  const semanticCut = Math.max(SEMANTIC_FLOOR, bestSimilarity - SEMANTIC_BAND);
+  if (words.length === 0 && !semantic) {
     return { products: [], note: 'Pa fjalë kyçe: për listë të përgjithshme përdor browse_products.' };
   }
   const available = (row: (typeof rows)[number]) => Number(row.price ?? 0) > 0 && (row.stock ?? 0) > 0;
@@ -214,26 +242,36 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     .map((row) => {
       const name = foldSearchText(row.name);
       const rest = `${foldSearchText(row.sku ?? '')} ${foldSearchText(row.description ?? '')}`;
-      let score = 0;
+      let keyword = 0;
       for (const word of words) {
         const forms = expandWord(word);
-        if (forms.some((form) => name.includes(form))) score += 2;
-        else if (forms.some((form) => rest.includes(form))) score += 1;
+        if (forms.some((form) => name.includes(form))) keyword += 2;
+        else if (forms.some((form) => rest.includes(form))) keyword += 1;
       }
-      return score > 0 ? { row, score } : null;
+      // Hybrid score: words (exact titles, synonyms) + meaning, relative to the best match.
+      const keywordShare = words.length ? keyword / (2 * words.length) : 0;
+      const similarity = meaning.get(row.id) ?? 0;
+      const semanticShare = similarity >= semanticCut ? (similarity - semanticCut) / SEMANTIC_BAND : 0;
+      // A small lift for what the customer can actually buy (price + stock).
+      const relevance = keywordShare * 0.5 + semanticShare * 0.5;
+      const score = relevance > 0 ? relevance + (available(row) ? 0.15 : 0) : 0;
+      // How it was found, so the model can judge weak matches.
+      const matchedBy = keyword > 0 && semanticShare > 0 ? 'words+meaning' : keyword > 0 ? 'words' : 'meaning';
+      return score > 0 ? { row, score, matchedBy } : null;
     })
-    .filter((entry): entry is { row: (typeof rows)[number]; score: number } => entry !== null)
+    .filter((entry): entry is { row: (typeof rows)[number]; score: number; matchedBy: string } => entry !== null)
     .sort((a, b) =>
       b.score - a.score ||
       Number(available(b.row)) - Number(available(a.row)) ||
       a.row.name.length - b.row.name.length);
-  const matches = ranked.slice(0, 8).map(({ row }) => row);
-  if (matches.length === 0) return { products: [], note: 'Nuk u gjet asnjë produkt me këtë kërkim.' };
+  const top = ranked.slice(0, 8);
+  if (top.length === 0) return { products: [], note: 'Nuk u gjet asnjë produkt me këtë kërkim.' };
 
+  const shaped = await shapeProducts(env, top.map(({ row }) => row));
   return {
     totalMatching: ranked.length,
-    note: 'Trego të gjitha produktet që mund të blihen (me çmim); ato pa çmim përmendi shkurt në fund.',
-    products: await shapeProducts(env, matches),
+    note: 'Trego të gjitha produktet që mund të blihen (me çmim); ato pa çmim përmendi shkurt në fund. Ato me matchedBy "meaning" u gjetën sipas kuptimit: trego vetëm nëse vërtet i përgjigjen kërkesës.',
+    products: shaped.map((product, index) => ({ ...product, matchedBy: top[index].matchedBy })),
   };
 }
 
@@ -286,6 +324,30 @@ async function shapeProducts(env: ToolEnv, matches: CatalogRow[], options: { des
         link: `/home/products/${row.id}`,
       };
     });
+}
+
+/** Pages and blog posts closest in meaning to the question (RAG): the model answers only from them. */
+async function searchKnowledge(env: ToolEnv, args: Record<string, unknown>): Promise<ToolResult> {
+  const question = text(args.question, 300);
+  if (question.length < 3) return { results: [], note: 'Pyetja është shumë e shkurtër.' };
+  const hits = await semanticSearch(env.context.db, question, { kinds: ['page', 'post'], limit: 8 });
+  if (!hits) return { results: [], note: 'Kërkimi në faqe nuk është aktiv; përdor get_shop_info ose notify_shop.' };
+  // One result per page / post (its best-matching part), at most 3.
+  const relevant = hits
+    .filter((hit, _index, all) => hit.score >= Math.max(SEMANTIC_FLOOR, all[0].score - SEMANTIC_BAND))
+    .filter((hit, index, all) => all.findIndex((other) => other.url === hit.url) === index)
+    .slice(0, 3);
+  if (relevant.length === 0) {
+    return { results: [], note: 'Faqet e dyqanit nuk e përmendin këtë. Mos e shpik; ofro notify_shop.' };
+  }
+  return {
+    results: relevant.map((hit) => ({ title: hit.title, link: hit.url, text: hit.text.slice(0, 600) })),
+  };
+}
+
+/** The tools offered to the model (search_knowledge only when semantic search is on). */
+export function toolDeclarations(): LlmTool[] {
+  return TOOL_DECLARATIONS.filter((tool) => tool.name !== 'search_knowledge' || semanticSearchEnabled());
 }
 
 const BROWSE_SORTS = ['popular', 'newest', 'cheapest', 'priciest'] as const;
@@ -596,6 +658,8 @@ export async function runTool(env: ToolEnv, name: string, args: Record<string, u
         return await searchProducts(env, args);
       case 'browse_products':
         return await browseProducts(env, args);
+      case 'search_knowledge':
+        return await searchKnowledge(env, args);
       case 'get_shop_info':
         return await getShopInfo(env, args);
       case 'place_order':
