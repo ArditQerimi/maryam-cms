@@ -80,12 +80,18 @@ export async function chat(input: {
       signal: AbortSignal.timeout(30_000),
     });
 
+  // Free tiers cap tokens per minute: wait what the provider asks for ("retry-after" header or
+  // "try again in 2.9s" in the message) and try again, up to 3 times / ~25 s in total.
   let response = await request();
-  if (response.status === 429) {
-    // Free tiers cap tokens per minute: wait the few seconds the provider asks for, once.
-    const asked = Number(response.headers.get('retry-after'));
-    const waitMs = Math.min(Number.isFinite(asked) && asked > 0 ? asked * 1000 : 4000, 8000);
+  let waited = 0;
+  for (let attempt = 0; response.status === 429 && attempt < 3 && waited < 25_000; attempt += 1) {
+    const header = Number(response.headers.get('retry-after'));
+    const body = await response.clone().text().catch(() => '');
+    const inText = Number(/try again in ([\d.]+)\s*s/i.exec(body)?.[1]);
+    const askedMs = Number.isFinite(header) && header > 0 ? header * 1000 : Number.isFinite(inText) && inText > 0 ? inText * 1000 : 4000;
+    const waitMs = Math.min(askedMs + 300, 12_000, 25_000 - waited);
     await new Promise((resolve) => setTimeout(resolve, waitMs));
+    waited += waitMs;
     response = await request();
   }
 

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
+  categories,
   orderNotes,
   productVariants,
   products,
+  saleItems,
   sales,
   storefrontOrderDetails,
 } from '@/db/schema-tenant';
@@ -57,6 +59,19 @@ export const TOOL_DECLARATIONS: LlmTool[] = [
         query: { type: 'string', description: 'Fjalët e kërkimit.' },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'browse_products',
+    description:
+      'Lista produktesh nga katalogu: më të shiturat (popular), më të rejat (newest), më të lirat (cheapest), më të shtrenjtat (priciest), opsionalisht vetëm një kategori. Përdore kur klienti kërkon listë, rekomandime ose "çfarë keni". Kthen vetëm produkte me çmim dhe në stok, dhe sa ka gjithsej.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sort: { type: 'string', enum: ['popular', 'newest', 'cheapest', 'priciest'], description: 'Renditja; parazgjedhur popular.' },
+        category: { type: 'string', description: 'Emri i kategorisë (ose pjesë e tij), p.sh. "Libra". Bosh = të gjitha.' },
+        limit: { type: 'integer', description: 'Sa produkte, 1-15; parazgjedhur 10.' },
+      },
     },
   },
   {
@@ -139,7 +154,27 @@ function text(value: unknown, max: number) {
 const STOP_WORDS = new Set([
   'per', 'për', 'keni', 'ka', 'kam', 'dua', 'deshiron', 'desha', 'nje', 'një', 'the', 'and', 'for',
   'çfarë', 'cfare', 'sa', 'si', 'ne', 'në', 'me', 'te', 'të', 'dhe', 'ose', 'jam', 'jeni', 'mund',
+  'liber', 'liberi', 'libra', 'librin', 'librat', 'librave', 'libri', 'kemi', 'keni',
 ]);
+
+/**
+ * Words customers use for the same thing as the catalog (folded, stems): a search for one also
+ * finds the others. E.g. a "tefsir" is usually titled "Koment i sures …" in the catalog.
+ */
+const SYNONYMS: string[][] = [
+  ['tefsir', 'koment', 'komentim', 'komentar'],
+  ['namaz', 'salah', 'salat', 'falje'],
+  ['hadith', 'hadithe', 'sunet', 'sunnet'],
+  ['akide', 'akid', 'besim', 'teuhid'],
+  ['femij', 'femije', 'femijet', 'kids'],
+  ['parfum', 'aroma', 'mosk'],
+  ['vaj', 'vajr'],
+];
+
+function expandWord(word: string): string[] {
+  const group = SYNONYMS.find((words) => words.some((synonym) => word.startsWith(synonym) || synonym.startsWith(word)));
+  return group ? [...new Set([word, ...group])] : [word];
+}
 
 function money(value: string | number) {
   return Number(value).toFixed(2);
@@ -165,29 +200,55 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     .limit(2000);
 
   // Albanian words change their ending (teuhid / teuhidin / teuhidit): match on the stem, and rank
-  // by how many words match (name counts double, description once).
+  // by how many words match (name counts double, description once). Each word also matches its
+  // synonyms (tefsir ↔ koment…). Among equal matches, what can be bought (price + stock) comes first.
   const words = query
     .split(' ')
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
     .map((word) => (word.length > 5 ? word.slice(0, word.length - 2) : word));
-  if (words.length === 0) return { products: [], note: 'Shkruaj emrin e produktit ose një fjalë kyçe.' };
-  const matches = rows
+  if (words.length === 0) {
+    return { products: [], note: 'Pa fjalë kyçe: për listë të përgjithshme përdor browse_products.' };
+  }
+  const available = (row: (typeof rows)[number]) => Number(row.price ?? 0) > 0 && (row.stock ?? 0) > 0;
+  const ranked = rows
     .map((row) => {
       const name = foldSearchText(row.name);
       const rest = `${foldSearchText(row.sku ?? '')} ${foldSearchText(row.description ?? '')}`;
       let score = 0;
       for (const word of words) {
-        if (name.includes(word)) score += 2;
-        else if (rest.includes(word)) score += 1;
+        const forms = expandWord(word);
+        if (forms.some((form) => name.includes(form))) score += 2;
+        else if (forms.some((form) => rest.includes(form))) score += 1;
       }
       return score > 0 ? { row, score } : null;
     })
     .filter((entry): entry is { row: (typeof rows)[number]; score: number } => entry !== null)
-    .sort((a, b) => b.score - a.score || a.row.name.length - b.row.name.length)
-    .slice(0, 5)
-    .map(({ row }) => row);
+    .sort((a, b) =>
+      b.score - a.score ||
+      Number(available(b.row)) - Number(available(a.row)) ||
+      a.row.name.length - b.row.name.length);
+  const matches = ranked.slice(0, 8).map(({ row }) => row);
   if (matches.length === 0) return { products: [], note: 'Nuk u gjet asnjë produkt me këtë kërkim.' };
 
+  return {
+    totalMatching: ranked.length,
+    note: 'Trego të gjitha produktet që mund të blihen (me çmim); ato pa çmim përmendi shkurt në fund.',
+    products: await shapeProducts(env, matches),
+  };
+}
+
+type CatalogRow = {
+  id: number;
+  name: string;
+  price: string | null;
+  stock: number | null;
+  categoryId: number | null;
+  description: string | null;
+};
+
+/** Products as the model sees them: price per variant (discounts applied), stock, link. */
+async function shapeProducts(env: ToolEnv, matches: CatalogRow[], options: { description?: boolean } = {}) {
+  const { db } = env.context;
   const [variants, discounts] = await Promise.all([
     db
       .select({
@@ -204,8 +265,7 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     loadActiveDiscounts(db),
   ]);
 
-  return {
-    products: matches.map((row) => {
+  return matches.map((row) => {
       const own = variants.filter((variant) => variant.productId === row.id);
       const priced = own.map((variant) => {
         const sale = priceProduct(variant.price, row.id, row.categoryId, discounts).salePrice;
@@ -218,13 +278,100 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
       return {
         productId: row.id,
         name: row.name,
-        description: text(row.description, 110) || undefined,
+        // Lists skip the description: fewer tokens for the free per-minute quota.
+        description: options.description === false ? undefined : text(row.description, 90) || undefined,
         inStock,
         stockLeft: inStock ? Math.min(row.stock ?? 0, 20) : 0,
         variants: priced,
         link: `/home/products/${row.id}`,
       };
-    }),
+    });
+}
+
+const BROWSE_SORTS = ['popular', 'newest', 'cheapest', 'priciest'] as const;
+
+/**
+ * Lists of the catalog ("the 10 best-selling books", "what is new", "cheapest perfumes",
+ * "what do you have in category X"). Only products a customer can buy (price set, in stock)
+ * unless asked otherwise; the result says how many there really are, so the model never pads.
+ */
+async function browseProducts(env: ToolEnv, args: Record<string, unknown>): Promise<ToolResult> {
+  const { db } = env.context;
+  const sort = BROWSE_SORTS.includes(args.sort as (typeof BROWSE_SORTS)[number]) ? (args.sort as (typeof BROWSE_SORTS)[number]) : 'popular';
+  const limit = Math.min(Math.max(Math.trunc(Number(args.limit) || 10), 1), 15);
+  const includeUnavailable = args.includeUnavailable === true;
+  const categoryQuery = foldSearchText(text(args.category, 60));
+
+  const [rows, categoryRows, soldRows] = await Promise.all([
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        price: products.price,
+        stock: products.stockQuantity,
+        categoryId: products.categoryId,
+        description: products.description,
+        createdAt: products.createdAt,
+      })
+      .from(products)
+      .where(eq(products.status, 'Active'))
+      .limit(5000),
+    db.select({ id: categories.id, name: categories.name }).from(categories),
+    // Units sold in completed sales, per product (best sellers).
+    db
+      .select({ productId: productVariants.productId, sold: sql<number>`coalesce(sum(${saleItems.quantity}), 0)::int` })
+      .from(saleItems)
+      .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.status, 'Completed')))
+      .innerJoin(productVariants, eq(productVariants.id, saleItems.variantId))
+      .groupBy(productVariants.productId),
+  ]);
+
+  const categoryName = new Map(categoryRows.map((category) => [category.id, category.name]));
+  const sold = new Map(soldRows.map((row) => [row.productId, Number(row.sold)]));
+  const available = (row: (typeof rows)[number]) => Number(row.price ?? 0) > 0 && (row.stock ?? 0) > 0;
+
+  let pool = rows;
+  if (categoryQuery) {
+    const wanted = categoryRows.filter((category) => foldSearchText(category.name).includes(categoryQuery)).map((category) => category.id);
+    if (wanted.length === 0) {
+      const counts = new Map<string, number>();
+      for (const row of rows) {
+        const name = row.categoryId ? categoryName.get(row.categoryId) : undefined;
+        if (name && (includeUnavailable || available(row))) counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+      return {
+        products: [],
+        note: 'Kjo kategori nuk ekziston.',
+        categories: [...counts].map(([name, count]) => ({ name, count })),
+      };
+    }
+    pool = rows.filter((row) => row.categoryId !== null && wanted.includes(row.categoryId));
+  }
+  if (!includeUnavailable) pool = pool.filter(available);
+
+  const price = (row: (typeof rows)[number]) => Number(row.price ?? 0);
+  pool = [...pool].sort((a, b) => {
+    if (sort === 'newest') return b.createdAt.getTime() - a.createdAt.getTime();
+    if (sort === 'cheapest') return price(a) - price(b);
+    if (sort === 'priciest') return price(b) - price(a);
+    return (sold.get(b.id) ?? 0) - (sold.get(a.id) ?? 0) || b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
+  const picked = pool.slice(0, limit);
+  return {
+    totalMatching: pool.length,
+    returned: picked.length,
+    sort,
+    note: picked.length < limit
+      ? `Ka vetëm ${picked.length} produkte që përputhen — listo vetëm këto, mos shto rreshta të tjerë.`
+      : undefined,
+    products: (await shapeProducts(env, picked, { description: false })).map((product) => ({
+      ...product,
+      category: picked.find((row) => row.id === product.productId)?.categoryId
+        ? categoryName.get(picked.find((row) => row.id === product.productId)!.categoryId!)
+        : undefined,
+      soldCount: sort === 'popular' ? sold.get(product.productId) ?? 0 : undefined,
+    })),
   };
 }
 
@@ -447,6 +594,8 @@ export async function runTool(env: ToolEnv, name: string, args: Record<string, u
     switch (name) {
       case 'search_products':
         return await searchProducts(env, args);
+      case 'browse_products':
+        return await browseProducts(env, args);
       case 'get_shop_info':
         return await getShopInfo(env, args);
       case 'place_order':

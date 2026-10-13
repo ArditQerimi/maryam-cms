@@ -59,6 +59,31 @@ async function telegram(method: string, payload: Record<string, unknown>) {
   }).catch(() => undefined);
 }
 
+/** The model writes Markdown; Telegram shows HTML: **bold** → <b>, [text](url) → link, headings → bold. */
+export function markdownToTelegramHtml(text: string) {
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/__(.+?)__/g, '<b>$1</b>')
+    .replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>')
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>');
+}
+
+/** Sends the reply formatted; if Telegram rejects the HTML, sends it as plain text. */
+async function sendFormatted(chatId: number, text: string) {
+  const token = process.env.TELEGRAM_AGENT_BOT_TOKEN ?? '';
+  if (!token) return;
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: markdownToTelegramHtml(text), parse_mode: 'HTML', disable_web_page_preview: true }),
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!response || !response.ok) {
+    await telegram('sendMessage', { chat_id: chatId, text: text.replace(/\*\*(.+?)\*\*/g, '$1') });
+  }
+}
+
 /** Answer one customer message. Never throws. */
 export async function handleAgentTelegramUpdate(update: AgentTelegramUpdate) {
   const message = update.message;
@@ -92,7 +117,7 @@ export async function handleAgentTelegramUpdate(update: AgentTelegramUpdate) {
       message: text,
     });
     saveHistory(chatId, [...history, { role: 'user', text }, { role: 'assistant', text: reply }]);
-    await telegram('sendMessage', { chat_id: chatId, text: reply.slice(0, 4000) });
+    await sendFormatted(chatId, reply.slice(0, 4000));
   } catch (error) {
     console.error('[agent] telegram update failed', error instanceof Error ? error.message : error);
   }
