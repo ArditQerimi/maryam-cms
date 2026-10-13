@@ -73,8 +73,9 @@ async function main() {
   // ---------------------------------------------------------------- catalog
   const tefsir = await runTool(env(session), 'search_products', { query: 'libër tefsiri' }) as { products?: Array<{ name: string; variants: Array<{ price: string | null }> }> };
   const found = tefsir.products ?? [];
-  check(found.length >= 2 && found.some((p) => /koment/i.test(p.name)) && found[0].variants.some((v) => v.price !== null),
-    `search "tefsir" also finds "Koment …" books, buyable first (${found.length} found)`, found.map((p) => p.name));
+  const buyableKoment = found.filter((p) => /koment/i.test(p.name) && p.variants.some((v) => v.price !== null));
+  check(buyableKoment.length >= 2,
+    `search "tefsir" also finds buyable "Koment …" books (${buyableKoment.length} of ${found.length})`, found.map((p) => p.name));
 
   const nothing = await runTool(env(session), 'search_products', { query: 'xyzzyqwv' }) as { products?: unknown[]; note?: string };
   check((nothing.products ?? []).length === 0 && Boolean(nothing.note), 'search for something that does not exist: empty + a note (no invention)');

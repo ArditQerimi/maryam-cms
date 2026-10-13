@@ -220,13 +220,36 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
     .where(eq(products.status, 'Active'))
     .limit(2000);
 
-  // Albanian words change their ending (teuhid / teuhidin / teuhidit): match on the stem, and rank
-  // by how many words match (name counts double, description once). Each word also matches its
-  // synonyms (tefsir ↔ koment…). Among equal matches, what can be bought (price + stock) comes first.
+  // Category attributes (Autori, Përkthyesi, Faqe…) are searchable too.
+  const attributeText = new Map<number, string>();
+  try {
+    const attributeRows = ((await db.execute(sql`
+      SELECT v.product_id AS "productId", string_agg(a.name || ' ' || v.value, ' ') AS text
+      FROM product_attribute_values v JOIN category_attributes a ON a.id = v.attribute_id
+      WHERE coalesce(v.value, '') <> '' GROUP BY v.product_id`)) as unknown as { rows: Array<{ productId: number; text: string }> }).rows;
+    for (const row of attributeRows) attributeText.set(row.productId, foldSearchText(row.text));
+  } catch {
+    // Shops without category attributes: titles and descriptions only.
+  }
+
+  // Albanian words change their ending (teuhid / teuhidin / teuhidit): match on the stem. Each word
+  // also matches its synonyms (tefsir ↔ koment…). The title, description, SKU and attributes are
+  // all searched (title counts 1.5×); rare words weigh more than common ones (IDF), so "Abdulberr"
+  // or "4700" decide the result and "ibn" or "faqe" barely count.
   const words = query
     .split(' ')
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
     .map((word) => (word.length > 5 ? word.slice(0, word.length - 2) : word));
+  const texts = rows.map((row) => ({
+    name: foldSearchText(row.name),
+    rest: `${foldSearchText(row.sku ?? '')} ${foldSearchText(row.description ?? '')} ${attributeText.get(row.id) ?? ''}`,
+  }));
+  const weights = words.map((word) => {
+    const forms = expandWord(word);
+    const inDocuments = texts.filter((doc) => forms.some((form) => doc.name.includes(form) || doc.rest.includes(form))).length;
+    return Math.log((rows.length + 1) / (inDocuments + 1)) + 0.1;
+  });
+  const bestPossible = weights.reduce((sum, weight) => sum + 1.5 * weight, 0);
 
   // Meaning (vectors) when semantic search is on — finds products that share no word with the
   // question. Null when it is off (AGENT_EMBEDDINGS) or the model is not available.
@@ -239,22 +262,21 @@ async function searchProducts(env: ToolEnv, args: Record<string, unknown>): Prom
   }
   const available = (row: (typeof rows)[number]) => Number(row.price ?? 0) > 0 && (row.stock ?? 0) > 0;
   const ranked = rows
-    .map((row) => {
-      const name = foldSearchText(row.name);
-      const rest = `${foldSearchText(row.sku ?? '')} ${foldSearchText(row.description ?? '')}`;
+    .map((row, index) => {
+      const { name, rest } = texts[index];
       let keyword = 0;
-      for (const word of words) {
+      words.forEach((word, i) => {
         const forms = expandWord(word);
-        if (forms.some((form) => name.includes(form))) keyword += 2;
-        else if (forms.some((form) => rest.includes(form))) keyword += 1;
-      }
-      // Hybrid score: words (exact titles, synonyms) + meaning, relative to the best match.
-      const keywordShare = words.length ? keyword / (2 * words.length) : 0;
+        if (forms.some((form) => name.includes(form))) keyword += 1.5 * weights[i];
+        else if (forms.some((form) => rest.includes(form))) keyword += weights[i];
+      });
+      // Hybrid score: words (title, description, attributes, synonyms) + meaning, relative to the best match.
+      const keywordShare = bestPossible > 0 ? keyword / bestPossible : 0;
       const similarity = meaning.get(row.id) ?? 0;
       const semanticShare = similarity >= semanticCut ? (similarity - semanticCut) / SEMANTIC_BAND : 0;
-      // A small lift for what the customer can actually buy (price + stock).
+      // What the customer can buy (price + stock) gets a small lift: it decides close calls only.
       const relevance = keywordShare * 0.5 + semanticShare * 0.5;
-      const score = relevance > 0 ? relevance + (available(row) ? 0.15 : 0) : 0;
+      const score = relevance > 0 ? relevance + (available(row) ? 0.04 : 0) : 0;
       // How it was found, so the model can judge weak matches.
       const matchedBy = keyword > 0 && semanticShare > 0 ? 'words+meaning' : keyword > 0 ? 'words' : 'meaning';
       return score > 0 ? { row, score, matchedBy } : null;
