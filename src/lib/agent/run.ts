@@ -1,6 +1,7 @@
 import { allowRequest } from '@/lib/in-memory-rate-limit';
 import { chat, LlmError, type LlmMessage } from './llm';
 import { TOOL_DECLARATIONS, runTool, type ToolEnv } from './tools';
+import { startRun, type RunStatus } from './store';
 
 export type ChatTurn = { role: 'user' | 'assistant'; text: string };
 
@@ -69,8 +70,15 @@ export async function runAgent(input: {
   message: string;
 }): Promise<string> {
   const { env } = input;
+  // Audit trail: every message becomes a run with its model / tool steps (see store.ts).
+  const run = startRun(env.context.db, { channel: env.channel, sessionKey: env.sessionKey, message: input.message });
+  const finish = async (status: RunStatus, reply: string, error?: string) => {
+    await run.finish({ status, reply, error });
+    return reply;
+  };
+
   if (!allowRequest(`agent-msg:${env.sessionKey}`, 25, 10 * 60 * 1000)) {
-    return 'Po shkruani shumë shpejt. Prisni pak minuta dhe provoni sërish.';
+    return finish('rate_limited', 'Po shkruani shumë shpejt. Prisni pak minuta dhe provoni sërish.');
   }
 
   const messages: LlmMessage[] = [
@@ -82,16 +90,29 @@ export async function runAgent(input: {
     { role: 'user', content: input.message.slice(0, MAX_TURN_CHARS) },
   ];
 
+  let round = 0;
   try {
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-      if (!withinDailyLimit()) return FALLBACK_REPLY;
-      const reply = await chat({
+    for (; round < MAX_TOOL_ROUNDS; round += 1) {
+      if (!withinDailyLimit()) return finish('daily_limit', FALLBACK_REPLY);
+      const asked = Date.now();
+      const { message: reply, usage } = await chat({
         system: systemPrompt(input.shopName, env),
         messages,
         tools: TOOL_DECLARATIONS,
       });
       const calls = reply.tool_calls ?? [];
-      if (calls.length === 0) return reply.content?.trim() || FALLBACK_REPLY;
+      run.llm({
+        round,
+        durationMs: Date.now() - asked,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        toolCalls: calls.map((call) => call.function.name),
+        ok: true,
+      });
+      if (calls.length === 0) {
+        const text = reply.content?.trim();
+        return text ? finish('completed', text) : finish('fallback', FALLBACK_REPLY, 'empty model answer');
+      }
 
       messages.push(reply);
       for (const call of calls) {
@@ -102,13 +123,17 @@ export async function runAgent(input: {
         } catch {
           // Malformed arguments: the tool validates and answers with an error the model can fix.
         }
+        const started = Date.now();
         const result = await runTool(env, call.function.name, args);
+        run.tool({ name: call.function.name, args, result, durationMs: Date.now() - started });
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
       }
     }
-    return FALLBACK_REPLY;
+    return finish('max_steps', FALLBACK_REPLY, `no answer after ${MAX_TOOL_ROUNDS} rounds`);
   } catch (error) {
-    console.error('[agent] failed', error instanceof LlmError ? `${error.status} ${error.message}` : error);
-    return FALLBACK_REPLY;
+    const detail = error instanceof LlmError ? `${error.status} ${error.message}` : error instanceof Error ? error.message : String(error);
+    console.error('[agent] failed', detail);
+    run.llm({ round, durationMs: 0, promptTokens: 0, completionTokens: 0, toolCalls: [], ok: false, error: detail });
+    return finish(error instanceof LlmError && error.status === 429 ? 'rate_limited' : 'failed', FALLBACK_REPLY, detail);
   }
 }

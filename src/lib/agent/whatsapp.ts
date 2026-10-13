@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { getAgentContext } from './context';
-import { FALLBACK_REPLY, normalizeHistory, runAgent, type ChatTurn } from './run';
+import { FALLBACK_REPLY, normalizeHistory, runAgent } from './run';
+import { loadConversation, saveConversation } from './store';
 
 /**
  * Customer chats on WhatsApp: the whatsapp-agent service (linked to the shop's WhatsApp
@@ -15,26 +16,6 @@ export function whatsAppTokenMatches(header: string | null) {
   const a = Buffer.from(given);
   const b = Buffer.from(wanted);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-const HISTORY_TTL_MS = 60 * 60 * 1000;
-const MAX_CHATS = 500;
-const histories = new Map<string, { turns: ChatTurn[]; at: number }>();
-
-function loadHistory(chat: string): ChatTurn[] {
-  const entry = histories.get(chat);
-  if (!entry || Date.now() - entry.at > HISTORY_TTL_MS) return [];
-  return entry.turns;
-}
-
-function saveHistory(chat: string, turns: ChatTurn[]) {
-  histories.delete(chat); // re-insert so the Map stays ordered by last use
-  histories.set(chat, { turns: normalizeHistory(turns), at: Date.now() });
-  while (histories.size > MAX_CHATS) {
-    const oldest = histories.keys().next().value;
-    if (oldest === undefined) break;
-    histories.delete(oldest);
-  }
 }
 
 /** Markdown → WhatsApp: **bold** → *bold*, headings and [text](url) links → plain text. */
@@ -55,19 +36,21 @@ export async function answerWhatsAppMessage(input: {
   text: string;
 }): Promise<string> {
   const text = input.text.trim();
-  if (RESET.test(text)) {
-    saveHistory(input.chat, []);
-    return 'Përshëndetje! Jam asistenti i dyqanit. Mund të më pyesni për produkte, çmime dhe dërgesë, ose të bëni porosi këtu.';
-  }
+  const sessionKey = `wa:${input.chat}`;
   try {
     const { context, shopName } = await getAgentContext();
-    const history = loadHistory(input.chat);
+    if (RESET.test(text)) {
+      await saveConversation(context.db, sessionKey, 'whatsapp', []);
+      return 'Përshëndetje! Jam asistenti i dyqanit. Mund të më pyesni për produkte, çmime dhe dërgesë, ose të bëni porosi këtu.';
+    }
+    // Memory lives in the database: a restart or deploy never forgets an order in progress.
+    const history = await loadConversation(context.db, sessionKey);
     const who = [input.name, input.phone ? `+${input.phone}` : null].filter(Boolean).join(', ');
     const reply = await runAgent({
       env: {
         context,
         channel: 'whatsapp',
-        sessionKey: `wa:${input.chat}`,
+        sessionKey,
         phone: input.phone ?? undefined,
         contactHint: who ? `WhatsApp: ${who}` : undefined,
       },
@@ -75,7 +58,7 @@ export async function answerWhatsAppMessage(input: {
       history,
       message: text,
     });
-    saveHistory(input.chat, [...history, { role: 'user', text }, { role: 'assistant', text: reply }]);
+    await saveConversation(context.db, sessionKey, 'whatsapp', normalizeHistory([...history, { role: 'user', text }, { role: 'assistant', text: reply }]));
     return toWhatsAppFormat(reply);
   } catch (error) {
     console.error('[agent] whatsapp message failed', error instanceof Error ? error.message : error);

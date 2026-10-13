@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { getAgentContext } from './context';
-import { normalizeHistory, runAgent, type ChatTurn } from './run';
+import { normalizeHistory, runAgent } from './run';
+import { loadConversation, saveConversation } from './store';
 
 /**
  * Customer-facing Telegram bot (a separate bot from the order bot that messages the shop):
@@ -23,30 +24,6 @@ export type AgentTelegramUpdate = {
     from?: { id?: number; first_name?: string; is_bot?: boolean };
   };
 };
-
-const HISTORY_TTL_MS = 60 * 60 * 1000;
-const MAX_CHATS = 500;
-const histories = new Map<number, { turns: ChatTurn[]; at: number }>();
-
-function loadHistory(chatId: number): ChatTurn[] {
-  const entry = histories.get(chatId);
-  if (!entry || Date.now() - entry.at > HISTORY_TTL_MS) return [];
-  return entry.turns;
-}
-
-function saveHistory(chatId: number, turns: ChatTurn[]) {
-  histories.set(chatId, { turns: normalizeHistory(turns), at: Date.now() });
-  if (histories.size > MAX_CHATS) {
-    const cutoff = Date.now() - HISTORY_TTL_MS;
-    for (const [id, entry] of histories) if (entry.at < cutoff) histories.delete(id);
-    // Still too many: drop the oldest.
-    while (histories.size > MAX_CHATS) {
-      const oldest = histories.keys().next().value;
-      if (oldest === undefined) break;
-      histories.delete(oldest);
-    }
-  }
-}
 
 async function telegram(method: string, payload: Record<string, unknown>) {
   const token = process.env.TELEGRAM_AGENT_BOT_TOKEN ?? '';
@@ -92,8 +69,14 @@ export async function handleAgentTelegramUpdate(update: AgentTelegramUpdate) {
   if (!message || typeof chatId !== 'number' || message.chat?.type !== 'private' || message.from?.is_bot) return;
   if (!text) return;
 
+  const sessionKey = `tg:${chatId}`;
   if (text === '/start') {
-    saveHistory(chatId, []);
+    try {
+      const { context } = await getAgentContext();
+      await saveConversation(context.db, sessionKey, 'telegram', []);
+    } catch {
+      // A fresh start without memory is fine.
+    }
     await telegram('sendMessage', {
       chat_id: chatId,
       text: 'Përshëndetje! Jam asistenti i dyqanit. Mund të më pyesni për produkte, çmime dhe dërgesë, ose të bëni porosi këtu.',
@@ -104,19 +87,20 @@ export async function handleAgentTelegramUpdate(update: AgentTelegramUpdate) {
   await telegram('sendChatAction', { chat_id: chatId, action: 'typing' });
   try {
     const { context, shopName } = await getAgentContext();
-    const history = loadHistory(chatId);
+    // Memory lives in the database: a restart or deploy never forgets an order in progress.
+    const history = await loadConversation(context.db, sessionKey);
     const reply = await runAgent({
       env: {
         context,
         channel: 'telegram',
-        sessionKey: `tg:${chatId}`,
+        sessionKey,
         contactHint: message.from?.first_name ? `Telegram: ${message.from.first_name}` : undefined,
       },
       shopName,
       history,
       message: text,
     });
-    saveHistory(chatId, [...history, { role: 'user', text }, { role: 'assistant', text: reply }]);
+    await saveConversation(context.db, sessionKey, 'telegram', normalizeHistory([...history, { role: 'user', text }, { role: 'assistant', text: reply }]));
     await sendFormatted(chatId, reply.slice(0, 4000));
   } catch (error) {
     console.error('[agent] telegram update failed', error instanceof Error ? error.message : error);

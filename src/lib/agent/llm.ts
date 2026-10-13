@@ -55,11 +55,16 @@ export function isAgentConfigured() {
   return Boolean(settings().key);
 }
 
+export type LlmReply = {
+  message: Extract<LlmMessage, { role: 'assistant' }>;
+  usage: { promptTokens: number; completionTokens: number };
+};
+
 export async function chat(input: {
   system: string;
   messages: LlmMessage[];
   tools: LlmTool[];
-}): Promise<Extract<LlmMessage, { role: 'assistant' }>> {
+}): Promise<LlmReply> {
   const { key, baseUrl, model } = settings();
   if (!key) throw new LlmError('AGENT_API_KEY is not set', 503);
 
@@ -97,6 +102,7 @@ export async function chat(input: {
 
   const payload = (await response.json().catch(() => ({}))) as {
     choices?: Array<{ message?: { content?: string | null; tool_calls?: LlmToolCall[] } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
     error?: { message?: string } | string;
   };
   if (!response.ok) {
@@ -106,8 +112,15 @@ export async function chat(input: {
   const message = payload.choices?.[0]?.message;
   if (!message) throw new LlmError('The model returned no message', 502);
   return {
-    role: 'assistant',
-    content: message.content ?? null,
-    ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}),
+    message: {
+      role: 'assistant',
+      content: message.content ?? null,
+      ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}),
+    },
+    // Tokens the provider reports (0 when it does not say): for the audit trail and cost.
+    usage: {
+      promptTokens: Number(payload.usage?.prompt_tokens) || 0,
+      completionTokens: Number(payload.usage?.completion_tokens) || 0,
+    },
   };
 }

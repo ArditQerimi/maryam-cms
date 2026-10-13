@@ -39,4 +39,6 @@ export const cmsnav = {
   'cmsnav.notifications': 'Notifications',
   'cmsnav.settings': 'Settings',
   'cmsnav.sign_out': 'Sign out',
+
+  'cmsnav.item.assistant': 'AI assistant',
 };

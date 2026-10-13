@@ -153,6 +153,11 @@ async function deliverEmail(input: {
  * (blocked SMTP port, wrong app password, missing variables) is invisible.
  */
 export async function sendEmail(input: Parameters<typeof deliverEmail>[0]): Promise<SendEmailOutcome> {
+  // Test runs (scenario scripts) switch delivery off so nothing leaves the machine.
+  if (process.env.EMAIL_DELIVERY === 'off') {
+    console.info(`[email] delivery off (EMAIL_DELIVERY=off): ${input.subject}`);
+    return { ok: false, error: 'delivery-off' };
+  }
   const outcome = await deliverEmail(input);
   const domain = input.to.split('@')[1] ?? '?';
   if (outcome.ok) {

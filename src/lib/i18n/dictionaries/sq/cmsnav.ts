@@ -40,4 +40,6 @@ export const cmsnav: typeof cmsnavEn = {
   'cmsnav.notifications': 'Njoftimet',
   'cmsnav.settings': 'Cilësimet',
   'cmsnav.sign_out': 'Dil',
+
+  'cmsnav.item.assistant': 'Asistenti AI',
 };
