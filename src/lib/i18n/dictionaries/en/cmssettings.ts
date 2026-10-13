@@ -361,4 +361,6 @@ export const cmssettings = {
   'cmssettings.agentRuns.fixThis': 'Write the correct answer',
   'cmssettings.agentRuns.corrected': 'Corrected',
   'cmssettings.agentRuns.rating': 'Rating',
+  'cmssettings.agentRuns.edit': 'Edit',
+  'cmssettings.agentRuns.save': 'Save',
 };

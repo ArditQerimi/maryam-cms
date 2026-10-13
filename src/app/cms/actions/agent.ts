@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getContextDb } from '@/lib/tenant';
-import { deleteCorrection, rateRun, saveCorrection, setCorrectionActive } from '@/lib/agent/store';
+import { deleteCorrection, rateRun, saveCorrection, setCorrectionActive, updateCorrection } from '@/lib/agent/store';
 
 /*
  * CMS → AI assistant: staff rate answers and teach the assistant. A correction is the right
@@ -49,5 +49,15 @@ export async function deleteCorrectionAction(form: FormData) {
   const id = Number(field(form, 'id'));
   if (!Number.isSafeInteger(id) || id < 1) return;
   await deleteCorrection(await getContextDb(), id);
+  revalidatePath(PAGE);
+}
+
+export async function updateCorrectionAction(form: FormData) {
+  await requireCmsSession();
+  const id = Number(field(form, 'id'));
+  const question = field(form, 'question');
+  const answer = field(form, 'answer');
+  if (!Number.isSafeInteger(id) || id < 1 || question.length < 3 || answer.length < 3) return;
+  await updateCorrection(await getContextDb(), id, { question, answer });
   revalidatePath(PAGE);
 }

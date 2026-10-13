@@ -2,7 +2,7 @@ import { requireCmsSession } from '@/lib/cms/session';
 import { getT } from '@/lib/i18n/server';
 import { getContextDb } from '@/lib/tenant';
 import { listCorrections, readAgentHistory, readAgentReport, readRunExtras, type AgentStepRow } from '@/lib/agent/store';
-import { deleteCorrectionAction, rateAnswerAction, saveCorrectionAction, toggleCorrectionAction } from '@/app/cms/actions/agent';
+import { deleteCorrectionAction, rateAnswerAction, saveCorrectionAction, toggleCorrectionAction, updateCorrectionAction } from '@/app/cms/actions/agent';
 import { Badge, Button, PageHeader, Table, Td, Th, Textarea, Input, type BadgeTone } from '@/components/admin/ui';
 import { SettingsCard } from '@/components/settings/SettingsCard';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
@@ -80,9 +80,12 @@ export default async function AssistantHistoryPage() {
               ) : (
                 <ul className="space-y-1.5 text-sm">
                   {report.unanswered.map((item, index) => (
-                    <li key={index} className="flex gap-2">
-                      <Badge tone={STATUS_TONE[item.status] ?? 'neutral'}>{status(item.status)}</Badge>
-                      <span className="text-zinc-700">{item.message}</span>
+                    <li key={index}>
+                      <div className="flex gap-2">
+                        <Badge tone={STATUS_TONE[item.status] ?? 'neutral'}>{status(item.status)}</Badge>
+                        <span className="text-zinc-700">{item.message}</span>
+                      </div>
+                      <AnswerForm question={item.message} label={t('cmssettings.agentRuns.fixThis')} save={t('cmssettings.agentRuns.saveCorrection')} />
                     </li>
                   ))}
                 </ul>
@@ -96,9 +99,12 @@ export default async function AssistantHistoryPage() {
               ) : (
                 <ul className="space-y-1 text-sm">
                   {report.notFound.map((item) => (
-                    <li key={item.query} className="flex justify-between gap-3">
-                      <span className="text-zinc-700">“{item.query}”</span>
-                      <span className="tabular-nums text-zinc-500">× {item.times}</span>
+                    <li key={item.query}>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-zinc-700">“{item.query}”</span>
+                        <span className="tabular-nums text-zinc-500">× {item.times}</span>
+                      </div>
+                      <AnswerForm question={item.query} label={t('cmssettings.agentRuns.fixThis')} save={t('cmssettings.agentRuns.saveCorrection')} />
                     </li>
                   ))}
                 </ul>
@@ -125,6 +131,15 @@ export default async function AssistantHistoryPage() {
                     <div className="font-medium text-zinc-800">{item.question}</div>
                     <div className="whitespace-pre-wrap text-zinc-600">→ {item.answer}</div>
                     <div className="mt-0.5 text-xs text-zinc-400">{when(item.createdAt)}{item.createdBy ? ` · ${item.createdBy}` : ''}</div>
+                    <details className="mt-1.5">
+                      <summary className="cursor-pointer text-xs font-medium text-zinc-600">{t('cmssettings.agentRuns.edit')}</summary>
+                      <form action={updateCorrectionAction} className="mt-2 space-y-2">
+                        <input type="hidden" name="id" value={item.id} />
+                        <Input name="question" required minLength={3} maxLength={1000} defaultValue={item.question} aria-label={t('cmssettings.agentRuns.question')} />
+                        <Textarea name="answer" required minLength={3} maxLength={3000} rows={3} defaultValue={item.answer} aria-label={t('cmssettings.agentRuns.correctAnswer')} />
+                        <Button type="submit" size="sm">{t('cmssettings.agentRuns.save')}</Button>
+                      </form>
+                    </details>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge tone={item.active ? 'success' : 'neutral'}>
@@ -254,5 +269,19 @@ export default async function AssistantHistoryPage() {
         </SettingsCard>
       </div>
     </div>
+  );
+}
+
+/** "Write the correct answer" for a question from the report: saved as a correction. */
+function AnswerForm({ question, label, save }: { question: string; label: string; save: string }) {
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-xs font-medium text-zinc-600">✏️ {label}</summary>
+      <form action={saveCorrectionAction} className="mt-2 space-y-2">
+        <input type="hidden" name="question" value={question} />
+        <Textarea name="answer" required minLength={3} maxLength={3000} rows={3} className="text-xs" />
+        <Button type="submit" size="sm">{save}</Button>
+      </form>
+    </details>
   );
 }

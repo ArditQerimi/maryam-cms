@@ -368,4 +368,6 @@ export const cmssettings: typeof cmssettingsEn = {
   'cmssettings.agentRuns.fixThis': 'Shkruaj përgjigjen e saktë',
   'cmssettings.agentRuns.corrected': 'E korrigjuar',
   'cmssettings.agentRuns.rating': 'Vlerësimi',
+  'cmssettings.agentRuns.edit': 'Redakto',
+  'cmssettings.agentRuns.save': 'Ruaj',
 };

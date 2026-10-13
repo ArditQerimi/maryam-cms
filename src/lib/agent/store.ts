@@ -334,6 +334,16 @@ export async function saveCorrection(db: Db, input: { runId?: string | null; que
   return row.id;
 }
 
+/** Edits a correction's question and answer (it stays active / inactive as it was). */
+export async function updateCorrection(db: Db, id: number, input: { question: string; answer: string }) {
+  await ensureTables(db);
+  const question = input.question.trim().slice(0, 1000);
+  const answer = input.answer.trim().slice(0, 3000);
+  if (question.length < 3 || answer.length < 3) throw new Error('question-and-answer-required');
+  await db.execute(sql`UPDATE agent_corrections SET question = ${question}, answer = ${answer}, updated_at = now() WHERE id = ${id}`);
+  corrections.delete(db);
+}
+
 export async function setCorrectionActive(db: Db, id: number, active: boolean) {
   await ensureTables(db);
   await db.execute(sql`UPDATE agent_corrections SET active = ${active}, updated_at = now() WHERE id = ${id}`);
