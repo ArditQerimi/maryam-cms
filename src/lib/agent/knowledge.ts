@@ -227,6 +227,26 @@ async function indexFor(db: Db): Promise<IndexedDoc[] | null> {
   return state.docs;
 }
 
+const questionVectors = new Map<string, number[]>();
+
+/** Cosine similarity of two questions (null when semantic search is off). Vectors are cached. */
+export async function similarity(a: string, b: string): Promise<number | null> {
+  const embed = await loadEmbedder();
+  if (!embed) return null;
+  const vectorOf = async (value: string) => {
+    const key = value.slice(0, 500);
+    let vector = questionVectors.get(key);
+    if (!vector) {
+      vector = await embed(asQuery(key));
+      if (questionVectors.size > 2000) questionVectors.clear();
+      questionVectors.set(key, vector);
+    }
+    return vector;
+  };
+  const [left, right] = [await vectorOf(a), await vectorOf(b)];
+  return left.reduce((sum, value, i) => sum + value * right[i], 0);
+}
+
 export type SemanticHit = { kind: KnowledgeDoc['kind']; refId: number; title: string; url: string; text: string; score: number };
 
 /** Documents closest in meaning to the question (null when semantic search is off / unavailable). */

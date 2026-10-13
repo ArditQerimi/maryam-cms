@@ -1,8 +1,9 @@
 import { requireCmsSession } from '@/lib/cms/session';
 import { getT } from '@/lib/i18n/server';
 import { getContextDb } from '@/lib/tenant';
-import { readAgentHistory, type AgentStepRow } from '@/lib/agent/store';
-import { Badge, PageHeader, Table, Td, Th, type BadgeTone } from '@/components/admin/ui';
+import { listCorrections, readAgentHistory, readAgentReport, readRunExtras, type AgentStepRow } from '@/lib/agent/store';
+import { deleteCorrectionAction, rateAnswerAction, saveCorrectionAction, toggleCorrectionAction } from '@/app/cms/actions/agent';
+import { Badge, Button, PageHeader, Table, Td, Th, Textarea, Input, type BadgeTone } from '@/components/admin/ui';
 import { SettingsCard } from '@/components/settings/SettingsCard';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
@@ -22,9 +23,19 @@ const STATUS_TONE: Record<string, BadgeTone> = {
 export default async function AssistantHistoryPage() {
   await requireCmsSession();
   const t = await getT();
-  const { runs, steps, summary } = await readAgentHistory(await getContextDb(), 50);
+  const db = await getContextDb();
+  const { runs, steps, summary } = await readAgentHistory(db, 50);
+  const [report, corrections, extras] = await Promise.all([
+    readAgentReport(db),
+    listCorrections(db),
+    readRunExtras(db, runs.map((run) => run.id)),
+  ]);
   const stepsOf = new Map<string, AgentStepRow[]>();
   for (const step of steps) stepsOf.set(step.runId, [...(stepsOf.get(step.runId) ?? []), step]);
+  const ratingOf = (runId: string, source: 'customer' | 'staff') =>
+    extras.feedback.find((item) => item.runId === runId && item.source === source)?.rating ?? 0;
+  const correctionOf = (runId: string) => extras.corrections.find((item) => item.runId === runId);
+  const thumbs = (rating: number) => (rating > 0 ? '👍' : rating < 0 ? '👎' : '');
 
   const seconds = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)} s`);
   const when = (iso: string) => iso.replace('T', ' ').slice(0, 16);
@@ -54,6 +65,87 @@ export default async function AssistantHistoryPage() {
             ))}
           </dl>
           <p className="mt-3 text-xs text-zinc-500">{t('cmssettings.agentRuns.privacy')}</p>
+        </SettingsCard>
+
+        <SettingsCard title={t('cmssettings.agentRuns.reportTitle')}>
+          <div className="mb-4 flex flex-wrap gap-3 text-sm">
+            <Badge tone="success">👍 {t('cmssettings.agentRuns.liked')}: {report.liked}</Badge>
+            <Badge tone="danger">👎 {t('cmssettings.agentRuns.disliked')}: {report.disliked}</Badge>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-800">{t('cmssettings.agentRuns.unansweredTitle')}</h3>
+              {report.unanswered.length === 0 ? (
+                <p className="text-sm text-zinc-500">{t('cmssettings.agentRuns.nothing')}</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {report.unanswered.map((item, index) => (
+                    <li key={index} className="flex gap-2">
+                      <Badge tone={STATUS_TONE[item.status] ?? 'neutral'}>{status(item.status)}</Badge>
+                      <span className="text-zinc-700">{item.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h3 className="mb-1 text-sm font-semibold text-zinc-800">{t('cmssettings.agentRuns.notFoundTitle')}</h3>
+              <p className="mb-2 text-xs text-zinc-500">{t('cmssettings.agentRuns.notFoundHint')}</p>
+              {report.notFound.length === 0 ? (
+                <p className="text-sm text-zinc-500">{t('cmssettings.agentRuns.nothing')}</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {report.notFound.map((item) => (
+                    <li key={item.query} className="flex justify-between gap-3">
+                      <span className="text-zinc-700">“{item.query}”</span>
+                      <span className="tabular-nums text-zinc-500">× {item.times}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title={t('cmssettings.agentRuns.teachTitle')} description={t('cmssettings.agentRuns.teachDescription')}>
+          <form action={saveCorrectionAction} className="space-y-3">
+            <Input name="question" required minLength={3} maxLength={1000} placeholder={t('cmssettings.agentRuns.question')} aria-label={t('cmssettings.agentRuns.question')} />
+            <Textarea name="answer" required minLength={3} maxLength={3000} rows={3} placeholder={t('cmssettings.agentRuns.correctAnswer')} aria-label={t('cmssettings.agentRuns.correctAnswer')} />
+            <Button type="submit">{t('cmssettings.agentRuns.saveCorrection')}</Button>
+          </form>
+
+          <h3 className="mb-2 mt-6 text-sm font-semibold text-zinc-800">{t('cmssettings.agentRuns.correctionsTitle')} ({corrections.length})</h3>
+          {corrections.length === 0 ? (
+            <p className="text-sm text-zinc-500">{t('cmssettings.agentRuns.noCorrections')}</p>
+          ) : (
+            <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+              {corrections.map((item) => (
+                <li key={item.id} className="flex flex-col gap-2 px-3 py-2.5 text-sm sm:flex-row sm:items-start sm:justify-between">
+                  <div className={item.active ? '' : 'opacity-50'}>
+                    <div className="font-medium text-zinc-800">{item.question}</div>
+                    <div className="whitespace-pre-wrap text-zinc-600">→ {item.answer}</div>
+                    <div className="mt-0.5 text-xs text-zinc-400">{when(item.createdAt)}{item.createdBy ? ` · ${item.createdBy}` : ''}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge tone={item.active ? 'success' : 'neutral'}>
+                      {item.active ? t('cmssettings.agentRuns.activeLabel') : t('cmssettings.agentRuns.inactiveLabel')}
+                    </Badge>
+                    <form action={toggleCorrectionAction}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <input type="hidden" name="active" value={item.active ? 'false' : 'true'} />
+                      <Button type="submit" variant="outline" size="sm">
+                        {item.active ? t('cmssettings.agentRuns.turnOff') : t('cmssettings.agentRuns.turnOn')}
+                      </Button>
+                    </form>
+                    <form action={deleteCorrectionAction}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <Button type="submit" variant="ghost" size="sm">{t('cmssettings.agentRuns.delete')}</Button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </SettingsCard>
 
         <SettingsCard title={t('cmssettings.agentRuns.latest')}>
@@ -109,10 +201,48 @@ export default async function AssistantHistoryPage() {
                               </li>
                             ))}
                           </ol>
+
+                          <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2">
+                            <span className="text-zinc-500">{t('cmssettings.agentRuns.rating')}:</span>
+                            {([1, -1] as const).map((value) => (
+                              <form key={value} action={rateAnswerAction}>
+                                <input type="hidden" name="runId" value={run.id} />
+                                <input type="hidden" name="rating" value={value} />
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  variant={ratingOf(run.id, 'staff') === value ? 'primary' : 'outline'}
+                                  title={value > 0 ? t('cmssettings.agentRuns.rateGood') : t('cmssettings.agentRuns.rateBad')}
+                                >
+                                  {value > 0 ? '👍' : '👎'}
+                                </Button>
+                              </form>
+                            ))}
+                            {ratingOf(run.id, 'customer') !== 0 ? (
+                              <span className="text-zinc-500">
+                                {t('cmssettings.agentRuns.customerRated', { rating: thumbs(ratingOf(run.id, 'customer')) })}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <form action={saveCorrectionAction} className="space-y-2">
+                            <input type="hidden" name="runId" value={run.id} />
+                            <input type="hidden" name="question" value={run.message} />
+                            <div className="font-semibold text-zinc-600">{t('cmssettings.agentRuns.fixThis')}</div>
+                            <Textarea name="answer" rows={3} required minLength={3} maxLength={3000} defaultValue={correctionOf(run.id)?.answer ?? ''} className="text-xs" />
+                            <Button type="submit" size="sm">{t('cmssettings.agentRuns.saveCorrection')}</Button>
+                          </form>
                         </div>
                       </details>
                     </Td>
-                    <Td><Badge tone={STATUS_TONE[run.status] ?? 'neutral'}>{status(run.status)}</Badge></Td>
+                    <Td>
+                      <Badge tone={STATUS_TONE[run.status] ?? 'neutral'}>{status(run.status)}</Badge>
+                      <div className="mt-1 text-xs">
+                        {thumbs(ratingOf(run.id, 'customer'))}
+                        {thumbs(ratingOf(run.id, 'staff'))}
+                        {correctionOf(run.id) ? ` ✏️ ${t('cmssettings.agentRuns.corrected')}` : ''}
+                      </div>
+                    </Td>
                     <Td className="text-right tabular-nums">{run.steps}</Td>
                     <Td className="text-right tabular-nums">{(run.promptTokens + run.completionTokens).toLocaleString('en-US')}</Td>
                     <Td className="text-right tabular-nums">{seconds(run.durationMs)}</Td>

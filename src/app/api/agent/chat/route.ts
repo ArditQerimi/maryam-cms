@@ -45,13 +45,18 @@ export async function POST(request: NextRequest) {
     const { context, shopName } = await getAgentContext();
     // Same-origin only: the chat belongs to this storefront, other sites cannot drive it.
     assertMutationOrigin(request, context);
+    let runId: string | null = null;
     const reply = await runAgent({
       env: { context, channel: 'web', sessionKey: clientKey(request) },
       shopName,
       history,
       message,
+      onRun: (id) => {
+        runId = id;
+      },
     });
-    return NextResponse.json({ reply }, { headers: { 'Cache-Control': 'no-store' } });
+    // runId lets the customer rate this answer (/api/agent/feedback).
+    return NextResponse.json({ reply, runId }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (isStorefrontError(error) && error.status < 500) {
       return NextResponse.json({ error: error.code }, { status: error.status });

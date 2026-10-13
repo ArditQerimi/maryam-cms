@@ -59,6 +59,23 @@ async function ensureTables(db: Db) {
           created_at timestamp NOT NULL DEFAULT now()
         );
         CREATE INDEX IF NOT EXISTS agent_steps_run_idx ON agent_steps (run_id, step);
+        CREATE TABLE IF NOT EXISTS agent_feedback (
+          run_id uuid NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+          source varchar(10) NOT NULL,
+          rating smallint NOT NULL,
+          created_at timestamp NOT NULL DEFAULT now(),
+          PRIMARY KEY (run_id, source)
+        );
+        CREATE TABLE IF NOT EXISTS agent_corrections (
+          id serial PRIMARY KEY,
+          run_id uuid,
+          question text NOT NULL,
+          answer text NOT NULL,
+          active boolean NOT NULL DEFAULT true,
+          created_by varchar(255),
+          created_at timestamp NOT NULL DEFAULT now(),
+          updated_at timestamp NOT NULL DEFAULT now()
+        );
         CREATE TABLE IF NOT EXISTS agent_conversations (
           session_hash varchar(64) PRIMARY KEY,
           channel varchar(20) NOT NULL,
@@ -261,4 +278,158 @@ export async function readAgentHistory(db: Db, limit = 50) {
         WHERE s.kind = 'tool' AND s.name = 'place_order' AND s.ok AND r.started_at > now() - interval '7 days') AS orders
     FROM agent_runs WHERE started_at > now() - interval '7 days'`));
   return { runs, steps, summary: summary ?? { runs: 0, completed: 0, fallback: 0, avgTokens: 0, avgDurationMs: 0, orders: 0 } };
+}
+
+// ------------------------------------------------------------------ feedback and corrections
+//
+// The assistant does not train itself. Instead the shop teaches it: a staff member writes the
+// correct answer to a question once (CMS → AI assistant); for any similar question later the
+// correction is given to the model as the shop's own guidance, and it becomes a test case
+// (scripts/agent-evals.ts). Customers and staff can also rate answers 👍 / 👎.
+
+export type FeedbackSource = 'customer' | 'staff';
+
+/** 👍 (1) or 👎 (-1) for one answer. Customers may only rate recent website answers. */
+export async function rateRun(db: Db, runId: string, source: FeedbackSource, rating: 1 | -1) {
+  await ensureTables(db);
+  const guard = source === 'customer' ? sql`AND channel = 'web' AND started_at > now() - interval '1 day'` : sql``;
+  const found = rowsOf<{ id: string }>(await db.execute(sql`SELECT id FROM agent_runs WHERE id = ${runId}::uuid ${guard}`));
+  if (found.length === 0) return false;
+  await db.execute(sql`
+    INSERT INTO agent_feedback (run_id, source, rating) VALUES (${runId}::uuid, ${source}, ${rating})
+    ON CONFLICT (run_id, source) DO UPDATE SET rating = EXCLUDED.rating, created_at = now()`);
+  return true;
+}
+
+export type AgentCorrection = {
+  id: number;
+  runId: string | null;
+  question: string;
+  answer: string;
+  active: boolean;
+  createdBy: string | null;
+  createdAt: string;
+};
+
+// Active corrections, cached per database for a minute.
+const corrections = new WeakMap<object, { at: number; rows: AgentCorrection[] }>();
+
+export async function saveCorrection(db: Db, input: { runId?: string | null; question: string; answer: string; createdBy?: string | null }) {
+  await ensureTables(db);
+  const question = input.question.trim().slice(0, 1000);
+  const answer = input.answer.trim().slice(0, 3000);
+  if (question.length < 3 || answer.length < 3) throw new Error('question-and-answer-required');
+  corrections.delete(db);
+  if (input.runId) {
+    // One correction per answer: writing it again replaces it.
+    const existing = rowsOf<{ id: number }>(await db.execute(sql`SELECT id FROM agent_corrections WHERE run_id = ${input.runId}::uuid LIMIT 1`));
+    if (existing[0]) {
+      await db.execute(sql`UPDATE agent_corrections SET question = ${question}, answer = ${answer}, active = true, updated_at = now() WHERE id = ${existing[0].id}`);
+      return existing[0].id;
+    }
+  }
+  const [row] = rowsOf<{ id: number }>(await db.execute(sql`
+    INSERT INTO agent_corrections (run_id, question, answer, created_by)
+    VALUES (${input.runId ?? null}::uuid, ${question}, ${answer}, ${input.createdBy ?? null}) RETURNING id`));
+  return row.id;
+}
+
+export async function setCorrectionActive(db: Db, id: number, active: boolean) {
+  await ensureTables(db);
+  await db.execute(sql`UPDATE agent_corrections SET active = ${active}, updated_at = now() WHERE id = ${id}`);
+  corrections.delete(db);
+}
+
+export async function deleteCorrection(db: Db, id: number) {
+  await ensureTables(db);
+  await db.execute(sql`DELETE FROM agent_corrections WHERE id = ${id}`);
+  corrections.delete(db);
+}
+
+export async function listCorrections(db: Db, options: { activeOnly?: boolean } = {}): Promise<AgentCorrection[]> {
+  await ensureTables(db);
+  return rowsOf<AgentCorrection>(await db.execute(sql`
+    SELECT id, run_id AS "runId", question, answer, active, created_by AS "createdBy",
+      to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS "createdAt"
+    FROM agent_corrections ${options.activeOnly ? sql`WHERE active` : sql``} ORDER BY created_at DESC LIMIT 500`));
+}
+
+const fold = (value: string) =>
+  value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ');
+const keyWords = (value: string) =>
+  new Set(fold(value).split(' ').filter((word) => word.length >= 3).map((word) => (word.length > 5 ? word.slice(0, -2) : word)));
+const GUIDANCE_STOP = new Set(['keni', 'kemi', 'per', 'nje', 'cfare', 'cila', 'cilat', 'dua', 'mund', 'eshte', 'jane', 'ndonje', 'liber', 'libra', 'libri']);
+
+/**
+ * The shop's corrections that fit this question (at most 2): most of the correction question's key
+ * words appear in the message. Semantic search (when on) also matches reworded questions.
+ */
+export async function findGuidance(db: Db, message: string): Promise<AgentCorrection[]> {
+  try {
+    let cached = corrections.get(db);
+    if (!cached || Date.now() - cached.at > 60_000) {
+      cached = { at: Date.now(), rows: await listCorrections(db, { activeOnly: true }) };
+      corrections.set(db, cached);
+    }
+    if (cached.rows.length === 0) return [];
+    const asked = [...keyWords(message)];
+    const scored = cached.rows.map((row) => {
+      const wanted = [...keyWords(row.question)].filter((word) => !GUIDANCE_STOP.has(word));
+      const hit = wanted.filter((word) => asked.some((have) => have.startsWith(word) || word.startsWith(have))).length;
+      return { row, score: wanted.length ? hit / wanted.length : 0 };
+    });
+    const { semanticSearchEnabled, similarity } = await import('./knowledge');
+    if (semanticSearchEnabled()) {
+      for (const entry of scored) {
+        const similar = await similarity(message, entry.row.question);
+        if (similar !== null && similar >= 0.9) entry.score = Math.max(entry.score, 0.8);
+      }
+    }
+    return scored
+      .filter((entry) => entry.score >= 0.6)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .map((entry) => entry.row);
+  } catch (error) {
+    warn('find guidance', error);
+    return [];
+  }
+}
+
+export type AgentReport = {
+  unanswered: Array<{ message: string; status: string; at: string }>;
+  notFound: Array<{ query: string; times: number }>;
+  liked: number;
+  disliked: number;
+};
+
+/** Last 7 days: questions without a real answer, searches that found nothing, ratings. */
+export async function readAgentReport(db: Db): Promise<AgentReport> {
+  await ensureTables(db);
+  const unanswered = rowsOf<{ message: string; status: string; at: string }>(await db.execute(sql`
+    SELECT left(message, 200) AS message, status, to_char(started_at, 'YYYY-MM-DD HH24:MI') AS at FROM agent_runs
+    WHERE status NOT IN ('completed', 'running') AND started_at > now() - interval '7 days'
+    ORDER BY started_at DESC LIMIT 15`));
+  const notFound = rowsOf<{ query: string; times: number }>(await db.execute(sql`
+    SELECT coalesce(input::jsonb ->> 'query', input) AS query, count(*)::int AS times
+    FROM agent_steps s JOIN agent_runs r ON r.id = s.run_id
+    WHERE s.kind = 'tool' AND s.name = 'search_products' AND s.output LIKE '{"products":[]%'
+      AND r.started_at > now() - interval '7 days'
+    GROUP BY 1 ORDER BY times DESC, query LIMIT 15`).catch(() => ({ rows: [] })));
+  const [ratings] = rowsOf<{ liked: number; disliked: number }>(await db.execute(sql`
+    SELECT count(*) FILTER (WHERE rating > 0)::int AS liked, count(*) FILTER (WHERE rating < 0)::int AS disliked
+    FROM agent_feedback WHERE created_at > now() - interval '7 days'`));
+  return { unanswered, notFound, liked: ratings?.liked ?? 0, disliked: ratings?.disliked ?? 0 };
+}
+
+/** Ratings and corrections of the listed runs (for the CMS history). */
+export async function readRunExtras(db: Db, runIds: string[]) {
+  await ensureTables(db);
+  if (runIds.length === 0) return { feedback: [], corrections: [] };
+  const ids = sql.join(runIds.map((id) => sql`${id}::uuid`), sql`, `);
+  const feedback = rowsOf<{ runId: string; source: FeedbackSource; rating: number }>(await db.execute(sql`
+    SELECT run_id AS "runId", source, rating FROM agent_feedback WHERE run_id IN (${ids})`));
+  const fixes = rowsOf<{ runId: string; id: number; answer: string; active: boolean }>(await db.execute(sql`
+    SELECT run_id AS "runId", id, answer, active FROM agent_corrections WHERE run_id IN (${ids})`));
+  return { feedback, corrections: fixes };
 }

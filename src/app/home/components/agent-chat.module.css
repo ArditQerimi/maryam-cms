@@ -122,6 +122,36 @@
   border: 1px solid #e3dfd6;
 }
 
+/* 👍 / 👎 under an answer: small, flat, olive like the rest of the chat. */
+.rate {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: -0.25rem;
+  font-size: 0.75rem;
+  color: #7a7466;
+}
+
+.rate button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid #e3dfd6;
+  background: #ffffff;
+  color: var(--chat-olive);
+  cursor: pointer;
+}
+
+.rate button[aria-pressed='true'] {
+  border-color: var(--chat-olive);
+  background: var(--chat-olive);
+  color: #ffffff;
+}
+
 .user {
   align-self: flex-end;
   background: var(--chat-olive);

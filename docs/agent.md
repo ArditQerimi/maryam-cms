@@ -66,6 +66,24 @@ vdekjes" → "Gjendja e të vdekurve…"). Mbeten pa u gjetur: "libër për para
 "si ta edukoj fëmijën tim". Një model më i madh (`multilingual-e5-base`) ose embeddings me API mund t'i përmirësojnë,
 me më shumë memorie / kosto.
 
+## Si mëson asistenti (pa trajnim)
+Modeli nuk ndryshon; **dyqani e mëson** nga CMS → Settings → **Asistenti AI**:
+
+1. **👍 / 👎** — klienti nën çdo përgjigje në chat-in e faqes (`/api/agent/feedback`, vetëm nga i njëjti origin, vetëm
+   përgjigje të 24 orëve të fundit), stafi te historia. Ruhen te `agent_feedback`.
+2. **Korrigjimet** — për çdo përgjigje (ose si pyetje e re) stafi shkruan përgjigjen e saktë (`agent_corrections`).
+   Për çdo pyetje të ngjashme (fjalë kyçe; me vektorët edhe pyetje të riformuluara) asistenti merr korrigjimin si
+   udhëzim të dyqanit, **pranë pyetjes** (aty modeli i kushton më shumë vëmendje). Faktet e veglave (çmim, stok) kanë
+   përparësi; kur veglat s'e kanë (p.sh. produkt pa çmim online), përdoret ai i dyqanit. Hapi duket te audit trail si
+   `shop_guidance`.
+3. **Raporti 7-ditor** — pyetjet pa përgjigje të vërtetë, produktet e kërkuara që s'u gjetën, 👍 / 👎.
+4. **Testet** — çdo korrigjim aktiv bëhet test:
+   `node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/agent-evals.ts <url e databazës>`
+   (pyet asistentin e vërtetë dhe kontrollon faktet kryesore: numrat, çmimet, emrat).
+
+Provë: "sa kushton tefsiri i kuranit, a mund ta porosis?" — para: "çmimi nuk është caktuar online"; pas një korrigjimi:
+"në dyqan me çmim 25 € (3 vëllime)… telefononi… ose ejani në dyqan" (7/7 fakte).
+
 ## Mbrojtjet (guardrails)
 - Trupi i kërkesës maks. 24 KB (413), mesazhi 1 500 karaktere, historia 16 mesazhe.
 - Maks. 5 raunde model/vegla për mesazh; timeout 30 s për thirrje; 25 mesazhe / 10 min për bisedë; 400 thirrje / ditë.

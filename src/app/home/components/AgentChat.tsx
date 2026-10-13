@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { MessageCircle, Send, X } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { MessageCircle, Send, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import styles from './agent-chat.module.css';
 
-type Turn = { role: 'user' | 'assistant'; text: string };
+type Turn = { role: 'user' | 'assistant'; text: string; runId?: string; rating?: 1 | -1 };
 
 const STORAGE_KEY = 'shop-agent-chat';
 const MAX_SENT_TURNS = 16;
@@ -20,6 +20,10 @@ const COPY = {
     placeholder: 'Shkruaj një mesazh…',
     send: 'Dërgo',
     error: 'Nuk mund të lidhem tani. Provoni pak më vonë.',
+    helpful: 'Ishte e dobishme?',
+    good: 'Përgjigje e mirë',
+    bad: 'Përgjigje e gabuar',
+    thanks: 'Faleminderit!',
   },
   en: {
     open: 'Open chat',
@@ -30,6 +34,10 @@ const COPY = {
     placeholder: 'Write a message…',
     send: 'Send',
     error: 'I cannot connect right now. Please try again later.',
+    helpful: 'Was this helpful?',
+    good: 'Good answer',
+    bad: 'Wrong answer',
+    thanks: 'Thank you!',
   },
 } as const;
 
@@ -95,9 +103,10 @@ export default function AgentChat() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ message, history }),
         });
-        const payload = (await response.json().catch(() => ({}))) as { reply?: string };
+        const payload = (await response.json().catch(() => ({}))) as { reply?: string; runId?: string | null };
         const reply = response.ok && payload.reply ? payload.reply : copy.error;
-        setTurns((current) => [...current, { role: 'assistant', text: reply }]);
+        const runId = response.ok && payload.runId ? payload.runId : undefined;
+        setTurns((current) => [...current, { role: 'assistant', text: reply, runId }]);
       } catch {
         setTurns((current) => [...current, { role: 'assistant', text: copy.error }]);
       } finally {
@@ -106,6 +115,18 @@ export default function AgentChat() {
     },
     [busy, copy.error, draft, turns],
   );
+
+  /** 👍 / 👎 for one answer (shown in the shop's CMS, used to improve the assistant). */
+  const rate = useCallback((index: number, rating: 1 | -1) => {
+    const turn = turns[index];
+    if (!turn?.runId || turn.rating === rating) return;
+    setTurns((current) => current.map((item, i) => (i === index ? { ...item, rating } : item)));
+    void fetch('/api/agent/feedback', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ runId: turn.runId, rating }),
+    }).catch(() => undefined);
+  }, [turns]);
 
   return (
     <div className={styles.root}>
@@ -124,9 +145,22 @@ export default function AgentChat() {
           <div className={styles.list} ref={listRef} aria-live="polite">
             <p className={`${styles.bubble} ${styles.assistant}`}>{copy.greeting}</p>
             {turns.map((turn, index) => (
-              <p key={index} className={`${styles.bubble} ${turn.role === 'user' ? styles.user : styles.assistant}`}>
-                {turn.role === 'assistant' ? renderText(turn.text) : turn.text}
-              </p>
+              <Fragment key={index}>
+                <p className={`${styles.bubble} ${turn.role === 'user' ? styles.user : styles.assistant}`}>
+                  {turn.role === 'assistant' ? renderText(turn.text) : turn.text}
+                </p>
+                {turn.role === 'assistant' && turn.runId ? (
+                  <div className={styles.rate}>
+                    <span>{turn.rating ? copy.thanks : copy.helpful}</span>
+                    <button type="button" aria-label={copy.good} title={copy.good} aria-pressed={turn.rating === 1} onClick={() => rate(index, 1)}>
+                      <ThumbsUp size={14} strokeWidth={1.8} />
+                    </button>
+                    <button type="button" aria-label={copy.bad} title={copy.bad} aria-pressed={turn.rating === -1} onClick={() => rate(index, -1)}>
+                      <ThumbsDown size={14} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
             {busy ? (
               <p className={`${styles.bubble} ${styles.assistant} ${styles.typing}`} aria-hidden="true">
