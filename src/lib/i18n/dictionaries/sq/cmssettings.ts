@@ -318,6 +318,7 @@ export const cmssettings: typeof cmssettingsEn = {
   'cmssettings.waWelcome.numbers': 'Numrat',
   'cmssettings.waWelcome.numbersHint': 'Plotësohet vetë me numrat që i kanë shkruar dyqanit (30 ditët e fundit) dhe numrin tënd. Meta nuk e jep listën e numrave testues, ndaj një numër që s’ka shkruar ende shtoje me dorë (një për rresht, me kodin e shtetit). Maks. {max}.',
   'cmssettings.waWelcome.addKnown': 'Shto numrat që i kanë shkruar dyqanit ({count})',
+  'cmssettings.waWelcome.auto': 'Dërgoje vetë këtë mesazh kur një numër i ri i shkruan dyqanit për herë të parë (p.sh. një testues i shtuar te Meta), para përgjigjes së asistentit',
   'cmssettings.waWelcome.text': 'Mesazhi',
   'cmssettings.waWelcome.textHint': 'Shkon si tekst te kush ka shkruar në 24 orët e fundit.',
   'cmssettings.waWelcome.templateTitle': 'Shablloni për të tjerët (opsional)',

@@ -142,7 +142,10 @@ export async function getWhatsAppWelcome(): Promise<WelcomeSettings & { max: num
   return { ...settings, max: MAX_WELCOME_NUMBERS, known };
 }
 
-function readWelcomeInput(input: { numbers: string; text: string; template: string; language: string }) {
+/** What the CMS welcome form sends. */
+export type WelcomeInput = { numbers: string; text: string; template: string; language: string; auto: boolean };
+
+function readWelcomeInput(input: WelcomeInput) {
   const { numbers, invalid } = parseNumbers(input.numbers);
   if (invalid.length > 0) return { error: fail('welcomeBadNumbers', { numbers: invalid.slice(0, 3).join(', ') }) };
   if (numbers.length > MAX_WELCOME_NUMBERS) return { error: fail('welcomeTooMany', { max: String(MAX_WELCOME_NUMBERS) }) };
@@ -151,10 +154,10 @@ function readWelcomeInput(input: { numbers: string; text: string; template: stri
   const template = input.template.trim();
   if (template && !/^[a-z0-9_]{1,512}$/.test(template)) return { error: fail('templateFormat') };
   const language = /^[a-z]{2,3}(_[A-Z]{2})?$/.test(input.language.trim()) ? input.language.trim() : 'sq';
-  return { settings: { numbers, text, template, language } satisfies WelcomeSettings };
+  return { settings: { numbers, text, template, language, auto: input.auto === true } satisfies WelcomeSettings };
 }
 
-export async function saveWhatsAppWelcome(input: { numbers: string; text: string; template: string; language: string }): Promise<CloudActionResult> {
+export async function saveWhatsAppWelcome(input: WelcomeInput): Promise<CloudActionResult> {
   await requireCmsSession();
   const parsed = readWelcomeInput(input);
   if (!parsed.settings) return parsed.error;
@@ -163,7 +166,7 @@ export async function saveWhatsAppWelcome(input: { numbers: string; text: string
 }
 
 /** Saves the list and message, then sends it to every number (one result per number). */
-export async function sendWhatsAppWelcome(input: { numbers: string; text: string; template: string; language: string }): Promise<CloudActionResult & { results?: WelcomeResult[] }> {
+export async function sendWhatsAppWelcome(input: WelcomeInput): Promise<CloudActionResult & { results?: WelcomeResult[] }> {
   await requireCmsSession();
   const parsed = readWelcomeInput(input);
   if (!parsed.settings) return parsed.error;

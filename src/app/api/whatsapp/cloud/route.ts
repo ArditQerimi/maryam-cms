@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { answerWhatsAppMessage } from '@/lib/agent/whatsapp';
 import { applyOrderAction } from '@/lib/storefront/order-decision';
-import { getContextDb } from '@/lib/tenant';
+import { getContextCompany, getContextDb } from '@/lib/tenant';
 import {
   cloudMarkReadTyping,
   cloudSendText,
@@ -11,7 +11,7 @@ import {
   stampWhatsAppCloud,
   type CloudConfig,
 } from '@/lib/whatsapp-cloud';
-import { noteWelcomeInbound } from '@/lib/whatsapp-welcome';
+import { loadWelcomeSettings, noteWelcomeInbound } from '@/lib/whatsapp-welcome';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,8 +88,15 @@ function firstTime(id: string | undefined) {
 
 const MEDIA_ONLY_REPLY = 'Për momentin kuptoj vetëm mesazhe me shkrim. Ju lutem shkruani pyetjen tuaj 🙏';
 
+/** The welcome text for a number writing for the first time, when the shop switched it on in the CMS. */
+async function autoWelcome(db: Awaited<ReturnType<typeof getContextDb>>) {
+  const company = await getContextCompany();
+  const settings = await loadWelcomeSettings(db, company.name?.trim() || company.subdomain);
+  return settings.auto ? settings.text : null;
+}
+
 /** A customer wrote to the shop: the shop assistant answers (and can take the order). */
-async function answerCustomer(config: CloudConfig, message: IncomingMessage, name: string | null) {
+async function answerCustomer(config: CloudConfig, message: IncomingMessage, name: string | null, welcome: string | null) {
   const from = String(message.from ?? '').replace(/\D/g, '');
   if (!from) return;
   if (message.id) await cloudMarkReadTyping(config, message.id).catch(() => undefined);
@@ -100,6 +107,7 @@ async function answerCustomer(config: CloudConfig, message: IncomingMessage, nam
     : ['image', 'audio', 'video', 'document', 'sticker', 'location'].includes(message.type ?? '')
       ? MEDIA_ONLY_REPLY
       : null; // reactions, system messages…
+  if (welcome) await cloudSendText(config, from, welcome); // first message from a new number
   if (reply) await cloudSendText(config, from, reply);
 }
 
@@ -130,7 +138,7 @@ export async function POST(request: NextRequest) {
         if (sentAt && Date.now() - sentAt > 10 * 60_000) continue; // a stale re-delivery
 
         const from = String(message.from ?? '').replace(/\D/g, '');
-        await noteWelcomeInbound(db, from); // 24h window for the CMS welcome message (listed numbers only)
+        const isNew = await noteWelcomeInbound(db, from); // who wrote: the welcome list and its 24h window
         const decision = config.owner && from === config.owner ? parseDecision(message) : null;
         if (decision) {
           const outcome = await applyOrderAction(decision.action, decision.saleId);
@@ -141,9 +149,10 @@ export async function POST(request: NextRequest) {
         if (!config.agentEnabled) continue;
 
         const name = value.contacts?.find((contact) => contact.wa_id === message.from)?.profile?.name ?? null;
+        const welcome = isNew ? await autoWelcome(db) : null;
         // Answer after the 200: Meta expects a quick response, the assistant can take seconds.
         after(() =>
-          answerCustomer(config, message, name).catch((error) =>
+          answerCustomer(config, message, name, welcome).catch((error) =>
             console.warn(
               '[whatsapp-cloud] customer reply failed:',
               error instanceof CloudApiError

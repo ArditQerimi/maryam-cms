@@ -8,6 +8,7 @@ import {
   saveWhatsAppWelcome,
   sendWhatsAppWelcome,
   type CloudActionResult,
+  type WelcomeInput,
 } from '@/app/cms/actions/whatsapp-cloud';
 import type { WelcomeResult } from '@/lib/whatsapp-welcome';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
@@ -19,7 +20,7 @@ import type { Dictionary } from '@/lib/i18n/dictionaries/en';
  */
 export default function WhatsAppWelcome() {
   const { t } = useLocale();
-  const [form, setForm] = useState<{ numbers: string; text: string; template: string; language: string } | null>(null);
+  const [form, setForm] = useState<WelcomeInput | null>(null);
   const [max, setMax] = useState(20);
   const [known, setKnown] = useState<string[]>([]);
   const [busy, setBusy] = useState<'save' | 'send' | null>(null);
@@ -31,7 +32,7 @@ export default function WhatsAppWelcome() {
       setKnown(saved.known);
       // Nothing saved yet: start from the numbers that wrote to the shop (and the owner).
       const numbers = saved.numbers.length > 0 ? saved.numbers : saved.known;
-      setForm({ numbers: numbers.map((number) => `+${number}`).join('\n'), text: saved.text, template: saved.template, language: saved.language });
+      setForm({ numbers: numbers.map((number) => `+${number}`).join('\n'), text: saved.text, template: saved.template, language: saved.language, auto: saved.auto });
     });
   }, []);
 
@@ -91,6 +92,15 @@ export default function WhatsAppWelcome() {
       <Field label={t('cmssettings.waWelcome.text')} hint={t('cmssettings.waWelcome.textHint')} htmlFor="wa-welcome-text">
         <Textarea id="wa-welcome-text" rows={4} maxLength={1000} value={form.text} onChange={set('text')} />
       </Field>
+      <label className="flex items-start gap-2 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          checked={form.auto}
+          onChange={(event) => setForm((current) => (current ? { ...current, auto: event.target.checked } : current))}
+          className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+        />
+        <span>{t('cmssettings.waWelcome.auto')}</span>
+      </label>
       <details className="text-sm">
         <summary className="cursor-pointer text-zinc-600">{t('cmssettings.waWelcome.templateTitle')}</summary>
         <p className="mt-2 text-zinc-600">{t('cmssettings.waWelcome.templateHint')}</p>

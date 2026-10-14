@@ -311,6 +311,7 @@ export const cmssettings = {
   'cmssettings.waWelcome.numbers': 'Numbers',
   'cmssettings.waWelcome.numbersHint': 'Filled in by itself with the numbers that wrote to the shop (last 30 days) and yours. Meta does not expose the test number’s list, so add a number that has not written yet by hand (one per line, with the country code). At most {max}.',
   'cmssettings.waWelcome.addKnown': 'Add the numbers that wrote to the shop ({count})',
+  'cmssettings.waWelcome.auto': 'Send this message by itself when a new number writes to the shop for the first time (e.g. a tester added at Meta), before the assistant’s answer',
   'cmssettings.waWelcome.text': 'Message',
   'cmssettings.waWelcome.textHint': 'Sent as text to whoever wrote in the last 24 hours.',
   'cmssettings.waWelcome.templateTitle': 'Template for everyone else (optional)',

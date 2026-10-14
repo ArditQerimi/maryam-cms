@@ -65,15 +65,18 @@ async function main() {
     const fresh = await loadWelcomeSettings(db, 'Dyqani Elif');
     check(fresh.text === defaultWelcomeText('Dyqani Elif') && fresh.numbers.length === 0, 'nothing saved → default welcome text with the shop name');
 
-    await saveWelcomeSettings(db, { numbers: parsed.numbers, text: 'Mirë se vini!', template: '', language: 'sq' });
+    check(fresh.auto === false, 'automatic welcome is off until the shop switches it on');
+    await saveWelcomeSettings(db, { numbers: parsed.numbers, text: 'Mirë se vini!', template: '', language: 'sq', auto: true });
     const saved = await loadWelcomeSettings(db, 'Dyqani Elif');
-    check(saved.numbers.length === 3 && saved.text === 'Mirë se vini!', 'list and text are saved');
+    check(saved.numbers.length === 3 && saved.text === 'Mirë se vini!' && saved.auto === true, 'list, text and the automatic switch are saved');
 
-    await noteWelcomeInbound(db, '38340999999');
+    const firstTime = await noteWelcomeInbound(db, '38340999999');
+    const again = await noteWelcomeInbound(db, '38340999999');
+    check(firstTime === true && again === false, 'a number writing for the first time is new, the second time it is not');
     await noteWelcomeInbound(db, RECENT);
-    await noteWelcomeInbound(db, 'not-a-number');
+    check((await noteWelcomeInbound(db, 'not-a-number')) === false, 'junk sender is ignored');
     const known = await knownNumbers(db);
-    check(known.join(',') === `${RECENT},38340999999`, 'webhook remembers who wrote, most recent first (junk ignored)');
+    check(known.join(',') === `${RECENT},38340999999`, 'webhook remembers who wrote, most recent first');
 
     const results = await sendWelcome(db, config, saved);
     const byNumber = Object.fromEntries(results.map((result) => [result.to, result]));

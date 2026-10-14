@@ -19,6 +19,7 @@ export const WELCOME_KEYS = {
   template: 'whatsapp_welcome_template',
   language: 'whatsapp_welcome_language',
   lastInbound: 'whatsapp_welcome_last_inbound',
+  auto: 'whatsapp_welcome_auto',
 } as const;
 
 export const MAX_WELCOME_NUMBERS = 20;
@@ -30,7 +31,8 @@ const MAX_KNOWN = 50;
 export const defaultWelcomeText = (shop: string) =>
   `Mirë se vini në ${shop}! 📚\nUnë jam asistenti i dyqanit: më shkruani çfarë libri kërkoni, pyetni për çmime ose dërgesë, ose porositni direkt këtu.`;
 
-export type WelcomeSettings = { numbers: string[]; text: string; template: string; language: string };
+/** auto: a number that writes to the shop for the first time (in 30 days) gets the text before the answer. */
+export type WelcomeSettings = { numbers: string[]; text: string; template: string; language: string; auto: boolean };
 
 export type WelcomeResult = { to: string; ok: boolean; via: 'text' | 'template'; error?: string };
 
@@ -83,11 +85,13 @@ export async function loadWelcomeSettings(db: Db, shop: string): Promise<Welcome
   const text = saved.get(WELCOME_KEYS.text);
   const template = saved.get(WELCOME_KEYS.template);
   const language = saved.get(WELCOME_KEYS.language);
+  const auto = saved.get(WELCOME_KEYS.auto);
   return {
     numbers: Array.isArray(numbers) ? numbers.filter((value): value is string => typeof value === 'string') : [],
     text: typeof text === 'string' && text.trim() ? text : defaultWelcomeText(shop),
     template: typeof template === 'string' ? template : '',
     language: typeof language === 'string' && language ? language : 'sq',
+    auto: auto === 'on',
   };
 }
 
@@ -96,6 +100,7 @@ export async function saveWelcomeSettings(db: Db, input: WelcomeSettings) {
   await write(db, WELCOME_KEYS.text, input.text);
   await write(db, WELCOME_KEYS.template, input.template);
   await write(db, WELCOME_KEYS.language, input.language);
+  await write(db, WELCOME_KEYS.auto, input.auto ? 'on' : 'off');
 }
 
 async function lastInbound(db: Db): Promise<Record<string, string>> {
@@ -103,16 +108,21 @@ async function lastInbound(db: Db): Promise<Record<string, string>> {
   return saved && typeof saved === 'object' && !Array.isArray(saved) ? (saved as Record<string, string>) : {};
 }
 
-/** Webhook: remember when a number last wrote (the 50 most recent, for 30 days). */
+/**
+ * Webhook: remember when a number last wrote (the 50 most recent, for 30 days). Returns true when
+ * the number had not written in that time (a new tester / customer).
+ */
 export async function noteWelcomeInbound(db: Db, from: string) {
-  if (!/^\d{8,15}$/.test(from)) return;
+  if (!/^\d{8,15}$/.test(from)) return false;
   const seen = await lastInbound(db);
   const cutoff = Date.now() - KEEP_MS;
+  const isNew = !(Date.parse(seen[from] ?? '') > cutoff);
   const kept = Object.entries({ ...seen, [from]: new Date().toISOString() })
     .filter(([, at]) => Date.parse(at) > cutoff)
     .sort(([, left], [, right]) => right.localeCompare(left))
     .slice(0, MAX_KNOWN);
   await write(db, WELCOME_KEYS.lastInbound, Object.fromEntries(kept)).catch(() => undefined);
+  return isNew;
 }
 
 /** Numbers that wrote to the shop in the last 30 days, most recent first. */
