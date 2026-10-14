@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
   const db = await getContextDb();
   const config = await loadWhatsAppCloudConfig(db);
   if (!signatureOk(config.appSecret, raw, request.headers.get('x-hub-signature-256'))) {
+    // Most often: the App secret saved in the CMS is not this app's (CMS → Settings → WhatsApp).
+    console.warn(`[whatsapp-cloud] rejected a webhook: bad signature (app secret ${config.appSecret ? 'set' : 'missing'})`);
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
