@@ -6,6 +6,7 @@ import { getContextDb } from '@/lib/tenant';
 import {
   cloudMarkReadTyping,
   cloudSendText,
+  CloudApiError,
   loadWhatsAppCloudConfig,
   stampWhatsAppCloud,
   type CloudConfig,
@@ -141,7 +142,12 @@ export async function POST(request: NextRequest) {
         // Answer after the 200: Meta expects a quick response, the assistant can take seconds.
         after(() =>
           answerCustomer(config, message, name).catch((error) =>
-            console.warn('[whatsapp-cloud] customer reply failed:', error instanceof Error ? error.message : 'unknown error'),
+            console.warn(
+              '[whatsapp-cloud] customer reply failed:',
+              error instanceof CloudApiError
+                ? `${error.status} code ${error.code ?? '-'}: ${error.metaMessage}` // 131030 = number not in the test list, 190 = token expired
+                : error instanceof Error ? error.message : 'unknown error',
+            ),
           ),
         );
       }
