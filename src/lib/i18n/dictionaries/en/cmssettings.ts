@@ -298,6 +298,7 @@ export const cmssettings = {
   'cmssettings.waCloud.msg.ownerFormat': 'Your number: with country code, e.g. 38349123456.',
   'cmssettings.waCloud.msg.templateFormat': 'The template name has only lowercase letters, digits and _.',
   'cmssettings.waCloud.msg.encryption': 'Not saved: the server has no SESSION_SECRET / SETTINGS_ENCRYPTION_KEY to encrypt with.',
+  'cmssettings.waCloud.msg.saveFailed': 'Not saved: {detail}',
   'cmssettings.waCloud.msg.saveFirst': 'Save the phone number ID and token first.',
   'cmssettings.waCloud.msg.badToken': 'Meta rejects the token: it may have expired or been copied wrong. Create a permanent one (System user).',
   'cmssettings.waCloud.msg.unknownNumberId': 'Meta does not know this phone number ID. Copy it from WhatsApp → API Setup.',

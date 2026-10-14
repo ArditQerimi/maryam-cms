@@ -89,8 +89,11 @@ export async function saveWhatsAppCloud(input: {
 
   try {
     await saveWhatsAppCloudSettings(db, { ...input, phoneNumberId, owner });
-  } catch {
-    return fail('encryption');
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error('[whatsapp-cloud] saving the settings failed:', detail);
+    if (/SESSION_SECRET/.test(detail)) return fail('encryption');
+    return fail('saveFailed', { detail: detail.slice(0, 200) });
   }
   return done('saved');
 }

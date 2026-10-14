@@ -305,6 +305,7 @@ export const cmssettings: typeof cmssettingsEn = {
   'cmssettings.waCloud.msg.ownerFormat': 'Numri yt: me kodin e shtetit, p.sh. 38349123456.',
   'cmssettings.waCloud.msg.templateFormat': 'Emri i shabllonit ka vetëm shkronja të vogla, shifra dhe _.',
   'cmssettings.waCloud.msg.encryption': 'Nuk u ruajt: serveri nuk ka SESSION_SECRET / SETTINGS_ENCRYPTION_KEY për enkriptim.',
+  'cmssettings.waCloud.msg.saveFailed': 'Nuk u ruajt: {detail}',
   'cmssettings.waCloud.msg.saveFirst': 'Ruaj së pari Phone number ID dhe token-in.',
   'cmssettings.waCloud.msg.badToken': 'Meta nuk e pranon token-in: mund të ketë skaduar ose të jetë kopjuar gabim. Krijo një token të përhershëm (System user).',
   'cmssettings.waCloud.msg.unknownNumberId': 'Meta nuk e njeh këtë Phone number ID. Kopjoje nga WhatsApp → API Setup.',

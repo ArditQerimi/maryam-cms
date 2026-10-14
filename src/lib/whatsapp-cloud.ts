@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { settingsStore } from '@/db/schema-tenant';
 import type { getTenantDb } from '@/db/index';
 import { openSecret, sealSecret } from './secret-box';
@@ -116,11 +116,15 @@ export async function loadWhatsAppCloudConfig(db: Db): Promise<CloudConfig> {
 }
 
 async function writeKeys(db: Db, values: Record<string, string>) {
+  // Update, then insert when missing: works even where settings_store lacks the unique index on key
+  // (older tenant databases), which ON CONFLICT needs.
   for (const [key, value] of Object.entries(values)) {
-    await db
-      .insert(settingsStore)
-      .values({ key, value: JSON.stringify(value) })
-      .onConflictDoUpdate({ target: settingsStore.key, set: { value: JSON.stringify(value), updatedAt: new Date() } });
+    const updated = await db
+      .update(settingsStore)
+      .set({ value: JSON.stringify(value), updatedAt: new Date() })
+      .where(eq(settingsStore.key, key))
+      .returning({ id: settingsStore.id });
+    if (updated.length === 0) await db.insert(settingsStore).values({ key, value: JSON.stringify(value) });
   }
 }
 
