@@ -5,9 +5,10 @@ import { cloudSend, cloudSendText, CloudApiError, type CloudConfig } from './wha
 
 /*
  * Welcome message to a short list of numbers (the Meta test number's allowed recipients, or a few
- * customers). WhatsApp allows free text only within 24h of the person's last message; anyone else
- * gets an approved template (Meta's "hello_world" until the shop has its own). The webhook keeps,
- * for the listed numbers only, when each one last wrote.
+ * customers). WhatsApp allows free text only within 24h of the person’s last message; anyone else
+ * gets an approved template (Meta's "hello_world" until the shop has its own). Meta does not expose
+ * the test number's recipient list, so the webhook keeps who wrote to the shop (50 numbers, 30 days):
+ * that fills the list by itself and gives each number's 24h window.
  */
 
 type Db = ReturnType<typeof getTenantDb>;
@@ -22,6 +23,9 @@ export const WELCOME_KEYS = {
 
 export const MAX_WELCOME_NUMBERS = 20;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Who wrote to the shop is kept 30 days, at most 50 numbers (fills the welcome list by itself). */
+const KEEP_MS = 30 * WINDOW_MS;
+const MAX_KNOWN = 50;
 
 export const defaultWelcomeText = (shop: string) =>
   `Mirë se vini në ${shop}! 📚\nUnë jam asistenti i dyqanit: më shkruani çfarë libri kërkoni, pyetni për çmime ose dërgesë, ose porositni direkt këtu.`;
@@ -99,14 +103,25 @@ async function lastInbound(db: Db): Promise<Record<string, string>> {
   return saved && typeof saved === 'object' && !Array.isArray(saved) ? (saved as Record<string, string>) : {};
 }
 
-/** Webhook: remember when a listed number last wrote (others are not stored). */
+/** Webhook: remember when a number last wrote (the 50 most recent, for 30 days). */
 export async function noteWelcomeInbound(db: Db, from: string) {
-  const saved = await readAll(db).catch(() => null);
-  const numbers = saved?.get(WELCOME_KEYS.numbers);
-  if (!Array.isArray(numbers) || !numbers.includes(from)) return;
+  if (!/^\d{8,15}$/.test(from)) return;
   const seen = await lastInbound(db);
-  const kept = Object.fromEntries(Object.entries(seen).filter(([number]) => numbers.includes(number)));
-  await write(db, WELCOME_KEYS.lastInbound, { ...kept, [from]: new Date().toISOString() }).catch(() => undefined);
+  const cutoff = Date.now() - KEEP_MS;
+  const kept = Object.entries({ ...seen, [from]: new Date().toISOString() })
+    .filter(([, at]) => Date.parse(at) > cutoff)
+    .sort(([, left], [, right]) => right.localeCompare(left))
+    .slice(0, MAX_KNOWN);
+  await write(db, WELCOME_KEYS.lastInbound, Object.fromEntries(kept)).catch(() => undefined);
+}
+
+/** Numbers that wrote to the shop in the last 30 days, most recent first. */
+export async function knownNumbers(db: Db) {
+  const cutoff = Date.now() - KEEP_MS;
+  return Object.entries(await lastInbound(db))
+    .filter(([, at]) => Date.parse(at) > cutoff)
+    .sort(([, left], [, right]) => right.localeCompare(left))
+    .map(([number]) => number);
 }
 
 function describe(error: unknown) {

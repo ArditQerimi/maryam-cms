@@ -21,17 +21,28 @@ export default function WhatsAppWelcome() {
   const { t } = useLocale();
   const [form, setForm] = useState<{ numbers: string; text: string; template: string; language: string } | null>(null);
   const [max, setMax] = useState(20);
+  const [known, setKnown] = useState<string[]>([]);
   const [busy, setBusy] = useState<'save' | 'send' | null>(null);
   const [results, setResults] = useState<WelcomeResult[]>([]);
 
   useEffect(() => {
     void getWhatsAppWelcome().then((saved) => {
       setMax(saved.max);
-      setForm({ numbers: saved.numbers.map((number) => `+${number}`).join('\n'), text: saved.text, template: saved.template, language: saved.language });
+      setKnown(saved.known);
+      // Nothing saved yet: start from the numbers that wrote to the shop (and the owner).
+      const numbers = saved.numbers.length > 0 ? saved.numbers : saved.known;
+      setForm({ numbers: numbers.map((number) => `+${number}`).join('\n'), text: saved.text, template: saved.template, language: saved.language });
     });
   }, []);
 
   if (!form) return <p className="text-sm text-zinc-500">{t('cmssettings.whatsapp.loading')}</p>;
+
+  const listed = new Set(form.numbers.split(/[\n,;]+/).map((line) => line.replace(/\D/g, '').replace(/^00/, '')).filter(Boolean));
+  const missing = known.filter((number) => !listed.has(number));
+  const addKnown = () =>
+    setForm((current) =>
+      current ? { ...current, numbers: [current.numbers.trim(), ...missing.map((number) => `+${number}`)].filter(Boolean).join('\n') } : current,
+    );
 
   const message = (result: CloudActionResult) => t(`cmssettings.waCloud.msg.${result.code}` as keyof Dictionary, result.params);
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -72,6 +83,11 @@ export default function WhatsAppWelcome() {
       <Field label={t('cmssettings.waWelcome.numbers')} hint={t('cmssettings.waWelcome.numbersHint', { max: String(max) })} htmlFor="wa-welcome-numbers">
         <Textarea id="wa-welcome-numbers" rows={4} value={form.numbers} onChange={set('numbers')} placeholder={'+38344123456\n+38349123456'} className="font-mono text-sm" />
       </Field>
+      {missing.length > 0 ? (
+        <Button variant="secondary" onClick={addKnown} disabled={busy !== null}>
+          {t('cmssettings.waWelcome.addKnown', { count: String(missing.length) })}
+        </Button>
+      ) : null}
       <Field label={t('cmssettings.waWelcome.text')} hint={t('cmssettings.waWelcome.textHint')} htmlFor="wa-welcome-text">
         <Textarea id="wa-welcome-text" rows={4} maxLength={1000} value={form.text} onChange={set('text')} />
       </Field>

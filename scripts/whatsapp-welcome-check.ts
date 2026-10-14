@@ -10,6 +10,7 @@ import { settingsStore } from '../src/db/schema-tenant';
 import type { CloudConfig } from '../src/lib/whatsapp-cloud';
 import {
   defaultWelcomeText,
+  knownNumbers,
   loadWelcomeSettings,
   noteWelcomeInbound,
   parseNumbers,
@@ -68,11 +69,11 @@ async function main() {
     const saved = await loadWelcomeSettings(db, 'Dyqani Elif');
     check(saved.numbers.length === 3 && saved.text === 'Mirë se vini!', 'list and text are saved');
 
+    await noteWelcomeInbound(db, '38340999999');
     await noteWelcomeInbound(db, RECENT);
-    await noteWelcomeInbound(db, '38340999999'); // not on the list: not stored
-    const [row] = await db.select({ value: settingsStore.value }).from(settingsStore).where(inArray(settingsStore.key, [WELCOME_KEYS.lastInbound]));
-    const seen = JSON.parse(row?.value ?? '{}') as Record<string, string>;
-    check(Boolean(seen[RECENT]) && !seen['38340999999'], 'webhook remembers only listed numbers');
+    await noteWelcomeInbound(db, 'not-a-number');
+    const known = await knownNumbers(db);
+    check(known.join(',') === `${RECENT},38340999999`, 'webhook remembers who wrote, most recent first (junk ignored)');
 
     const results = await sendWelcome(db, config, saved);
     const byNumber = Object.fromEntries(results.map((result) => [result.to, result]));

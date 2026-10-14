@@ -4,6 +4,7 @@ import { requireCmsSession } from '@/lib/cms/session';
 import { getRequestOrigin } from '@/lib/email/origin';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import {
+  knownNumbers,
   loadWelcomeSettings,
   MAX_WELCOME_NUMBERS,
   parseNumbers,
@@ -128,9 +129,17 @@ async function shopName() {
   return company.name?.trim() || company.subdomain;
 }
 
-export async function getWhatsAppWelcome(): Promise<WelcomeSettings & { max: number }> {
+/** The saved list plus the numbers that wrote to the shop (and the owner), to fill the list by itself. */
+export async function getWhatsAppWelcome(): Promise<WelcomeSettings & { max: number; known: string[] }> {
   await requireCmsSession();
-  return { ...(await loadWelcomeSettings(await getContextDb(), await shopName())), max: MAX_WELCOME_NUMBERS };
+  const db = await getContextDb();
+  const [settings, config, wrote] = await Promise.all([
+    loadWelcomeSettings(db, await shopName()),
+    loadWhatsAppCloudConfig(db),
+    knownNumbers(db),
+  ]);
+  const known = [...new Set([...(config.owner ? [config.owner] : []), ...wrote])].slice(0, MAX_WELCOME_NUMBERS);
+  return { ...settings, max: MAX_WELCOME_NUMBERS, known };
 }
 
 function readWelcomeInput(input: { numbers: string; text: string; template: string; language: string }) {
