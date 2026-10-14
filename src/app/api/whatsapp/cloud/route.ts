@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
           await cloudSendText(config, config.owner, outcome.toast).catch(() => undefined);
           continue;
         }
-        if (from === config.owner || !config.agentEnabled) continue; // the owner only sends decisions
+        // Anything else from the owner is a normal question (owners test the assistant from their own phone).
+        if (!config.agentEnabled) continue;
 
         const name = value.contacts?.find((contact) => contact.wa_id === message.from)?.profile?.name ?? null;
         // Answer after the 200: Meta expects a quick response, the assistant can take seconds.

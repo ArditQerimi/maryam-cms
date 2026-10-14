@@ -107,11 +107,11 @@ try {
   const toast = await waitForText(OWNER, mark, 15);
   check(Boolean(toast) && /nuk u gjet/i.test(toast.body.text.body), 'owner "KONFIRMO <id>" goes to the order decision (unknown order → "nuk u gjet")');
 
-  // 7. The owner chatting is not answered by the assistant
+  // 7. The owner chatting gets the assistant too (owners test it from their own phone)
   mark = sent.length;
   await post(webhook([{ id: 'wamid.owner2', from: OWNER, timestamp: now(), type: 'text', text: { body: 'Faleminderit' } }]));
-  await sleep(4000);
-  check(!sent.slice(mark).some((call) => call.body.type === 'text'), 'owner\'s ordinary messages are not answered by the assistant');
+  const ownerReply = await waitForText(OWNER, mark);
+  check(Boolean(ownerReply), 'owner\'s ordinary messages are answered by the assistant');
 } finally {
   graph.close();
 }
