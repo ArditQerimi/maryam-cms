@@ -57,6 +57,14 @@ Pas ruajtjes, Render e rinis faqen vetë.
 3. **Verify token:** e njëjta fjalë si `WHATSAPP_VERIFY_TOKEN` → **Verify and save**.
 4. Te **Webhook fields** → **messages** → **Subscribe**.
 
+5. **Lidhe llogarinë WhatsApp me appin** (paneli i ri i Meta-s shpesh e lë pa e bërë: webhook-u verifikohet,
+   por mesazhet nuk vijnë dhe CMS-ja nuk shfaq "Mesazhi i fundit u mor…"):
+   - WABA ID: WhatsApp Manager → adresa e faqes, `asset_id=…` (paneli i vjetër: `waba_id=…`), ose te
+     *Step 1. Try it out* → **WhatsApp Business Account ID** (jo *Phone number ID*, jo `business_id`);
+   - <https://developers.facebook.com/tools/explorer> → appi → **User Token** me lejet
+     `whatsapp_business_management` + `whatsapp_business_messaging` → **Generate Access Token**;
+   - **POST** `WABA_ID/subscribed_apps` → **Submit** → `{ "success": true }`.
+
 **Prova:** nga një numër i shtuar te hapi 3, shkruaji numrit testues "Përshëndetje, a e keni Sahihun e
 Buhariut?". Duhet të vijë përgjigjja e asistentit brenda pak sekondash.
 
