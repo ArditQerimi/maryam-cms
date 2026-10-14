@@ -11,6 +11,7 @@ import {
   stampWhatsAppCloud,
   type CloudConfig,
 } from '@/lib/whatsapp-cloud';
+import { noteWelcomeInbound } from '@/lib/whatsapp-welcome';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,7 @@ export async function POST(request: NextRequest) {
         if (sentAt && Date.now() - sentAt > 10 * 60_000) continue; // a stale re-delivery
 
         const from = String(message.from ?? '').replace(/\D/g, '');
+        await noteWelcomeInbound(db, from); // 24h window for the CMS welcome message (listed numbers only)
         const decision = config.owner && from === config.owner ? parseDecision(message) : null;
         if (decision) {
           const outcome = await applyOrderAction(decision.action, decision.saleId);

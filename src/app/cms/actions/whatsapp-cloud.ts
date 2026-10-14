@@ -2,7 +2,16 @@
 
 import { requireCmsSession } from '@/lib/cms/session';
 import { getRequestOrigin } from '@/lib/email/origin';
-import { getContextDb } from '@/lib/tenant';
+import { getContextCompany, getContextDb } from '@/lib/tenant';
+import {
+  loadWelcomeSettings,
+  MAX_WELCOME_NUMBERS,
+  parseNumbers,
+  saveWelcomeSettings,
+  sendWelcome,
+  type WelcomeResult,
+  type WelcomeSettings,
+} from '@/lib/whatsapp-welcome';
 import {
   clearWhatsAppCloudSettings,
   CloudApiError,
@@ -112,6 +121,52 @@ export async function testWhatsAppCloud(): Promise<CloudActionResult> {
   } catch (error) {
     return explain(error);
   }
+}
+
+async function shopName() {
+  const company = await getContextCompany();
+  return company.name?.trim() || company.subdomain;
+}
+
+export async function getWhatsAppWelcome(): Promise<WelcomeSettings & { max: number }> {
+  await requireCmsSession();
+  return { ...(await loadWelcomeSettings(await getContextDb(), await shopName())), max: MAX_WELCOME_NUMBERS };
+}
+
+function readWelcomeInput(input: { numbers: string; text: string; template: string; language: string }) {
+  const { numbers, invalid } = parseNumbers(input.numbers);
+  if (invalid.length > 0) return { error: fail('welcomeBadNumbers', { numbers: invalid.slice(0, 3).join(', ') }) };
+  if (numbers.length > MAX_WELCOME_NUMBERS) return { error: fail('welcomeTooMany', { max: String(MAX_WELCOME_NUMBERS) }) };
+  const text = input.text.trim().slice(0, 1000);
+  if (text.length < 3) return { error: fail('welcomeNoText') };
+  const template = input.template.trim();
+  if (template && !/^[a-z0-9_]{1,512}$/.test(template)) return { error: fail('templateFormat') };
+  const language = /^[a-z]{2,3}(_[A-Z]{2})?$/.test(input.language.trim()) ? input.language.trim() : 'sq';
+  return { settings: { numbers, text, template, language } satisfies WelcomeSettings };
+}
+
+export async function saveWhatsAppWelcome(input: { numbers: string; text: string; template: string; language: string }): Promise<CloudActionResult> {
+  await requireCmsSession();
+  const parsed = readWelcomeInput(input);
+  if (!parsed.settings) return parsed.error;
+  await saveWelcomeSettings(await getContextDb(), parsed.settings);
+  return done('welcomeSaved');
+}
+
+/** Saves the list and message, then sends it to every number (one result per number). */
+export async function sendWhatsAppWelcome(input: { numbers: string; text: string; template: string; language: string }): Promise<CloudActionResult & { results?: WelcomeResult[] }> {
+  await requireCmsSession();
+  const parsed = readWelcomeInput(input);
+  if (!parsed.settings) return parsed.error;
+  if (parsed.settings.numbers.length === 0) return fail('welcomeNoNumbers');
+  const db = await getContextDb();
+  const config = await loadWhatsAppCloudConfig(db);
+  if (!config.canSend) return fail('saveFirst');
+  await saveWelcomeSettings(db, parsed.settings);
+  const results = await sendWelcome(db, config, parsed.settings);
+  const sent = results.filter((result) => result.ok).length;
+  const outcome = sent === results.length ? done : fail;
+  return { ...outcome('welcomeSent', { sent: String(sent), total: String(results.length) }), results };
 }
 
 export async function disconnectWhatsAppCloud(): Promise<CloudActionResult> {

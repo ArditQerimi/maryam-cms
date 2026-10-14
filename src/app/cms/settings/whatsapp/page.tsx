@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/admin/ui';
 import { SettingsCard } from '@/components/settings/SettingsCard';
 import WhatsAppCloudSetup from './WhatsAppCloudSetup';
 import WhatsAppLink from './WhatsAppLink';
+import WhatsAppWelcome from './WhatsAppWelcome';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,9 @@ export default async function WhatsAppSettingsPage() {
       <div className="max-w-3xl space-y-6">
         <SettingsCard title={t('cmssettings.waCloud.title')} description={t('cmssettings.waCloud.description')}>
           <WhatsAppCloudSetup />
+        </SettingsCard>
+        <SettingsCard title={t('cmssettings.waWelcome.title')} description={t('cmssettings.waWelcome.description')}>
+          <WhatsAppWelcome />
         </SettingsCard>
         <SettingsCard title={t('cmssettings.waCloud.qrTitle')} description={t('cmssettings.waCloud.qrDescription')}>
           <WhatsAppLink />
