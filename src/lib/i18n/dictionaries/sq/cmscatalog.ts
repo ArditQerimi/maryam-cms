@@ -22,6 +22,12 @@ export const cmscatalog: typeof cmscatalogEn = {
   'cmscatalog.filter.all_categories': 'Të gjitha kategoritë',
   'cmscatalog.filter.status': 'Statusi',
   'cmscatalog.filter.all_statuses': 'Të gjitha statuset',
+  'cmscatalog.filter.variants': 'Variantet',
+  'cmscatalog.filter.variants_all': 'Të gjitha',
+  'cmscatalog.filter.variants_with': 'Me variante',
+  'cmscatalog.filter.variants_without': 'Pa variante',
+  'cmscatalog.variants_count': '{count} variante',
+  'cmscatalog.variant_stock': '{stock} në stok',
   'cmscatalog.filter.submit': 'Filtro',
   'cmscatalog.filter.clear': 'Pastro',
 

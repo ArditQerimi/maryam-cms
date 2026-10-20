@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
-import { Package, Plus, Search } from 'lucide-react';
+import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { Layers, Package, Plus, Search } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
-import { categories, products } from '@/db/schema-tenant';
+import { categories, products, productStocks, productVariants } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getT } from '@/lib/i18n/server';
 import { formatMoney } from '@/lib/cms/format';
@@ -34,8 +34,30 @@ type SearchParams = {
   q?: string;
   category?: string;
   status?: string;
+  variants?: string;
   page?: string;
 };
+
+/**
+ * Every product has at least one "base" variant that only stands for the product itself: "Default"
+ * (SKU BASE-<n>, from the import), "<name> Default" (SKU PRD-<id>-DEFAULT, added by the POS), or
+ * one with the product's own name / SKU. A product has variants when it has more than one, or a
+ * single one that is not the base.
+ */
+const baseVariant = sql`(${productVariants.name} in ('Default', ${products.name}, ${products.name} || ' Default') or coalesce(${productVariants.sku}, '') ~ '^(PRD-[0-9]+-DEFAULT|BASE-[0-9]+)$' or ${productVariants.sku} = ${products.sku})`;
+const hasRealVariants = sql`(exists (select 1 from ${productVariants} where ${productVariants.productId} = ${products.id} and not ${baseVariant}) or (select count(*) from ${productVariants} where ${productVariants.productId} = ${products.id}) > 1)`;
+
+function isBaseVariant(variant: { name: string | null; sku: string | null }, product: { name: string; sku: string | null }) {
+  const name = variant.name ?? '';
+  const sku = variant.sku ?? '';
+  return (
+    name === 'Default' ||
+    name === product.name ||
+    name === `${product.name} Default` ||
+    /^(PRD-\d+-DEFAULT|BASE-\d+)$/.test(sku) ||
+    (Boolean(sku) && sku === product.sku)
+  );
+}
 
 export default async function ProductsPage({
   searchParams,
@@ -54,10 +76,19 @@ export default async function ProductsPage({
     params.status && (STATUS_OPTIONS as readonly string[]).includes(params.status)
       ? (params.status as ProductStatusFilter)
       : '';
+  const variantsFilter = params.variants === 'with' || params.variants === 'without' ? params.variants : '';
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
 
   const filters = [
-    q ? or(ilike(products.name, `%${q}%`), ilike(products.sku, `%${q}%`)) : undefined,
+    q
+      ? or(
+          ilike(products.name, `%${q}%`),
+          ilike(products.sku, `%${q}%`),
+          // a variant's name or SKU finds its product too
+          sql`exists (select 1 from ${productVariants} where ${productVariants.productId} = ${products.id} and (${productVariants.name} ilike ${`%${q}%`} or ${productVariants.sku} ilike ${`%${q}%`}))`,
+        )
+      : undefined,
+    variantsFilter === 'with' ? hasRealVariants : variantsFilter === 'without' ? sql`not ${hasRealVariants}` : undefined,
     categoryId ? eq(products.categoryId, categoryId) : undefined,
     status ? eq(products.status, status) : undefined,
   ].filter((value): value is SQL => value !== undefined);
@@ -103,6 +134,32 @@ export default async function ProductsPage({
       .from(products),
   ]);
 
+  // Variants of the products on this page (one query). Stock: product_stocks rows when the variant
+  // has them, otherwise the product's own stock (same rule as the editor and the storefront).
+  const variantRows = rows.length
+    ? await db
+        .select({
+          id: productVariants.id,
+          productId: productVariants.productId,
+          name: productVariants.name,
+          sku: productVariants.sku,
+          price: productVariants.price,
+          status: productVariants.status,
+          stock: sql<number>`coalesce(sum(${productStocks.quantity}), 0)::int`,
+          stockRows: sql<number>`count(${productStocks.id})::int`,
+        })
+        .from(productVariants)
+        .leftJoin(productStocks, eq(productStocks.variantId, productVariants.id))
+        .where(inArray(productVariants.productId, rows.map((row) => row.id)))
+        .groupBy(productVariants.id)
+        .orderBy(asc(productVariants.id))
+    : [];
+  const variantsByProduct = new Map<number, typeof variantRows>();
+  for (const variant of variantRows) {
+    if (variant.productId === null) continue;
+    variantsByProduct.set(variant.productId, [...(variantsByProduct.get(variant.productId) ?? []), variant]);
+  }
+
   const total = countRows[0]?.value ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const stat = stats[0] ?? { total: 0, active: 0, outOfStock: 0, lowStock: 0 };
@@ -118,6 +175,7 @@ export default async function ProductsPage({
   if (q) paginationParams.q = q;
   if (categoryId) paginationParams.category = String(categoryId);
   if (status) paginationParams.status = status;
+  if (variantsFilter) paginationParams.variants = variantsFilter;
 
   return (
     <div>
@@ -210,6 +268,19 @@ export default async function ProductsPage({
             ))}
           </Select>
         </div>
+        <div className="sm:w-44">
+          <label
+            htmlFor="variants"
+            className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+          >
+            {t('cmscatalog.filter.variants')}
+          </label>
+          <Select id="variants" name="variants" defaultValue={variantsFilter}>
+            <option value="">{t('cmscatalog.filter.variants_all')}</option>
+            <option value="with">{t('cmscatalog.filter.variants_with')}</option>
+            <option value="without">{t('cmscatalog.filter.variants_without')}</option>
+          </Select>
+        </div>
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="md">
             {t('cmscatalog.filter.submit')}
@@ -226,12 +297,12 @@ export default async function ProductsPage({
       {rows.length === 0 ? (
         <EmptyState
           title={
-            q || categoryId || status
+            q || categoryId || status || variantsFilter
               ? t('cmscatalog.empty.filtered_title')
               : t('cmscatalog.empty.title')
           }
           description={
-            q || categoryId || status
+            q || categoryId || status || variantsFilter
               ? t('cmscatalog.empty.filtered_description')
               : t('cmscatalog.empty.description')
           }
@@ -264,6 +335,14 @@ export default async function ProductsPage({
               const image = parseImageUrl(product.imageUrl);
               const stock = product.stockQuantity ?? 0;
               const low = product.minStockLevel ?? 0;
+              const allVariants = variantsByProduct.get(product.id) ?? [];
+              // Only the base variant: the product has no variants to show.
+              const variants =
+                allVariants.length > 1 || allVariants.some((variant) => !isBaseVariant(variant, product)) ? allVariants : [];
+              const variantStock = (variant: (typeof variants)[number]) => (variant.stockRows > 0 ? variant.stock : stock);
+              const prices = variants.map((variant) => Number(variant.price)).filter((value) => Number.isFinite(value) && value > 0);
+              const minPrice = prices.length ? Math.min(...prices) : null;
+              const maxPrice = prices.length ? Math.max(...prices) : null;
               return (
                 <tr key={product.id} className="transition hover:bg-zinc-50">
                   <Td>
@@ -290,11 +369,36 @@ export default async function ProductsPage({
                     <span className="block max-w-[240px] truncate text-xs text-zinc-400">
                       /{product.slug || product.id}
                     </span>
+                    {variants.length > 0 ? (
+                      <details className="mt-1.5 text-xs">
+                        <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full bg-[#6d6be8]/10 px-2 py-0.5 font-medium text-[#4f4dd6] ring-1 ring-inset ring-[#6d6be8]/30">
+                          <Layers size={12} /> {t('cmscatalog.variants_count', { count: variants.length })}
+                        </summary>
+                        <ul className="mt-2 space-y-1 rounded-lg border border-zinc-200 bg-zinc-50 p-2">
+                          {variants.map((variant) => {
+                            const left = variantStock(variant);
+                            return (
+                              <li key={variant.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                <span className="font-medium text-zinc-800">{variant.name}</span>
+                                <span className="text-zinc-400">{variant.sku || '—'}</span>
+                                <span className="text-zinc-700">{formatMoney(variant.price)}</span>
+                                <span className={left <= 0 ? 'text-red-600' : 'text-zinc-500'}>
+                                  {left <= 0 ? t('cmscatalog.stock.out') : t('cmscatalog.variant_stock', { stock: left })}
+                                </span>
+                                {variant.status && variant.status !== 'Active' ? <StatusBadge status={variant.status} /> : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </details>
+                    ) : null}
                   </Td>
                   <Td className="whitespace-nowrap text-zinc-500">{product.sku || '—'}</Td>
                   <Td className="max-w-[160px] truncate">{product.categoryName || '—'}</Td>
                   <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
-                    {formatMoney(product.price)}
+                    {minPrice !== null && maxPrice !== null && minPrice !== maxPrice
+                      ? `${formatMoney(minPrice)} – ${formatMoney(maxPrice)}`
+                      : formatMoney(product.price)}
                   </Td>
                   <Td className="text-right">
                     {stock <= 0 ? (

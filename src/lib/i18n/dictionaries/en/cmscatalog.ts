@@ -21,6 +21,12 @@ export const cmscatalog = {
   'cmscatalog.filter.all_categories': 'All categories',
   'cmscatalog.filter.status': 'Status',
   'cmscatalog.filter.all_statuses': 'All statuses',
+  'cmscatalog.filter.variants': 'Variants',
+  'cmscatalog.filter.variants_all': 'All',
+  'cmscatalog.filter.variants_with': 'With variants',
+  'cmscatalog.filter.variants_without': 'Without variants',
+  'cmscatalog.variants_count': '{count} variants',
+  'cmscatalog.variant_stock': '{stock} in stock',
   'cmscatalog.filter.submit': 'Filter',
   'cmscatalog.filter.clear': 'Clear',
 

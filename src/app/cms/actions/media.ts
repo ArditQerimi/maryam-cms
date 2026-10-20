@@ -165,3 +165,87 @@ export async function deleteMedia(id: number): Promise<MediaActionResult> {
   revalidatePath('/cms/media');
   return { ok: true, deleted: 1 };
 }
+
+/*
+ * Product photos through Cloudinary's own upload modal (crop, camera, link). One folder per product:
+ *   <tenant root>/cms/products/<productId>/   (a new product not saved yet: …/products/new/)
+ * Which photo is the cover is not a folder: it is the order of products.image_url (first = cover),
+ * so reordering never moves files. The browser asks this server to sign each upload; the API secret
+ * never leaves the server and the signature only covers that product's folder.
+ */
+const PRODUCT_UPLOAD_KEYS = new Set(['timestamp', 'folder', 'source', 'custom_coordinates', 'tags', 'unique_filename', 'use_filename']);
+
+function productFolder(root: string, productId: number | null) {
+  return `${root}/cms/products/${productId && Number.isSafeInteger(productId) && productId > 0 ? productId : 'new'}`;
+}
+
+async function cmsCloudinaryRoot() {
+  if (!configureCloudinary()) return null;
+  const company = await getContextCompany().catch(() => null);
+  return company ? getTenantCloudinaryFolderRoot(process.env.CLOUDINARY_FOLDER, company.subdomain) : null;
+}
+
+export async function getProductUploadConfig(productId: number | null) {
+  await requireCmsSession();
+  const root = await cmsCloudinaryRoot();
+  if (!root) return { ok: false as const, error: 'Cloudinary is not configured. Check CLOUDINARY_* in .env.' };
+  return {
+    ok: true as const,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+    apiKey: process.env.CLOUDINARY_API_KEY!,
+    folder: productFolder(root, productId),
+  };
+}
+
+/** Signs one upload of Cloudinary's widget, only into a product folder of this shop. */
+export async function signProductUpload(paramsToSign: Record<string, unknown>) {
+  await requireCmsSession();
+  const root = await cmsCloudinaryRoot();
+  if (!root || !paramsToSign || typeof paramsToSign !== 'object') return { ok: false as const };
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(paramsToSign)) {
+    if (!PRODUCT_UPLOAD_KEYS.has(key)) return { ok: false as const };
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return { ok: false as const };
+    params[key] = String(value);
+    if (params[key].length > 500) return { ok: false as const };
+  }
+  const folder = params.folder ?? '';
+  if (!/^\d{10}$/.test(params.timestamp ?? '') || Math.abs(Date.now() / 1000 - Number(params.timestamp)) > 3600) return { ok: false as const };
+  const prefix = `${root}/cms/products/`;
+  if (!folder.startsWith(prefix) || !/^(new|\d{1,9})$/.test(folder.slice(prefix.length))) return { ok: false as const };
+  return { ok: true as const, signature: cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET!) };
+}
+
+/** Adds a photo the widget uploaded to the CMS media library (folder /products/<id>). */
+export async function recordProductUpload(
+  productId: number | null,
+  info: { public_id?: unknown; secure_url?: unknown; bytes?: unknown; width?: unknown; height?: unknown; format?: unknown; original_filename?: unknown },
+): Promise<{ ok: boolean; url?: string }> {
+  const session = await requireCmsSession();
+  const root = await cmsCloudinaryRoot();
+  const publicId = typeof info.public_id === 'string' ? info.public_id : '';
+  const url = typeof info.secure_url === 'string' ? info.secure_url : '';
+  if (!root || !publicId.startsWith(`${productFolder(root, productId)}/`)) return { ok: false };
+  if (!url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) return { ok: false };
+
+  const company = await getContextCompany();
+  const db = await getContextDb();
+  const number = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null);
+  const format = typeof info.format === 'string' ? info.format.slice(0, 20) : '';
+  await db.insert(cmsMedia).values({
+    companyId: company.id,
+    filename: publicId.split('/').pop() || 'image',
+    originalName: typeof info.original_filename === 'string' ? `${info.original_filename.slice(0, 480)}${format ? `.${format}` : ''}` : null,
+    url,
+    publicId,
+    mimeType: format ? `image/${format === 'jpg' ? 'jpeg' : format}` : 'image',
+    sizeBytes: number(info.bytes),
+    width: number(info.width),
+    height: number(info.height),
+    altText: '',
+    folder: `/products/${productId ?? 'new'}`,
+    uploadedBy: Number((session as { userId?: unknown }).userId) || null,
+  });
+  revalidatePath('/cms/media');
+  return { ok: true, url };
+}

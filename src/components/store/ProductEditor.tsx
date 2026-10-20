@@ -11,12 +11,16 @@ import {
   Image as ImageIcon,
   Layers,
   Loader2,
+  Pencil,
   Plus,
+  Star,
   Tags,
   Trash2,
+  UploadCloud,
 } from 'lucide-react';
 import TiptapEditor from '@/components/editor/TiptapEditor';
 import MediaPickerModal, { type PickedMedia } from '@/components/admin/MediaPickerModal';
+import CloudinaryUploadButton from '@/components/admin/CloudinaryUploadButton';
 import {
   Button,
   Card,
@@ -172,6 +176,20 @@ export default function ProductEditor({
     setImages((current) => Array.from(new Set([...current, ...urls])).slice(0, 24));
   }
 
+  /** images[0] is the cover: put this photo first (new or already in the gallery). */
+  function setFeatured(url: string) {
+    setImages((current) => [url, ...current.filter((item) => item !== url)].slice(0, 24));
+  }
+
+  function addToGallery(url: string) {
+    setImages((current) => (current.includes(url) ? current : [...current, url].slice(0, 24)));
+  }
+
+  /** A photo changed in Cloudinary's modal takes the old one's place (cover stays cover). */
+  function replaceImage(oldUrl: string, newUrl: string) {
+    setImages((current) => current.map((item) => (item === oldUrl ? newUrl : item)));
+  }
+
   function readValues(formData: FormData): ProductFormValues {
     return {
       name: str(formData, 'name', 255).trim(),
@@ -191,8 +209,9 @@ export default function ProductEditor({
       minStockLevel: str(formData, 'minStockLevel', 20).trim() || '0',
       backorder: (str(formData, 'backorder', 20) || 'deny') as ProductFormValues['backorder'],
       images,
-      categoryId: str(formData, 'categoryId', 20),
-      subCategoryId: str(formData, 'subCategoryId', 20),
+      // Controlled selects (no name attribute): their state is the value.
+      categoryId,
+      subCategoryId,
       brandId: str(formData, 'brandId', 20),
       unitId: str(formData, 'unitId', 20),
     };
@@ -327,7 +346,8 @@ export default function ProductEditor({
         </div>
 
         {/* General */}
-        {tab === 'general' ? (
+        {/* Kept mounted (only hidden) so every field is in the form when saving from any tab. */}
+        <div hidden={tab !== 'general'}>
           <Card>
             <CardHeader>
               <CardTitle>{t('cmsshared.product_editor.general_title')}</CardTitle>
@@ -404,10 +424,10 @@ export default function ProductEditor({
               </Field>
             </CardContent>
           </Card>
-        ) : null}
+        </div>
 
         {/* Pricing & inventory */}
-        {tab === 'pricing' ? (
+        <div hidden={tab !== 'pricing'}>
           <Card>
             <CardHeader>
               <CardTitle>{t('cmsshared.product_editor.pricing_title')}</CardTitle>
@@ -534,17 +554,23 @@ export default function ProductEditor({
               </p>
             </CardContent>
           </Card>
-        ) : null}
+        </div>
 
         {/* Images */}
-        {tab === 'images' ? (
+        <div hidden={tab !== 'images'}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <CardTitle>{t('cmsshared.product_editor.images_title')}</CardTitle>
               <div className="flex flex-wrap gap-2">
+                <CloudinaryUploadButton productId={productId ?? null} crop onUploaded={setFeatured}>
+                  <UploadCloud size={14} /> {t('cmsshared.product_editor.upload_featured')}
+                </CloudinaryUploadButton>
+                <CloudinaryUploadButton productId={productId ?? null} multiple onUploaded={addToGallery}>
+                  <Plus size={14} /> {t('cmsshared.product_editor.upload_gallery')}
+                </CloudinaryUploadButton>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     setPickerTarget('featured');
@@ -555,7 +581,7 @@ export default function ProductEditor({
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     setPickerTarget('gallery');
@@ -581,6 +607,9 @@ export default function ProductEditor({
                       alt={name || t('cmsshared.product_editor.featured_label')}
                       className="h-28 w-28 rounded-lg border border-zinc-200 object-cover"
                     />
+                    <CloudinaryUploadButton productId={productId ?? null} crop onUploaded={(url) => replaceImage(featured, url)}>
+                      <Pencil size={14} /> {t('cmsshared.product_editor.change_image')}
+                    </CloudinaryUploadButton>
                     <Button
                       type="button"
                       variant="ghost"
@@ -618,16 +647,38 @@ export default function ProductEditor({
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt="" className="aspect-square w-full object-cover" />
-                        <button
-                          type="button"
-                          aria-label={t('cmsshared.product_editor.remove_image')}
-                          onClick={() =>
-                            setImages((current) => current.filter((item) => item !== url))
-                          }
-                          className="absolute right-1 top-1 rounded-md bg-zinc-900/70 p-1 text-white opacity-0 transition group-hover:opacity-100"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="absolute inset-x-1 top-1 flex justify-end gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            title={t('cmsshared.product_editor.make_featured')}
+                            aria-label={t('cmsshared.product_editor.make_featured')}
+                            onClick={() => setFeatured(url)}
+                            className="rounded-md bg-zinc-900/70 p-1 text-white"
+                          >
+                            <Star size={12} />
+                          </button>
+                          <CloudinaryUploadButton
+                            productId={productId ?? null}
+                            crop
+                            onUploaded={(next) => replaceImage(url, next)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto rounded-md bg-zinc-900/70 p-1 text-white hover:bg-zinc-900/80"
+                            title={t('cmsshared.product_editor.change_image')}
+                          >
+                            <Pencil size={12} />
+                          </CloudinaryUploadButton>
+                          <button
+                            type="button"
+                            aria-label={t('cmsshared.product_editor.remove_image')}
+                            onClick={() =>
+                              setImages((current) => current.filter((item) => item !== url))
+                            }
+                            className="rounded-md bg-zinc-900/70 p-1 text-white"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -642,10 +693,10 @@ export default function ProductEditor({
               </p>
             </CardContent>
           </Card>
-        ) : null}
+        </div>
 
         {/* Category & taxonomy */}
-        {tab === 'taxonomy' ? (
+        <div hidden={tab !== 'taxonomy'}>
           <Card>
             <CardHeader>
               <CardTitle>{t('cmsshared.product_editor.taxonomy_title')}</CardTitle>
@@ -720,7 +771,7 @@ export default function ProductEditor({
               </p>
             </CardContent>
           </Card>
-        ) : null}
+        </div>
 
         {/* Variants */}
         {tab === 'variants' ? (
