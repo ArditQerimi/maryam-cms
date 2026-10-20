@@ -11,6 +11,10 @@ const pools = globalForTenantPools.tenantPools;
  * Standalone mode (no multi-tenancy): when STANDALONE_DATABASE_URL is set, the business's data and
  * the platform tables (companies, plan, permissions) live in that ONE database, so every tenant
  * connection goes there whatever the company row says. Unset = the usual database-per-tenant.
+ *
+ * Current deployment: the Elif shop runs SINGLE-TENANT on its own database (ElifDb). The
+ * multi-tenant path (pos_master + one database per company) stays as it is for future clients —
+ * do not remove it; which one runs is chosen only by this environment variable.
  */
 export function standaloneDatabaseUrl() {
   return (process.env.STANDALONE_DATABASE_URL ?? '').trim();
