@@ -8,7 +8,7 @@ import { getProductUploadConfig, recordProductUpload, signProductUpload } from '
 import { Button } from '@/components/admin/ui';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 
-type UploadConfig = { cloudName: string; apiKey: string; folder: string };
+type UploadConfig = { cloudName: string; apiKey: string; folder: string; tags: string[] };
 type UploadInfo = { public_id?: string; secure_url?: string };
 
 // One request per product, shared by all the buttons on the page (cover, gallery tiles).
@@ -21,7 +21,7 @@ function loadConfig(productId: number | null) {
 
 /**
  * Opens Cloudinary's own upload modal (computer, camera, link) for a product's photos. `crop`
- * (single photo) shows Cloudinary's cropping step. Files go to the product's folder; every upload is
+ * (single photo) shows Cloudinary’s cropping step. Files go to the product’s folder (by title, with tags); every upload is
  * signed by the server (signProductUpload) and added to the CMS media library.
  */
 export default function CloudinaryUploadButton({
@@ -59,7 +59,7 @@ export default function CloudinaryUploadButton({
     let alive = true;
     void loadConfig(productId).then((result) => {
       if (!alive) return;
-      if (result.ok) setConfig({ cloudName: result.cloudName, apiKey: result.apiKey, folder: result.folder });
+      if (result.ok) setConfig({ cloudName: result.cloudName, apiKey: result.apiKey, folder: result.folder, tags: result.tags });
       else setError(result.error);
     });
     return () => {
@@ -80,6 +80,7 @@ export default function CloudinaryUploadButton({
       config={{ cloud: { cloudName: config.cloudName, apiKey: config.apiKey } }}
       options={{
         folder: config.folder,
+        tags: config.tags,
         sources: ['local', 'camera', 'url'],
         multiple,
         maxFiles: multiple ? 12 : 1,
@@ -90,7 +91,7 @@ export default function CloudinaryUploadButton({
         maxFileSize: 8 * 1024 * 1024,
         showPoweredBy: false,
         uploadSignature: (callback: (signature: string) => void, paramsToSign: Record<string, unknown>) => {
-          void signProductUpload(paramsToSign).then((result) => {
+          void signProductUpload(productId, paramsToSign).then((result) => {
             if (result.ok) callback(result.signature);
             else toast.error(t('cmsshared.product_editor.upload_denied'));
           });

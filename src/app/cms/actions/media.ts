@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { v2 as cloudinary } from 'cloudinary';
 import { and, eq } from 'drizzle-orm';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
-import { cmsMedia } from '@/db/schema-tenant';
+import { cmsMedia, products } from '@/db/schema-tenant';
+import { slugify } from '@/lib/cms/format';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getTenantCloudinaryFolderRoot } from '@/lib/api-security/cloudinary';
 
@@ -167,16 +168,32 @@ export async function deleteMedia(id: number): Promise<MediaActionResult> {
 }
 
 /*
- * Product photos through Cloudinary's own upload modal (crop, camera, link). One folder per product:
- *   <tenant root>/cms/products/<productId>/   (a new product not saved yet: …/products/new/)
+ * Product photos through Cloudinary's own upload modal (crop, camera, link). One folder per product,
+ * named after its title (slug), and two tags on every photo to find them in Cloudinary:
+ *   <tenant root>/cms/products/<slug>/   tags: <slug>, product-<id>
+ *   (a new product not saved yet: …/products/new/, tag product-new)
+ * A later title change keeps the old photos where they are (their links never break).
  * Which photo is the cover is not a folder: it is the order of products.image_url (first = cover),
  * so reordering never moves files. The browser asks this server to sign each upload; the API secret
  * never leaves the server and the signature only covers that product's folder.
  */
 const PRODUCT_UPLOAD_KEYS = new Set(['timestamp', 'folder', 'source', 'custom_coordinates', 'tags', 'unique_filename', 'use_filename']);
 
-function productFolder(root: string, productId: number | null) {
-  return `${root}/cms/products/${productId && Number.isSafeInteger(productId) && productId > 0 ? productId : 'new'}`;
+type UploadTarget = { folder: string; tags: string[]; mediaFolder: string };
+
+/** The product's Cloudinary folder (by title) and tags; null when the product does not exist. */
+async function productTarget(root: string, productId: number | null): Promise<UploadTarget | null> {
+  if (!productId) return { folder: `${root}/cms/products/new`, tags: ['product-new'], mediaFolder: '/products/new' };
+  if (!Number.isSafeInteger(productId) || productId <= 0) return null;
+  const db = await getContextDb();
+  const [product] = await db
+    .select({ name: products.name, slug: products.slug })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+  if (!product) return null;
+  const slug = slugify(product.slug || product.name).slice(0, 100).replace(/-+$/, '') || `product-${productId}`;
+  return { folder: `${root}/cms/products/${slug}`, tags: [slug, `product-${productId}`], mediaFolder: `/products/${slug}` };
 }
 
 async function cmsCloudinaryRoot() {
@@ -189,19 +206,24 @@ export async function getProductUploadConfig(productId: number | null) {
   await requireCmsSession();
   const root = await cmsCloudinaryRoot();
   if (!root) return { ok: false as const, error: 'Cloudinary is not configured. Check CLOUDINARY_* in .env.' };
+  const target = await productTarget(root, productId);
+  if (!target) return { ok: false as const, error: 'Product not found.' };
   return {
     ok: true as const,
     cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
     apiKey: process.env.CLOUDINARY_API_KEY!,
-    folder: productFolder(root, productId),
+    folder: target.folder,
+    tags: target.tags,
   };
 }
 
-/** Signs one upload of Cloudinary's widget, only into a product folder of this shop. */
-export async function signProductUpload(paramsToSign: Record<string, unknown>) {
+/** Signs one upload of Cloudinary's widget, only into that product's folder with its tags. */
+export async function signProductUpload(productId: number | null, paramsToSign: Record<string, unknown>) {
   await requireCmsSession();
   const root = await cmsCloudinaryRoot();
   if (!root || !paramsToSign || typeof paramsToSign !== 'object') return { ok: false as const };
+  const target = await productTarget(root, productId);
+  if (!target) return { ok: false as const };
   const params: Record<string, string> = {};
   for (const [key, value] of Object.entries(paramsToSign)) {
     if (!PRODUCT_UPLOAD_KEYS.has(key)) return { ok: false as const };
@@ -209,14 +231,13 @@ export async function signProductUpload(paramsToSign: Record<string, unknown>) {
     params[key] = String(value);
     if (params[key].length > 500) return { ok: false as const };
   }
-  const folder = params.folder ?? '';
   if (!/^\d{10}$/.test(params.timestamp ?? '') || Math.abs(Date.now() / 1000 - Number(params.timestamp)) > 3600) return { ok: false as const };
-  const prefix = `${root}/cms/products/`;
-  if (!folder.startsWith(prefix) || !/^(new|\d{1,9})$/.test(folder.slice(prefix.length))) return { ok: false as const };
+  if (params.folder !== target.folder) return { ok: false as const };
+  if (params.tags && params.tags.split(',').some((tag) => !target.tags.includes(tag))) return { ok: false as const };
   return { ok: true as const, signature: cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET!) };
 }
 
-/** Adds a photo the widget uploaded to the CMS media library (folder /products/<id>). */
+/** Adds a photo the widget uploaded to the CMS media library (folder /products/<slug>). */
 export async function recordProductUpload(
   productId: number | null,
   info: { public_id?: unknown; secure_url?: unknown; bytes?: unknown; width?: unknown; height?: unknown; format?: unknown; original_filename?: unknown },
@@ -230,7 +251,9 @@ export async function recordProductUpload(
   }
   // Fixed-folder accounts put the folder in the public id. Accounts in Cloudinary's "dynamic folders"
   // mode may not: there the asset's real folder is asked from Cloudinary (never taken from the browser).
-  const folder = productFolder(root, productId);
+  const target = await productTarget(root, productId);
+  if (!target) return { ok: false };
+  const folder = target.folder;
   if (!publicId.startsWith(`${folder}/`)) {
     const asset = (await cloudinary.api.resource(publicId).catch(() => null)) as { asset_folder?: string } | null;
     if (asset?.asset_folder !== folder) {
@@ -254,7 +277,7 @@ export async function recordProductUpload(
     width: number(info.width),
     height: number(info.height),
     altText: '',
-    folder: `/products/${productId ?? 'new'}`,
+    folder: target.mediaFolder,
     uploadedBy: Number((session as { userId?: unknown }).userId) || null,
   });
   revalidatePath('/cms/media');
