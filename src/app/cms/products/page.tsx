@@ -403,9 +403,9 @@ export default async function ProductsPage({
                   </Td>
                   <Td className="text-right">
                     {stock <= 0 ? (
-                      <Badge tone="danger">{t('cmscatalog.stock.out')}</Badge>
+                      <Badge tone="danger" className="whitespace-nowrap">{t('cmscatalog.stock.out')}</Badge>
                     ) : stock <= low ? (
-                      <Badge tone="warning">{t('cmscatalog.stock.low', { stock })}</Badge>
+                      <Badge tone="warning" className="whitespace-nowrap">{t('cmscatalog.stock.low', { stock })}</Badge>
                     ) : (
                       <span className="text-zinc-700">{stock}</span>
                     )}
@@ -421,7 +421,7 @@ export default async function ProductsPage({
                         aria-label={t('cmscatalog.action.edit')}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        <Pencil size={15} />
+                        <Pencil size={15} className="shrink-0" />
                       </Link>
                       <Link
                         href={`/home/products/${product.id}`}
@@ -431,7 +431,7 @@ export default async function ProductsPage({
                         aria-label={t('cmscatalog.action.view')}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        <ExternalLink size={15} />
+                        <ExternalLink size={15} className="shrink-0" />
                       </Link>
                       <ConfirmActionButton
                         action={duplicateProduct}
@@ -439,9 +439,9 @@ export default async function ProductsPage({
                         successMessage={t('cmscatalog.toast.duplicated')}
                         variant="ghost"
                         title={t('cmscatalog.action.duplicate')}
-                        className="h-8 w-8 px-0 text-zinc-500 hover:text-zinc-900"
+                        className="h-8 w-8 px-0! text-zinc-500 hover:text-zinc-900"
                       >
-                        <Copy size={15} />
+                        <Copy size={15} className="shrink-0" />
                       </ConfirmActionButton>
                       <ConfirmActionButton
                         action={deleteProduct}
@@ -450,9 +450,9 @@ export default async function ProductsPage({
                         successMessage={t('cmscatalog.toast.deleted')}
                         variant="ghost"
                         title={t('cmscatalog.action.delete')}
-                        className="h-8 w-8 px-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                        className="h-8 w-8 px-0! text-red-500 hover:bg-red-50 hover:text-red-700"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={15} className="shrink-0" />
                       </ConfirmActionButton>
                     </div>
                   </Td>
