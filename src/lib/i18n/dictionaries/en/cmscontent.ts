@@ -361,7 +361,7 @@ export const cmscontent = {
   'cmscontent.media.loadingTitle': 'Media library',
   'cmscontent.media.title': 'Media',
   'cmscontent.organize.title': 'Organize product photos in Cloudinary',
-  'cmscontent.organize.description': 'Every product photo moves into its own product\'s folder (by id) and gets tags with the title and id. Product links are updated automatically and crops are kept.',
+  'cmscontent.organize.description': 'Photos uploaded from the CMS move into their own product\'s folder (by id) and get tags with the title and id. Imported photos (books, libra) stay where they are. Product links are updated automatically and crops are kept.',
   'cmscontent.organize.check': 'Check',
   'cmscontent.organize.move': 'Move {count} photos',
   'cmscontent.organize.confirm': 'Move {count} photos into {root}/cms/products/<ID>/? Product links are updated at once.',

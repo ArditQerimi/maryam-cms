@@ -312,8 +312,9 @@ export type OrganizeReport = {
 const ORGANIZE_BATCH = 40;
 
 /**
- * Moves every product photo of this shop's Cloudinary account that is not yet in its product's folder
- * (<root>/cms/products/<id>/: photos from the import, title folders, another tenant root…) and
+ * Moves the product photos uploaded from the CMS (any …/cms/products/… folder: title folders, another
+ * tenant root) that are not yet in <root>/cms/products/<id>/ — photos from the import (books/, libra/…)
+ * stay where they are — and
  * updates the links on the products and in the media library; crops are kept. `dryRun` only counts.
  * Works in batches (call again until `pending` is 0); a photo used by several products goes to the first.
  */
@@ -340,6 +341,7 @@ export async function organizeProductPhotos(dryRun: boolean, onlyProductIds?: nu
     for (const url of parseProductImages(row.imageUrl)) {
       const parts = parseCloudinaryUrl(url);
       if (!parts || parts.cloud !== cloud || parts.publicId.startsWith(`${folder}/`) || moves.has(parts.publicId)) continue;
+      if (!/(^|\/)cms\/products\//.test(parts.publicId)) continue; // imported photos stay
       const name = parts.publicId.split('/').pop()!;
       moves.set(parts.publicId, { productId: row.id, product: row.name, folder, to: `${folder}/${name}`, tags: [slug, `product-${row.id}`] });
     }

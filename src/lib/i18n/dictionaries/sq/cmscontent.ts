@@ -362,7 +362,7 @@ export const cmscontent: typeof cmscontentEn = {
   'cmscontent.media.loadingTitle': 'Biblioteka e mediave',
   'cmscontent.media.title': 'Mediat',
   'cmscontent.organize.title': 'Rregullo fotot e produkteve në Cloudinary',
-  'cmscontent.organize.description': 'Çdo foto e produktit kalon në dosjen e produktit të vet (sipas ID-së) dhe merr etiketat me titullin dhe ID-në. Lidhjet te produktet përditësohen vetë dhe prerjet ruhen.',
+  'cmscontent.organize.description': 'Fotot e ngarkuara nga CMS kalojnë në dosjen e produktit të vet (sipas ID-së) dhe marrin etiketat me titullin dhe ID-në. Fotot e importuara (books, libra) mbeten ku janë. Lidhjet te produktet përditësohen vetë dhe prerjet ruhen.',
   'cmscontent.organize.check': 'Kontrollo',
   'cmscontent.organize.move': 'Zhvendos {count} foto',
   'cmscontent.organize.confirm': 'Të zhvendosen {count} foto te {root}/cms/products/<ID>/? Lidhjet e produkteve përditësohen menjëherë.',
