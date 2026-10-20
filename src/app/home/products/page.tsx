@@ -21,6 +21,7 @@ import {
   getSingleActiveCatalogVariant,
   getStorefrontCatalogStock,
 } from '../catalog-variants';
+import { buildAttributeFacets, displayValue, type AttributeMeta, type ProductAttributes } from './attribute-facets';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
@@ -34,8 +35,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 type ProductAttributeEntry = {
+  attributeId?: number | null;
   value?: string | null;
-  attribute?: { name?: string | null } | null;
+  attribute?: { id?: number; name?: string | null; dataType?: string | null; categoryId?: number | null } | null;
 };
 
 type ProductVariantEntry = {
@@ -78,6 +80,20 @@ function getAttributeValue(
   }
 
   return null;
+}
+
+/** The product's category-attribute values (attribute id → shown value) and the attributes seen. */
+function readAttributes(entries: ProductAttributeEntry[], metas: Map<number, AttributeMeta>): ProductAttributes {
+  const attributes: ProductAttributes = {};
+  for (const entry of entries) {
+    const attribute = entry.attribute;
+    const id = Number(entry.attributeId ?? attribute?.id);
+    if (!attribute?.name || !Number.isSafeInteger(id)) continue;
+    if (!metas.has(id)) metas.set(id, { id, name: attribute.name, dataType: attribute.dataType ?? null, categoryId: attribute.categoryId ?? null });
+    const value = displayValue(attribute.dataType === 'number' ? 'number' : attribute.dataType === 'boolean' ? 'boolean' : 'text', entry.value);
+    if (value) attributes[String(id)] = value;
+  }
+  return attributes;
 }
 
 function buildFacetValues(
@@ -136,6 +152,7 @@ export default async function ShopProductsPage() {
     storefrontCategories.map((category) => [category.id, category.name.trim()]),
   );
 
+  const attributeMetas = new Map<number, AttributeMeta>();
   const catalogProducts: CatalogProduct[] = products
     .filter((product) => product.status === 'Active')
     .map((product) => {
@@ -173,6 +190,7 @@ export default async function ShopProductsPage() {
         description: product.description?.trim() ?? '',
         size: getAttributeValue(attributeValues, SIZE_ATTRIBUTE_NAMES),
         color: getAttributeValue(attributeValues, COLOR_ATTRIBUTE_NAMES),
+        attributes: readAttributes(attributeValues, attributeMetas),
         createdAt: toTimestamp(product.createdAt),
         rating: ratings.get(product.id) ?? 0,
       };
@@ -197,6 +215,12 @@ export default async function ShopProductsPage() {
 
   const sizeFacets = buildFacetValues(catalogProducts, 'size');
   const colorFacets = buildFacetValues(catalogProducts, 'color');
+  // Size and colour keep their own groups above.
+  const attributeFacets = buildAttributeFacets(
+    catalogProducts,
+    [...attributeMetas.values()],
+    new Set([...SIZE_ATTRIBUTE_NAMES, ...COLOR_ATTRIBUTE_NAMES]),
+  );
 
   return (
     <div className={bookstore.page}>
@@ -205,6 +229,7 @@ export default async function ShopProductsPage() {
         products={catalogProducts}
         sizeFacets={sizeFacets}
         colorFacets={colorFacets}
+        attributeFacets={attributeFacets}
       />
     </div>
   );

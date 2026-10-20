@@ -37,6 +37,17 @@ import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import styles from './home-products.module.css';
 import { foldSearchText } from '@/lib/search-text';
+import {
+  isAttributeParam,
+  listParam,
+  matchesAttributeFilters,
+  maxParam,
+  minParam,
+  readAttributeFilters,
+  type ActiveAttributeFilter,
+  type AttributeFacet,
+  type ProductAttributes,
+} from './attribute-facets';
 
 export type CatalogProduct = {
   id: number;
@@ -57,6 +68,8 @@ export type CatalogProduct = {
   createdAt: number;
   /** Admin store rating 1–5; 0 = no stars. */
   rating: number;
+  /** Category attributes (author, pages…): attribute id → value. */
+  attributes: ProductAttributes;
 };
 
 export type CatalogCategory = {
@@ -75,6 +88,7 @@ type Props = {
   products: CatalogProduct[];
   sizeFacets: FacetValue[];
   colorFacets: FacetValue[];
+  attributeFacets: AttributeFacet[];
 };
 
 type SortKey = 'default' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'newest';
@@ -102,7 +116,113 @@ type FilterPanelProps = {
   onStockChange: (value: StockFilter) => void;
   onApplyPrice: (minPrice: string, maxPrice: string) => void;
   onClearAll: () => void;
+  /** Category-attribute groups for the selected categories (all when none is selected). */
+  attributeFacets: AttributeFacet[];
+  activeAttributeFilters: ActiveAttributeFilter[];
+  onToggleAttribute: (facet: AttributeFacet, value: string) => void;
+  onApplyAttributeRange: (facet: AttributeFacet, min: string, max: string) => void;
 };
+
+/** Long lists (authors) show this many until "show all"; a search box appears above this many. */
+const ATTRIBUTE_VISIBLE = 8;
+const ATTRIBUTE_SEARCH_FROM = 12;
+
+function AttributeFilterGroup({
+  idPrefix,
+  facet,
+  active,
+  onToggle,
+  onApplyRange,
+}: {
+  idPrefix: string;
+  facet: AttributeFacet;
+  active: ActiveAttributeFilter | undefined;
+  onToggle: (value: string) => void;
+  onApplyRange: (min: string, max: string) => void;
+}) {
+  const { t } = useLocale();
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState('');
+  const fieldId = `${idPrefix}-attr-${facet.id}`;
+
+  if (facet.mode === 'range') {
+    const [low, high] = active?.kind === 'range' ? [active.min, active.max] : [facet.min, facet.max];
+    return (
+      <fieldset className={styles.filterGroup}>
+        <legend className={styles.filterLegend}>{facet.name}</legend>
+        <form
+          className={styles.priceForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            onApplyRange(String(data.get('min') ?? ''), String(data.get('max') ?? ''));
+          }}
+        >
+          <div className={styles.priceFields}>
+            <label className={styles.priceField} htmlFor={`${fieldId}-min`}>
+              <span>{t('catalog.price_min')}</span>
+              <span className={styles.priceInputWrap}>
+                <input key={`${fieldId}-min-${low}`} id={`${fieldId}-min`} name="min" type="number" inputMode="numeric" min={facet.min} max={facet.max} defaultValue={low} />
+              </span>
+            </label>
+            <label className={styles.priceField} htmlFor={`${fieldId}-max`}>
+              <span>{t('catalog.price_max')}</span>
+              <span className={styles.priceInputWrap}>
+                <input key={`${fieldId}-max-${high}`} id={`${fieldId}-max`} name="max" type="number" inputMode="numeric" min={facet.min} max={facet.max} defaultValue={high} />
+              </span>
+            </label>
+          </div>
+          <p className={styles.priceHint}>{t('catalog.attribute_range', { min: facet.min, max: facet.max })}</p>
+          <button type="submit" className={styles.priceApply}>
+            {t('catalog.price_apply')}
+          </button>
+        </form>
+      </fieldset>
+    );
+  }
+
+  const selected = active?.kind === 'list' ? active.values : new Set<string>();
+  const folded = foldSearchText(query.trim());
+  const matching = folded ? facet.values.filter((item) => foldSearchText(item.value).includes(folded)) : facet.values;
+  // Selected values always stay visible, even when the list is collapsed.
+  const shown = expanded || folded
+    ? matching
+    : matching.filter((item, index) => index < ATTRIBUTE_VISIBLE || selected.has(item.value));
+
+  return (
+    <fieldset className={styles.filterGroup}>
+      <legend className={styles.filterLegend}>{facet.name}</legend>
+      {facet.values.length >= ATTRIBUTE_SEARCH_FROM ? (
+        <input
+          type="search"
+          className={styles.attributeSearch}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t('catalog.attribute_search', { name: facet.name.toLocaleLowerCase('sq') })}
+          aria-label={t('catalog.attribute_search', { name: facet.name.toLocaleLowerCase('sq') })}
+        />
+      ) : null}
+      <ul className={styles.filterList}>
+        {shown.map((item, index) => (
+          <FilterOption
+            key={item.value}
+            id={`${fieldId}-${index}`}
+            checked={selected.has(item.value)}
+            count={item.count}
+            label={item.value}
+            onChange={() => onToggle(item.value)}
+          />
+        ))}
+      </ul>
+      {folded && matching.length === 0 ? <p className={styles.filterEmpty}>{t('catalog.attribute_none')}</p> : null}
+      {!folded && matching.length > ATTRIBUTE_VISIBLE ? (
+        <button type="button" className={styles.attributeMore} onClick={() => setExpanded((current) => !current)}>
+          {expanded ? t('catalog.attribute_less') : t('catalog.attribute_all', { count: matching.length })}
+        </button>
+      ) : null}
+    </fieldset>
+  );
+}
 
 type PriceBounds = {
   min: number;
@@ -313,12 +433,16 @@ function FilterPanel({
   onStockChange,
   onApplyPrice,
   onClearAll,
+  attributeFacets,
+  activeAttributeFilters,
+  onToggleAttribute,
+  onApplyAttributeRange,
 }: FilterPanelProps) {
   const { t } = useLocale();
   const hasPriceRange = priceBounds.max > priceBounds.min;
   const unavailablePriceLabel = t('catalog.price_unavailable');
   const hasAvailabilityData = inStockCount + outOfStockCount > 0;
-  const hasAnyFilter = categories.length > 0 || hasPriceRange || hasAvailabilityData;
+  const hasAnyFilter = categories.length > 0 || hasPriceRange || hasAvailabilityData || attributeFacets.length > 0;
   const applyPriceForm = (form: HTMLFormElement | null) => {
     if (!form) return;
     const formData = new FormData(form);
@@ -487,6 +611,17 @@ function FilterPanel({
           </ul>
         </fieldset>
       ) : null}
+
+      {attributeFacets.map((facet) => (
+        <AttributeFilterGroup
+          key={facet.id}
+          idPrefix={idPrefix}
+          facet={facet}
+          active={activeAttributeFilters.find((filter) => filter.facet.id === facet.id)}
+          onToggle={(value) => onToggleAttribute(facet, value)}
+          onApplyRange={(min, max) => onApplyAttributeRange(facet, min, max)}
+        />
+      ))}
     </div>
   );
 }
@@ -496,6 +631,7 @@ export default function ShopProductsClient({
   products,
   sizeFacets,
   colorFacets,
+  attributeFacets,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -551,6 +687,19 @@ export default function ShopProductsClient({
         .map((facet) => facet.value),
     );
   }, [searchParams, colorFacets]);
+
+  // Attribute groups of the selected categories (all of them when no category is selected).
+  const visibleAttributeFacets = useMemo(
+    () =>
+      activeCategories.size === 0
+        ? attributeFacets
+        : attributeFacets.filter((facet) => facet.categoryIds.some((id) => activeCategories.has(id))),
+    [attributeFacets, activeCategories],
+  );
+  const activeAttributeFilters = useMemo(
+    () => readAttributeFilters(new URLSearchParams(searchParams.toString()), visibleAttributeFacets),
+    [searchParams, visibleAttributeFacets],
+  );
 
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   // Case- and accent-insensitive (ë = e, ç = c); every typed word must match.
@@ -678,6 +827,43 @@ export default function ShopProductsClient({
   const clearAllFilters = () => {
     commitQuery((params) => {
       for (const key of FILTER_PARAM_KEYS) params.delete(key);
+      for (const key of [...params.keys()]) if (isAttributeParam(key)) params.delete(key);
+    });
+  };
+
+  const toggleAttribute = (facet: AttributeFacet, value: string) => {
+    commitQuery((params) => {
+      const key = listParam(facet.id);
+      const wanted = value.toLocaleLowerCase('sq');
+      const current = params.getAll(key);
+      const next = current.some((item) => item.toLocaleLowerCase('sq') === wanted)
+        ? current.filter((item) => item.toLocaleLowerCase('sq') !== wanted)
+        : [...current, value];
+      params.delete(key);
+      next.forEach((item) => params.append(key, item));
+      resetPage(params);
+    });
+  };
+
+  const applyAttributeRange = (facet: AttributeFacet, low: string, high: string) => {
+    const first = parseFiniteNumber(low) ?? facet.min;
+    const second = parseFiniteNumber(high) ?? facet.max;
+    const min = clamp(Math.min(first, second), facet.min, facet.max);
+    const max = clamp(Math.max(first, second), facet.min, facet.max);
+    commitQuery((params) => {
+      if (min <= facet.min) params.delete(minParam(facet.id));
+      else params.set(minParam(facet.id), String(min));
+      if (max >= facet.max) params.delete(maxParam(facet.id));
+      else params.set(maxParam(facet.id), String(max));
+      resetPage(params);
+    });
+  };
+
+  const removeAttributeRange = (facet: AttributeFacet) => {
+    commitQuery((params) => {
+      params.delete(minParam(facet.id));
+      params.delete(maxParam(facet.id));
+      resetPage(params);
     });
   };
 
@@ -730,6 +916,7 @@ export default function ShopProductsClient({
       if (stockFilter === 'in' && product.stockQuantity <= 0) return false;
       if (stockFilter === 'out' && product.stockQuantity > 0) return false;
       if (product.price < activeMinPrice || product.price > activeMaxPrice) return false;
+      if (activeAttributeFilters.length > 0 && !matchesAttributeFilters(product.attributes, activeAttributeFilters)) return false;
       return true;
     });
 
@@ -751,7 +938,7 @@ export default function ShopProductsClient({
           return 0;
       }
     });
-  }, [products, normalizedSearchQuery, activeCategories, activeSizes, activeColors, stockFilter, activeMinPrice, activeMaxPrice, sort]);
+  }, [products, normalizedSearchQuery, activeCategories, activeSizes, activeColors, stockFilter, activeMinPrice, activeMaxPrice, activeAttributeFilters, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const requestedPageValue = Number(searchParams.get('page'));
@@ -788,7 +975,8 @@ export default function ShopProductsClient({
     activeSizes.size +
     activeColors.size +
     (stockFilter ? 1 : 0) +
-    (hasPriceFilter ? 1 : 0);
+    (hasPriceFilter ? 1 : 0) +
+    activeAttributeFilters.reduce((sum, filter) => sum + (filter.kind === 'list' ? filter.values.size : 1), 0);
   const hasActiveFilters = activeFilterCount > 0;
 
   const openDrawer = () => {
@@ -832,6 +1020,10 @@ export default function ShopProductsClient({
     onStockChange: changeStockFilter,
     onApplyPrice: applyPrice,
     onClearAll: clearAllFilters,
+    attributeFacets: visibleAttributeFacets,
+    activeAttributeFilters,
+    onToggleAttribute: toggleAttribute,
+    onApplyAttributeRange: applyAttributeRange,
   };
 
   return (
@@ -1046,6 +1238,33 @@ export default function ShopProductsClient({
                           <X size={13} aria-hidden="true" />
                         </button>
                       ) : null}
+                      {activeAttributeFilters.flatMap((filter) =>
+                        filter.kind === 'range'
+                          ? [
+                              <button
+                                key={`attr-${filter.facet.id}-range`}
+                                type="button"
+                                className={styles.filterChip}
+                                onClick={() => removeAttributeRange(filter.facet)}
+                                aria-label={t('catalog.remove_attribute_aria', { name: filter.facet.name, value: `${filter.min}–${filter.max}` })}
+                              >
+                                {filter.facet.name}: {filter.min}–{filter.max}
+                                <X size={13} aria-hidden="true" />
+                              </button>,
+                            ]
+                          : [...filter.values].map((value) => (
+                              <button
+                                key={`attr-${filter.facet.id}-${value}`}
+                                type="button"
+                                className={styles.filterChip}
+                                onClick={() => toggleAttribute(filter.facet, value)}
+                                aria-label={t('catalog.remove_attribute_aria', { name: filter.facet.name, value })}
+                              >
+                                {filter.facet.name}: {value}
+                                <X size={13} aria-hidden="true" />
+                              </button>
+                            )),
+                      )}
                     </div>
                     <button type="button" className={styles.clearAllButton} onClick={clearAllFilters}>
                       {t('catalog.filter_clear_all')}

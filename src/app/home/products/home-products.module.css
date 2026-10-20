@@ -2172,3 +2172,37 @@
 .catalogPage.catalogPage .filterChip svg {
   color: #1d1d1b;
 }
+
+/* Category-attribute filters (author, pages…): search box for long lists, "show all" toggle. */
+.attributeSearch {
+  display: block;
+  clear: both;
+  width: 100%;
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--catalog-line, #e6e6e6);
+  border-radius: 0;
+  background: #fff;
+  color: var(--catalog-ink, #2b2b29);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.attributeSearch:focus-visible {
+  outline: 2px solid var(--catalog-accent-dark, #6b5a24);
+  outline-offset: 1px;
+}
+
+.attributeMore {
+  margin-top: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--catalog-accent-dark, #6b5a24);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
