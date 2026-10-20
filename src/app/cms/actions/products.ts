@@ -13,6 +13,7 @@ import {
 } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
 import { slugify } from '@/lib/cms/format';
+import { parseImageUrl } from '@/lib/image-url';
 import {
   parseProductConfig,
   parseProductDescription,
@@ -419,6 +420,29 @@ export async function duplicateProduct(id: number): Promise<ActionResult> {
   } catch (error) {
     return { ok: false, error: fkOrUniqueCode(error) || 'Could not duplicate the product.' };
   }
+}
+
+/**
+ * Saves only the product's photos (first = cover), right after an upload / change / removal in the
+ * editor, so a photo is never "uploaded but not on the product". No other field is touched.
+ * Only safe image URLs are kept (the storefront's rule: http(s) or the shop's own /paths), at most 24.
+ */
+export async function saveProductImages(id: number, images: string[]): Promise<ActionResult> {
+  await requireCmsSession();
+  if (!Number.isSafeInteger(id) || id <= 0 || !Array.isArray(images)) return { ok: false, error: 'Product not found.' };
+  const urls = [...new Set(images.map((url) => (typeof url === 'string' ? parseImageUrl(url.trim()) : '')).filter(Boolean))].slice(0, 24);
+  const db = await getContextDb();
+  const updated = await db
+    .update(products)
+    .set({ imageUrl: serializeProductImages(urls), updatedAt: new Date() })
+    .where(eq(products.id, id))
+    .returning({ id: products.id });
+  if (updated.length === 0) return { ok: false, error: 'Product not found.' };
+
+  revalidatePath('/cms/products');
+  revalidatePath(`/cms/products/${id}/edit`);
+  revalidatePath('/home', 'layout');
+  return { ok: true, id };
 }
 
 /**

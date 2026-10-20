@@ -225,8 +225,19 @@ export async function recordProductUpload(
   const root = await cmsCloudinaryRoot();
   const publicId = typeof info.public_id === 'string' ? info.public_id : '';
   const url = typeof info.secure_url === 'string' ? info.secure_url : '';
-  if (!root || !publicId.startsWith(`${productFolder(root, productId)}/`)) return { ok: false };
-  if (!url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) return { ok: false };
+  if (!root || !publicId || !url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) {
+    return { ok: false };
+  }
+  // Fixed-folder accounts put the folder in the public id. Accounts in Cloudinary's "dynamic folders"
+  // mode may not: there the asset's real folder is asked from Cloudinary (never taken from the browser).
+  const folder = productFolder(root, productId);
+  if (!publicId.startsWith(`${folder}/`)) {
+    const asset = (await cloudinary.api.resource(publicId).catch(() => null)) as { asset_folder?: string } | null;
+    if (asset?.asset_folder !== folder) {
+      console.warn('[cms/media] product upload outside its folder', { publicId, assetFolder: asset?.asset_folder ?? null, folder });
+      return { ok: false };
+    }
+  }
 
   const company = await getContextCompany();
   const db = await getContextDb();

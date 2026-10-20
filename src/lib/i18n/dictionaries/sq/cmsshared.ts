@@ -218,6 +218,8 @@ export const cmsshared: typeof cmssharedEn = {
   'cmsshared.product_editor.images_title': 'Imazhet',
   'cmsshared.product_editor.pick_featured': 'Kryesore nga biblioteka',
   'cmsshared.product_editor.add_gallery': 'Nga biblioteka',
+  'cmsshared.product_editor.images_saved': 'Fotot u ruajtën te produkti.',
+  'cmsshared.product_editor.images_save_error': 'Fotot nuk u ruajtën. Provo përsëri ose shtyp Ruaj.',
   'cmsshared.product_editor.upload_featured': 'Ngarko foton kryesore',
   'cmsshared.product_editor.upload_gallery': 'Shto foto',
   'cmsshared.product_editor.change_image': 'Ndrysho',

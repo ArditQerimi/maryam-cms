@@ -37,6 +37,7 @@ import { slugify } from '@/lib/cms/format';
 import {
   createProduct,
   deleteVariant,
+  saveProductImages,
   saveVariant,
   updateProduct,
 } from '@/app/cms/actions/products';
@@ -130,6 +131,25 @@ export default function ProductEditor({
 
   // Images (images[0] = featured)
   const [images, setImages] = useState<string[]>(initial.images);
+  // Editing an existing product: photo changes are saved at once (upload, change, cover, remove),
+  // so an uploaded photo is on the product even if "Ruaj" is never pressed.
+  const savedImages = useRef(JSON.stringify(initial.images));
+  useEffect(() => {
+    if (!productId) return;
+    const json = JSON.stringify(images);
+    if (json === savedImages.current) return;
+    const timer = window.setTimeout(async () => {
+      const result = await saveProductImages(productId, images).catch(() => null);
+      if (result?.ok) {
+        savedImages.current = json;
+        toast.success(t('cmsshared.product_editor.images_saved'));
+        router.refresh();
+      } else {
+        toast.error(result?.error || t('cmsshared.product_editor.images_save_error'));
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [images, productId, router, t]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'featured' | 'gallery'>('featured');
 

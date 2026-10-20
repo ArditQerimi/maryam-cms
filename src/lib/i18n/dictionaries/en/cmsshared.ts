@@ -217,6 +217,8 @@ export const cmsshared = {
   'cmsshared.product_editor.images_title': 'Images',
   'cmsshared.product_editor.pick_featured': 'Cover from library',
   'cmsshared.product_editor.add_gallery': 'From library',
+  'cmsshared.product_editor.images_saved': 'Photos saved to the product.',
+  'cmsshared.product_editor.images_save_error': 'The photos were not saved. Try again or press Save.',
   'cmsshared.product_editor.upload_featured': 'Upload cover photo',
   'cmsshared.product_editor.upload_gallery': 'Add photos',
   'cmsshared.product_editor.change_image': 'Change',
