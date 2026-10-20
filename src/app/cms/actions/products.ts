@@ -340,6 +340,18 @@ export async function updateProduct(id: number, values: ProductFormValues): Prom
       .update(products)
       .set({ ...validated.data.values, slug, updatedAt: new Date() })
       .where(eq(products.id, id));
+    // A product sold without variants still has one (the POS / import "Default" variant), and the shop
+    // and checkout take the price from it: keep it equal to the product's price.
+    const ownVariants = await db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.productId, id));
+    if (ownVariants.length === 1 && validated.data.values.price != null) {
+      await db
+        .update(productVariants)
+        .set({ price: validated.data.values.price, updatedAt: new Date() })
+        .where(eq(productVariants.id, ownVariants[0].id));
+    }
     await writeConfig(db, id, validated.data.config);
 
     revalidatePath('/cms/products');
