@@ -24,6 +24,7 @@ export default function ConfirmActionButton<Args extends unknown[]>({
   size = 'sm',
   className,
   disabled,
+  title,
   children,
 }: {
   action: (...args: Args) => Promise<ActionResult>;
@@ -34,6 +35,8 @@ export default function ConfirmActionButton<Args extends unknown[]>({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   disabled?: boolean;
+  /** Icon-only button: its name (tooltip and screen readers); the spinner replaces the icon while busy. */
+  title?: string;
   children: React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
@@ -65,9 +68,11 @@ export default function ConfirmActionButton<Args extends unknown[]>({
       className={className}
       disabled={disabled || busy}
       onClick={run}
+      title={title}
+      aria-label={title}
     >
       {busy ? <Loader2 size={14} className="animate-spin" /> : null}
-      {children}
+      {busy && title ? null : children}
     </Button>
   );
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
-import { Layers, Package, Plus, Search } from 'lucide-react';
+import { Copy, ExternalLink, Layers, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { getContextDb } from '@/lib/tenant';
 import { categories, products, productStocks, productVariants } from '@/db/schema-tenant';
 import { requireCmsSession } from '@/lib/cms/session';
@@ -21,7 +21,8 @@ import {
 } from '@/components/admin/ui';
 import Pagination from '@/components/admin/Pagination';
 import ConfirmActionButton from '@/components/store/ConfirmActionButton';
-import { deleteProduct, duplicateProduct, setProductActive } from '@/app/cms/actions/products';
+import ProductStatusSwitch from '@/components/store/ProductStatusSwitch';
+import { deleteProduct, duplicateProduct } from '@/app/cms/actions/products';
 
 export const dynamic = 'force-dynamic';
 
@@ -410,47 +411,37 @@ export default async function ProductsPage({
                     )}
                   </Td>
                   <Td>
-                    <StatusBadge status={product.status} />
+                    <ProductStatusSwitch productId={product.id} name={product.name} status={product.status} />
                   </Td>
                   <Td>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-0.5">
                       <Link
                         href={`/cms/products/${product.id}/edit`}
-                        className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
+                        title={t('cmscatalog.action.edit')}
+                        aria-label={t('cmscatalog.action.edit')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        {t('cmscatalog.action.edit')}
+                        <Pencil size={15} />
                       </Link>
                       <Link
                         href={`/home/products/${product.id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
+                        title={t('cmscatalog.action.view')}
+                        aria-label={t('cmscatalog.action.view')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
                       >
-                        {t('cmscatalog.action.view')}
+                        <ExternalLink size={15} />
                       </Link>
-                      <ConfirmActionButton
-                        action={setProductActive}
-                        args={[product.id, product.status !== 'Active']}
-                        confirmMessage={
-                          product.status === 'Active'
-                            ? t('cmscatalog.confirm.deactivate', { name: product.name })
-                            : undefined
-                        }
-                        successMessage={
-                          product.status === 'Active' ? t('cmscatalog.toast.deactivated') : t('cmscatalog.toast.activated')
-                        }
-                        variant="ghost"
-                        className={product.status === 'Active' ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'}
-                      >
-                        {product.status === 'Active' ? t('cmscatalog.action.deactivate') : t('cmscatalog.action.activate')}
-                      </ConfirmActionButton>
                       <ConfirmActionButton
                         action={duplicateProduct}
                         args={[product.id]}
                         successMessage={t('cmscatalog.toast.duplicated')}
                         variant="ghost"
+                        title={t('cmscatalog.action.duplicate')}
+                        className="h-8 w-8 px-0 text-zinc-500 hover:text-zinc-900"
                       >
-                        {t('cmscatalog.action.duplicate')}
+                        <Copy size={15} />
                       </ConfirmActionButton>
                       <ConfirmActionButton
                         action={deleteProduct}
@@ -458,9 +449,10 @@ export default async function ProductsPage({
                         confirmMessage={t('cmscatalog.confirm.delete', { name: product.name })}
                         successMessage={t('cmscatalog.toast.deleted')}
                         variant="ghost"
-                        className="text-red-600 hover:bg-red-50"
+                        title={t('cmscatalog.action.delete')}
+                        className="h-8 w-8 px-0 text-red-500 hover:bg-red-50 hover:text-red-700"
                       >
-                        {t('cmscatalog.action.delete')}
+                        <Trash2 size={15} />
                       </ConfirmActionButton>
                     </div>
                   </Td>
