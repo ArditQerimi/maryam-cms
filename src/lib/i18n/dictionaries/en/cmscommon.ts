@@ -25,6 +25,15 @@ export const cmscommon = {
 
   /* Media picker modal ----------------------------------------------------- */
   'cmscommon.media.title': 'Media library',
+  'cmscommon.crop.title': 'Crop photo',
+  'cmscommon.crop.hint': 'The original stays whole in Cloudinary: you can crop it again any time.',
+  'cmscommon.crop.current': 'Current crop',
+  'cmscommon.crop.original': 'Original',
+  'cmscommon.crop.ratio': 'Proportions',
+  'cmscommon.crop.zoom': 'Zoom',
+  'cmscommon.crop.remove': 'Remove crop',
+  'cmscommon.crop.cancel': 'Cancel',
+  'cmscommon.crop.save': 'Save crop',
   'cmscommon.media.closeAria': 'Close media library',
   'cmscommon.media.pickOne': 'Pick one image',
   'cmscommon.media.pickMany': 'Pick one or more images',

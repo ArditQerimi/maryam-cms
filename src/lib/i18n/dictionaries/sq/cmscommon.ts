@@ -23,6 +23,15 @@ export const cmscommon: typeof cmscommonEn = {
 
   /* Media picker modal ----------------------------------------------------- */
   'cmscommon.media.title': 'Biblioteka e mediave',
+  'cmscommon.crop.title': 'Prit foton',
+  'cmscommon.crop.hint': 'Origjinali mbetet i plotë në Cloudinary: mund ta presësh prapë kur të duash.',
+  'cmscommon.crop.current': 'Prerja aktuale',
+  'cmscommon.crop.original': 'Origjinale',
+  'cmscommon.crop.ratio': 'Përmasat',
+  'cmscommon.crop.zoom': 'Zmadhimi',
+  'cmscommon.crop.remove': 'Hiq prerjen',
+  'cmscommon.crop.cancel': 'Anulo',
+  'cmscommon.crop.save': 'Ruaj prerjen',
   'cmscommon.media.closeAria': 'Mbyll bibliotekën e mediave',
   'cmscommon.media.pickOne': 'Zgjidh një imazh',
   'cmscommon.media.pickMany': 'Zgjidh një ose më shumë imazhe',

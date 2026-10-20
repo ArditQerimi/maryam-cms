@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { v2 as cloudinary } from 'cloudinary';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getContextCompany, getContextDb } from '@/lib/tenant';
 import { cmsMedia, products } from '@/db/schema-tenant';
 import { slugify } from '@/lib/cms/format';
+import { parseCloudinaryUrl, withPublicId } from '@/lib/cloudinary-url';
+import { parseProductImages, serializeProductImages } from '@/components/store/format-product';
 import { requireCmsSession } from '@/lib/cms/session';
 import { getTenantCloudinaryFolderRoot } from '@/lib/api-security/cloudinary';
 
@@ -35,6 +37,16 @@ function configureCloudinary() {
   if (!cloudName || !apiKey || !apiSecret) return false;
   cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret });
   return true;
+}
+
+/**
+ * The shop's root folder in Cloudinary. CLOUDINARY_TENANT_FOLDER sets it exactly (e.g.
+ * "tenants/elifstore"); otherwise CLOUDINARY_FOLDER + the tenant's subdomain ("tenants/arditi").
+ */
+function shopCloudinaryRoot(subdomain: string) {
+  const exact = String(process.env.CLOUDINARY_TENANT_FOLDER ?? '').trim().replace(/^\/+|\/+$/g, '');
+  if (exact) return getTenantCloudinaryFolderRoot(exact, exact.split('/').pop() ?? '');
+  return getTenantCloudinaryFolderRoot(process.env.CLOUDINARY_FOLDER, subdomain);
 }
 
 function mimeKind(mime: string | null | undefined) {
@@ -76,7 +88,7 @@ export async function uploadMedia(formData: FormData): Promise<MediaActionResult
     return { ok: false, error: 'Could not resolve the current tenant.' };
   }
 
-  const root = getTenantCloudinaryFolderRoot(process.env.CLOUDINARY_FOLDER, company.subdomain);
+  const root = shopCloudinaryRoot(company.subdomain);
   if (!root) return { ok: false, error: 'Invalid Cloudinary folder configuration.' };
 
   const db = await getContextDb();
@@ -168,11 +180,11 @@ export async function deleteMedia(id: number): Promise<MediaActionResult> {
 }
 
 /*
- * Product photos through Cloudinary's own upload modal (crop, camera, link). One folder per product,
- * named after its title (slug), and two tags on every photo to find them in Cloudinary:
- *   <tenant root>/cms/products/<slug>/   tags: <slug>, product-<id>
+ * Product photos through Cloudinary’s own upload modal (crop, camera, link). One folder per product,
+ * named by its id (stays the same when the title changes), and two tags on every photo to find it by title:
+ *   <tenant root>/cms/products/<id>/   tags: <slug>, product-<id>
  *   (a new product not saved yet: …/products/new/, tag product-new)
- * A later title change keeps the old photos where they are (their links never break).
+ * Photos uploaded before (other folders / the import) are moved here by organizeProductPhotos().
  * Which photo is the cover is not a folder: it is the order of products.image_url (first = cover),
  * so reordering never moves files. The browser asks this server to sign each upload; the API secret
  * never leaves the server and the signature only covers that product's folder.
@@ -181,7 +193,7 @@ const PRODUCT_UPLOAD_KEYS = new Set(['timestamp', 'folder', 'source', 'custom_co
 
 type UploadTarget = { folder: string; tags: string[]; mediaFolder: string };
 
-/** The product's Cloudinary folder (by title) and tags; null when the product does not exist. */
+/** The product’s Cloudinary folder (by id) and tags (title + id); null when the product does not exist. */
 async function productTarget(root: string, productId: number | null): Promise<UploadTarget | null> {
   if (!productId) return { folder: `${root}/cms/products/new`, tags: ['product-new'], mediaFolder: '/products/new' };
   if (!Number.isSafeInteger(productId) || productId <= 0) return null;
@@ -193,13 +205,13 @@ async function productTarget(root: string, productId: number | null): Promise<Up
     .limit(1);
   if (!product) return null;
   const slug = slugify(product.slug || product.name).slice(0, 100).replace(/-+$/, '') || `product-${productId}`;
-  return { folder: `${root}/cms/products/${slug}`, tags: [slug, `product-${productId}`], mediaFolder: `/products/${slug}` };
+  return { folder: `${root}/cms/products/${productId}`, tags: [slug, `product-${productId}`], mediaFolder: `/products/${productId}` };
 }
 
 async function cmsCloudinaryRoot() {
   if (!configureCloudinary()) return null;
   const company = await getContextCompany().catch(() => null);
-  return company ? getTenantCloudinaryFolderRoot(process.env.CLOUDINARY_FOLDER, company.subdomain) : null;
+  return company ? shopCloudinaryRoot(company.subdomain) : null;
 }
 
 export async function getProductUploadConfig(productId: number | null) {
@@ -237,7 +249,7 @@ export async function signProductUpload(productId: number | null, paramsToSign: 
   return { ok: true as const, signature: cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET!) };
 }
 
-/** Adds a photo the widget uploaded to the CMS media library (folder /products/<slug>). */
+/** Adds a photo the widget uploaded to the CMS media library (folder /products/<id>). */
 export async function recordProductUpload(
   productId: number | null,
   info: { public_id?: unknown; secure_url?: unknown; bytes?: unknown; width?: unknown; height?: unknown; format?: unknown; original_filename?: unknown },
@@ -282,4 +294,117 @@ export async function recordProductUpload(
   });
   revalidatePath('/cms/media');
   return { ok: true, url };
+}
+
+export type OrganizeReport = {
+  ok: boolean;
+  error?: string;
+  dryRun: boolean;
+  root: string;
+  /** Photos still outside their product's folder (before this run). */
+  pending: number;
+  moved: number;
+  failed: number;
+  samples: Array<{ product: string; from: string; to: string }>;
+  errors: string[];
+};
+
+const ORGANIZE_BATCH = 40;
+
+/**
+ * Moves every product photo of this shop's Cloudinary account that is not yet in its product's folder
+ * (<root>/cms/products/<id>/: photos from the import, title folders, another tenant root…) and
+ * updates the links on the products and in the media library; crops are kept. `dryRun` only counts.
+ * Works in batches (call again until `pending` is 0); a photo used by several products goes to the first.
+ */
+export async function organizeProductPhotos(dryRun: boolean, onlyProductIds?: number[]): Promise<OrganizeReport> {
+  await requireCmsSession();
+  const root = await cmsCloudinaryRoot();
+  const empty = { dryRun, root: root ?? '', pending: 0, moved: 0, failed: 0, samples: [], errors: [] };
+  if (!root) return { ...empty, ok: false, error: 'Cloudinary is not configured. Check CLOUDINARY_* in .env.' };
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME!;
+  const db = await getContextDb();
+  // Optional limit to some products (tests; the CMS button organizes all of them).
+  const only = Array.isArray(onlyProductIds) ? onlyProductIds.filter((id) => Number.isSafeInteger(id) && id > 0) : null;
+  const rows = await db
+    .select({ id: products.id, name: products.name, slug: products.slug, imageUrl: products.imageUrl })
+    .from(products)
+    .where(only ? inArray(products.id, only.length ? only : [0]) : undefined)
+    .orderBy(products.id);
+
+  // old public id → where it goes (first product that uses it)
+  const moves = new Map<string, { productId: number; product: string; folder: string; to: string; tags: string[] }>();
+  for (const row of rows) {
+    const folder = `${root}/cms/products/${row.id}`;
+    const slug = slugify(row.slug || row.name).slice(0, 100).replace(/-+$/, '') || `product-${row.id}`;
+    for (const url of parseProductImages(row.imageUrl)) {
+      const parts = parseCloudinaryUrl(url);
+      if (!parts || parts.cloud !== cloud || parts.publicId.startsWith(`${folder}/`) || moves.has(parts.publicId)) continue;
+      const name = parts.publicId.split('/').pop()!;
+      moves.set(parts.publicId, { productId: row.id, product: row.name, folder, to: `${folder}/${name}`, tags: [slug, `product-${row.id}`] });
+    }
+  }
+
+  const report: OrganizeReport = {
+    ...empty,
+    ok: true,
+    pending: moves.size,
+    samples: [...moves].slice(0, 5).map(([from, move]) => ({ product: move.product, from, to: move.to })),
+  };
+  if (dryRun || moves.size === 0) return report;
+
+  // Move one batch in Cloudinary.
+  const done = new Map<string, { publicId: string; version: string | null }>();
+  for (const [from, move] of [...moves].slice(0, ORGANIZE_BATCH)) {
+    try {
+      let result = (await cloudinary.uploader.rename(from, move.to, { overwrite: false }).catch(async (error: { message?: string; http_code?: number }) => {
+        // Already moved by an earlier, interrupted run: use the photo that is there.
+        const existing = (await cloudinary.api.resource(move.to).catch(() => null)) as { public_id?: string; version?: number } | null;
+        if (existing?.public_id) return existing;
+        throw error;
+      })) as { public_id?: string; version?: number };
+      if (!result?.public_id) throw new Error('Cloudinary did not return the new photo.');
+      // Folder shown in Cloudinary (dynamic-folder accounts) and the tags; the move itself already worked.
+      result = { ...result, ...((await cloudinary.uploader.explicit(result.public_id, { type: 'upload', asset_folder: move.folder, tags: move.tags }).catch(() => null)) ?? {}) };
+      done.set(from, { publicId: result.public_id!, version: result.version != null ? String(result.version) : null });
+      report.moved += 1;
+    } catch (error) {
+      report.failed += 1;
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message ?? 'unknown error';
+      if (report.errors.length < 5) report.errors.push(`${from}: ${message}`.slice(0, 200));
+    }
+  }
+
+  // Point every product / media row that used a moved photo at its new place.
+  if (done.size > 0) {
+    for (const row of rows) {
+      const images = parseProductImages(row.imageUrl);
+      let changed = false;
+      const next = images.map((url) => {
+        const parts = parseCloudinaryUrl(url);
+        const moved = parts && parts.cloud === cloud ? done.get(parts.publicId) : undefined;
+        if (!moved) return url;
+        changed = true;
+        return withPublicId(url, moved.publicId, moved.version);
+      });
+      if (changed) {
+        await db.update(products).set({ imageUrl: serializeProductImages(next), updatedAt: new Date() }).where(eq(products.id, row.id));
+      }
+    }
+    for (const [from, moved] of done) {
+      const move = moves.get(from)!;
+      const rowsOfMedia = await db.select({ id: cmsMedia.id, url: cmsMedia.url }).from(cmsMedia).where(eq(cmsMedia.publicId, from));
+      for (const media of rowsOfMedia) {
+        await db
+          .update(cmsMedia)
+          .set({ publicId: moved.publicId, url: withPublicId(media.url, moved.publicId, moved.version), folder: `/products/${move.productId}` })
+          .where(eq(cmsMedia.id, media.id));
+      }
+    }
+    revalidatePath('/cms/products');
+    revalidatePath('/cms/media');
+    revalidatePath('/home', 'layout');
+  }
+  report.pending = moves.size - report.moved;
+  return report;
 }

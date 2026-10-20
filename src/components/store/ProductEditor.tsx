@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   BadgeDollarSign,
+  Crop,
   ExternalLink,
   FileText,
   Image as ImageIcon,
   Layers,
   Loader2,
-  Pencil,
   Plus,
+  RefreshCw,
   Star,
   Tags,
   Trash2,
@@ -21,6 +22,8 @@ import {
 import TiptapEditor from '@/components/editor/TiptapEditor';
 import MediaPickerModal, { type PickedMedia } from '@/components/admin/MediaPickerModal';
 import CloudinaryUploadButton from '@/components/admin/CloudinaryUploadButton';
+import ImageCropModal from '@/components/admin/ImageCropModal';
+import { parseCloudinaryUrl } from '@/lib/cloudinary-url';
 import {
   Button,
   Card,
@@ -151,6 +154,8 @@ export default function ProductEditor({
     return () => window.clearTimeout(timer);
   }, [images, productId, router, t]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The photo whose crop window is open (Cloudinary photos only).
+  const [cropping, setCropping] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<'featured' | 'gallery'>('featured');
 
   // Variants
@@ -627,8 +632,13 @@ export default function ProductEditor({
                       alt={name || t('cmsshared.product_editor.featured_label')}
                       className="h-28 w-28 rounded-lg border border-zinc-200 object-cover"
                     />
+                    {parseCloudinaryUrl(featured) ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setCropping(featured)}>
+                        <Crop size={14} /> {t('cmsshared.product_editor.crop_image')}
+                      </Button>
+                    ) : null}
                     <CloudinaryUploadButton productId={productId ?? null} crop onUploaded={(url) => replaceImage(featured, url)}>
-                      <Pencil size={14} /> {t('cmsshared.product_editor.change_image')}
+                      <RefreshCw size={14} /> {t('cmsshared.product_editor.change_image')}
                     </CloudinaryUploadButton>
                     <Button
                       type="button"
@@ -677,6 +687,17 @@ export default function ProductEditor({
                           >
                             <Star size={12} />
                           </button>
+                          {parseCloudinaryUrl(url) ? (
+                            <button
+                              type="button"
+                              title={t('cmsshared.product_editor.crop_image')}
+                              aria-label={t('cmsshared.product_editor.crop_image')}
+                              onClick={() => setCropping(url)}
+                              className="rounded-md bg-zinc-900/70 p-1 text-white"
+                            >
+                              <Crop size={12} />
+                            </button>
+                          ) : null}
                           <CloudinaryUploadButton
                             productId={productId ?? null}
                             crop
@@ -686,7 +707,7 @@ export default function ProductEditor({
                             className="h-auto rounded-md bg-zinc-900/70 p-1 text-white hover:bg-zinc-900/80"
                             title={t('cmsshared.product_editor.change_image')}
                           >
-                            <Pencil size={12} />
+                            <RefreshCw size={12} />
                           </CloudinaryUploadButton>
                           <button
                             type="button"
@@ -981,6 +1002,16 @@ export default function ProductEditor({
         onClose={() => setPickerOpen(false)}
         onSelect={onPick}
       />
+      {cropping ? (
+        <ImageCropModal
+          url={cropping}
+          onClose={() => setCropping(null)}
+          onSave={(next) => {
+            replaceImage(cropping, next);
+            setCropping(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { requireCmsSession } from '@/lib/cms/session';
 import { getT } from '@/lib/i18n/server';
 import { PageHeader } from '@/components/admin/ui';
 import MediaLibrary from '@/components/content/MediaLibrary';
+import OrganizeProductPhotos from '@/components/content/OrganizeProductPhotos';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,7 @@ export default async function MediaPage() {
         title={t('cmscontent.media.title')}
         description={t('cmscontent.media.description')}
       />
+      <OrganizeProductPhotos />
       <MediaLibrary initialItems={items} />
     </div>
   );
