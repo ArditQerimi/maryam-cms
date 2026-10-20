@@ -21,7 +21,7 @@ import {
 } from '@/components/admin/ui';
 import Pagination from '@/components/admin/Pagination';
 import ConfirmActionButton from '@/components/store/ConfirmActionButton';
-import { deleteProduct, duplicateProduct } from '@/app/cms/actions/products';
+import { deleteProduct, duplicateProduct, setProductActive } from '@/app/cms/actions/products';
 
 export const dynamic = 'force-dynamic';
 
@@ -428,6 +428,22 @@ export default async function ProductsPage({
                       >
                         {t('cmscatalog.action.view')}
                       </Link>
+                      <ConfirmActionButton
+                        action={setProductActive}
+                        args={[product.id, product.status !== 'Active']}
+                        confirmMessage={
+                          product.status === 'Active'
+                            ? t('cmscatalog.confirm.deactivate', { name: product.name })
+                            : undefined
+                        }
+                        successMessage={
+                          product.status === 'Active' ? t('cmscatalog.toast.deactivated') : t('cmscatalog.toast.activated')
+                        }
+                        variant="ghost"
+                        className={product.status === 'Active' ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'}
+                      >
+                        {product.status === 'Active' ? t('cmscatalog.action.deactivate') : t('cmscatalog.action.activate')}
+                      </ConfirmActionButton>
                       <ConfirmActionButton
                         action={duplicateProduct}
                         args={[product.id]}

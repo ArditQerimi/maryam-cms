@@ -421,6 +421,28 @@ export async function duplicateProduct(id: number): Promise<ActionResult> {
   }
 }
 
+/**
+ * Shows / hides a product in the shop without touching anything else. Inactive products are left out
+ * of every storefront list, section, filter, search and the assistant; their page answers 404 and a
+ * cart that still holds one cannot check it out. Orders keep their history.
+ */
+export async function setProductActive(id: number, active: boolean): Promise<ActionResult> {
+  await requireCmsSession();
+  if (!Number.isSafeInteger(id) || id <= 0) return { ok: false, error: 'Product not found.' };
+  const db = await getContextDb();
+  const updated = await db
+    .update(products)
+    .set({ status: active ? 'Active' : 'Inactive', updatedAt: new Date() })
+    .where(eq(products.id, id))
+    .returning({ id: products.id });
+  if (updated.length === 0) return { ok: false, error: 'Product not found.' };
+
+  revalidatePath('/cms/products');
+  revalidatePath(`/cms/products/${id}/edit`);
+  revalidatePath('/home', 'layout');
+  return { ok: true, id };
+}
+
 export async function deleteProduct(id: number): Promise<ActionResult> {
   await requireCmsSession();
   const db = await getContextDb();

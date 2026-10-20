@@ -54,8 +54,9 @@ export default async function ShopHomePage() {
   /**
    * The catalogue plus the automatic-source fields every section needs:
    * units sold (🔥 best sellers) and the effective sale price (🏷️ discounted).
+   * Only Active products: an inactive one never appears in any section, even when picked by hand.
    */
-  const sectionProducts = products.map((product) => ({
+  const sectionProducts = products.filter((product) => product.status === 'Active').map((product) => ({
     ...product,
     soldCount: sectionData.soldCounts.get(product.id) ?? 0,
     salePrice: sectionSalePrice(
