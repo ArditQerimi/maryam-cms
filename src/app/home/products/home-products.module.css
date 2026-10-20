@@ -859,11 +859,14 @@
   line-height: 0;
 }
 
+/* Every card has the same square frame, whatever the photo's own proportions (a cropped cover
+   included): the photo is shown whole inside it, on the mockups' light background. */
 .productImage {
   position: relative;
   width: 100%;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  background: transparent;
+  background: #ecebe8;
 }
 
 .productImage::after {
@@ -883,11 +886,11 @@
   transform: translateX(70%);
 }
 
-/* Full bleed at the artwork's own ratio — no inset padding, nothing behind it. */
 .productImageImg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 240ms ease, transform 420ms ease;
